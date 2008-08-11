@@ -1,0 +1,51 @@
+NAME
+       fcoeadm - Fibre Channel over Ethernet (FCoE) user space tool
+
+SYNOPSIS
+       fcoeadm  [[--create|-c] | [--destroy|-d] | [--query|-q]] <ifname> 
+       fcoeadm  [--help | -h]
+
+DESCRIPTION
+       Creates, destroys, or queries FCoE instance on a given netword interface.
+
+OPTIONS
+       --create, -c <ifname>
+	   Creates a FCoE instance based on the givne <ifname>. It first checks
+	   the existence of /sys/module/fcoe first to check if fcoe module is
+	   loaded. The <ifname> is then written to /sys/module/fcoe/create.
+
+       --destroy, -d <ifname>
+ 	   Destroys a FCoE instance based on the givne <ifname>. It first checks
+	   the existence of /sys/module/fcoe first to check if fcoe module is
+	   loaded. The <ifname> is then written to /sys/module/fcoe/destroy.
+
+       --query, -q <ifname>
+           Queries basic FCoE information for the given <ifname>. It looks for the
+	   corresponding fc_host un /sys/class/fc_host. When such fc_host is
+	   found for the <ifname>, basic information suchs world wide port name,
+	   world wide node name, fabric name, etc., will be dispalyed.
+
+       --help, -h
+           Display this help information.
+
+       <ifname>
+           The network interface name, such as eth0, eth1, etc.
+
+EXAMPLES
+       Create a FCoE instance on eth2
+
+               $ fcoeadm --create eth2
+
+       Destroy a FCoE instance on eth2
+
+               $ fcoeadm --destroy eth2
+       
+       Query FCoE information on eth2
+	
+               $ fcoeadm --query eth2
+
+AUTHOR
+       Written by Yi Zou <yi.zou@intel.com>
+
+DOCUMENTATION
+       Documentation by Yi Zou <yi.zou@intel.com>.

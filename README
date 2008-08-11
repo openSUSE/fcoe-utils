@@ -1,0 +1,40 @@
+FCoE user-space tool
+====================
+1. fcoe init script
+This system service script will reside in /etc/init.d/open-fcoe and will be
+used to start fcoe on demand or durring boot-up. The open-fcoe init script
+will check the fcoe config file /etc/fcoe/open-fcoe.conf for the interface that
+will be used to create the FCoE instance. The open-fcoe.conf currently contains
+just one line as:
+
+HBA=<ifname>
+
+e.g., put "HBA=eth1" in open-fcoe.conf will let you use interface "eth1" for
+FCoE. By default, the installation will create a sample config file containing
+the interface "eth0", please make sure to change it accordingly after install.
+
+2. fcoeadm application
+This is the user space fcoe administration tool. It creates and destroys
+FCoE instances on a given interface name. It can also query some basic information
+about the created fc_host. Currently it has limited functionality, but we expect 
+to add more features in the near future. 
+
+Install
+=======
+To build the management tool, 
+	make 
+
+To install fcoeadm,
+	make install [DESTDIR=/sbin]
+
+DESTDIR by default is set to /sbin, you can modify Makefile to point to your
+preferreed destination directory for installation or pass to DESTDIR on the
+command line. Below are the default installation destinations:
+
+Local			Default Install Destination
+====================================================
+etc/initd/inid.fcoe	/etc/init.d/open-fcoe
+etc/fcoe.conf		/etc/fcoe/open-fcoe.conf
+usr/fcoeadm		/sbin/fcoeadm
+doc/fcoeadm.8		/usr/share/man/man8/fcoeadm.8
+doc/fcoeadm.8.gz	/usr/share/man/man8/fcoeadm.8.gz

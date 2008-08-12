@@ -1,51 +1,69 @@
-NAME
-       fcoeadm - Fibre Channel over Ethernet (FCoE) user space tool
+.TH fcoeadm 1 "August 12, 2008"
 
-SYNOPSIS
-       fcoeadm  [[--create|-c] | [--destroy|-d] | [--query|-q]] <ifname> 
-       fcoeadm  [--help | -h]
+.SH NAME
+fcoeadm - Fibre Channel over Ethernet (FCoE) user space tool
 
-DESCRIPTION
-       Creates, destroys, or queries FCoE instance on a given netword interface.
+.SH SYNOPSIS
+.PD fcoeadm  [[--create|-c] | [--destroy|-d] | [--query|-q]] <ifname> 
+fcoeadm  [--help | -h]
+.LP
 
-OPTIONS
-       --create, -c <ifname>
-	   Creates a FCoE instance based on the givne <ifname>. It first checks
-	   the existence of /sys/module/fcoe first to check if fcoe module is
-	   loaded. The <ifname> is then written to /sys/module/fcoe/create.
+.SH DESCRIPTION
+Creates, destroys, or queries FCoE instance on a given netword interface.
+.LP
 
-       --destroy, -d <ifname>
- 	   Destroys a FCoE instance based on the givne <ifname>. It first checks
-	   the existence of /sys/module/fcoe first to check if fcoe module is
-	   loaded. The <ifname> is then written to /sys/module/fcoe/destroy.
+.SH OPTIONS
+.IP
+.B --create, -c <ifname>
+.IP
+Creates a FCoE instance based on the givne <ifname>. It first checks the 
+existence of /sys/module/fcoe first to check if fcoe module is loaded. 
+The <ifname> is then written to /sys/module/fcoe/create.
+.LP
 
-       --query, -q <ifname>
-           Queries basic FCoE information for the given <ifname>. It looks for the
-	   corresponding fc_host un /sys/class/fc_host. When such fc_host is
-	   found for the <ifname>, basic information suchs world wide port name,
-	   world wide node name, fabric name, etc., will be dispalyed.
+.B --destroy, -d <ifname>
+.IP
+Destroys an FCoE instance based on the givne <ifname>. It first checks the 
+existence of /sys/module/fcoe first to check if fcoe module is loaded. 
+The <ifname> is then written to /sys/module/fcoe/destroy.
+.LP
 
-       --help, -h
-           Display this help information.
+.B --query, -q <ifname> 
+.IP
+Queries basic FCoE information for the given <ifname>. It looks for the
+corresponding fc_host un /sys/class/fc_host. When such fc_host is found for
+the <ifname>, basic information such as worldwide port name, worldwide 
+node name, fabric name, etc., will be displayed.
+.LP
 
-       <ifname>
-           The network interface name, such as eth0, eth1, etc.
+.B --help, -h
+.IP
+Display this help information.
+.LP
+.B <ifname>
+.IP
+The network interface name, such as eth0, eth1, etc.
+.LP
 
-EXAMPLES
-       Create a FCoE instance on eth2
+.SH EXAMPLES
+.LP
+Create a FCoE instance on eth2
+.IP
+$ fcoeadm --create eth2
+.LP
+Destroy a FCoE instance on eth2
+.IP
+$ fcoeadm --destroy eth2
+.LP
+Query FCoE information on eth2
+.IP
+$ fcoeadm --query eth2
 
-               $ fcoeadm --create eth2
+.SH SUPPORT
+.LP
+Open-FCoE is maintained at www.Open-FCoE.org. There are resources available for
+both developers and users at that site. If you have identified a defect please 
+either file a bug or engage the development mailing list at www.Open-FCoE.org.
+.LP
 
-       Destroy a FCoE instance on eth2
 
-               $ fcoeadm --destroy eth2
-       
-       Query FCoE information on eth2
-	
-               $ fcoeadm --query eth2
-
-AUTHOR
-       Written by Yi Zou <yi.zou@intel.com>
-
-DOCUMENTATION
-       Documentation by Yi Zou <yi.zou@intel.com>.

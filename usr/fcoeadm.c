@@ -58,12 +58,14 @@ int fcoeadm_check(char *ifname)
 	char path[256];
 	/* check if we have sysfs */
 	if (fcoeadm_checkdir(SYSFS_MOUNT)) {
-		fprintf(stderr, "Sysfs mount point %s not found!\n", SYSFS_MOUNT);
+		fprintf(stderr, "Sysfs mount point %s not found!\n",
+			SYSFS_MOUNT);
 		return -EINVAL;
 	}
 	/* check fcoe module */
 	if (fcoeadm_checkdir(SYSFS_FCOE)) {
-		fprintf(stderr, "Please make sure FCoE driver module is loaded!\n");
+		fprintf(stderr, "Please make sure FCoE driver module "
+			"is loaded!\n");
 		return -EINVAL;
 	}
 	/* check target interface */
@@ -87,7 +89,7 @@ int fcoeadm_action(char *path, char *s)
 {
 	FILE *fp = NULL;
 
-	if (!path) 
+	if (!path)
 		return -EINVAL;
 
 	if (!s)
@@ -98,17 +100,14 @@ int fcoeadm_action(char *path, char *s)
 		fprintf(stderr, "Failed to open %s\n", path);
 		return -ENOENT;
 	}
-	if( EOF == fputs(s, fp))
+	if (EOF == fputs(s, fp))
 		fprintf(stderr, "Failed to write %s to %s\n", s, path);
 
 	fclose(fp);
-	
+
 	return 0;
 }
 
-/*
- * 
- */
 char *fcoeadm_read(const char *path)
 {
 	FILE *fp;
@@ -168,12 +167,14 @@ int fcoeadm_query_fchost(const char *ifname, const char *fchost)
 	fcoeadm_query_attr(fchost, "symbolic_name");
 	fcoeadm_query_attr(fchost, "active_fc4s");
 /*
-active_fc4s  fabric_name  node_name  port_name  power  statistics  supported_classes  symbolic_name    uevent
-device       issue_lip    port_id    port_type  speed  subsystem   supported_fc4s     tgtid_bind_type
+  -= Quick list of available fc_host attributes =-
+  active_fc4s fabric_name node_name port_name power
+  statistics supported_classes symbolic_name uevent
+  device issue_lip port_id port_type speed subsystem
+  supported_fc4s tgtid_bind_type
 */
 	return 0;
-}	
-
+}
 
 int fcoeadm_check_fchost(const char *ifname, const char *dname)
 {
@@ -203,7 +204,7 @@ int fcoeadm_check_fchost(const char *ifname, const char *dname)
 /*
  * TODO -  FCoE dump the instance
  */
-int fcoeadm_query(char *ifname) 
+int fcoeadm_query(char *ifname)
 {
 	int n;
 	int found = 0;
@@ -218,8 +219,10 @@ int fcoeadm_query(char *ifname)
 	if (n > 0) {
 		while (n--) {
 			/* check symboli name */
-			if (!fcoeadm_check_fchost(ifname, namelist[n]->d_name)) {
-				strncpy(fchost, namelist[n]->d_name, sizeof(fchost));
+			if (!fcoeadm_check_fchost(ifname,
+						  namelist[n]->d_name)) {
+				strncpy(fchost, namelist[n]->d_name,
+					sizeof(fchost));
 				found = 1;
 			}
 			free(namelist[n]);
@@ -231,15 +234,16 @@ int fcoeadm_query(char *ifname)
 		fprintf(stderr, "FCoE instance not found for %s\n", ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_query_fchost(ifname, fchost);			
+	return fcoeadm_query_fchost(ifname, fchost);
 }
-/* 
+/*
  * create FCoE instance for this ifname
  */
 int fcoeadm_create(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
-		fprintf(stderr, "Failed to create FCoE instance on %s!\n", ifname);
+		fprintf(stderr, "Failed to create FCoE instance on %s!\n",
+			ifname);
 		return -EINVAL;
 	}
 	fprintf(stderr, "Creating FCoE instance for %s\n", ifname);
@@ -252,7 +256,8 @@ int fcoeadm_create(char *ifname)
 int fcoeadm_destroy(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
-		fprintf(stderr, "Failed to destroy FCoE instance on %s!\n", ifname);
+		fprintf(stderr, "Failed to destroy FCoE instance on %s!\n",
+			ifname);
 		return -EINVAL;
 	}
 	fprintf(stderr, "Destroying FCoE instance for %s\n", ifname);
@@ -270,7 +275,8 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
-	while ((opt = getopt_long(argc, argv, "c:d:q:h", fcoeadm_opts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "c:d:q:h",
+				  fcoeadm_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'c':
 			rc = fcoeadm_create(optarg);
@@ -288,6 +294,6 @@ int main(int argc, char *argv[])
 		}
 	}
 done:
-	printf( (rc == 0) ? "Succcess!\n" : "Failed!\n");
+	printf((rc == 0) ? "Success!\n" : "Failed!\n");
 	return 0;
 }

@@ -19,6 +19,7 @@ static struct option fcoeadm_opts[] = {
     {"create", 1, 0, 'c'},
     {"destroy", 1, 0, 'd'},
     {"query", 1, 0, 'q'},
+    {"reset", 1, 0, 'r'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -30,6 +31,7 @@ void fcoeadm_help(char *name)
 		"\t [-c|--create] ifname\n"
 		"\t [-d|--destroy] ifname\n"
 		"\t [-q|--query] ifname\n"
+		"\t [-r|--reset] ifname\n"
 		"\t [-h|--help]\n",
 		name);
 }
@@ -162,6 +164,7 @@ int fcoeadm_query_fchost(const char *ifname, const char *fchost)
 	fprintf(stderr, "Query attributes for %s on %s:\n", ifname, fchost);
 	fcoeadm_query_attr(fchost, "fabric_name");
 	fcoeadm_query_attr(fchost, "node_name");
+	fcoeadm_query_attr(fchost, "port_id");
 	fcoeadm_query_attr(fchost, "port_name");
 	fcoeadm_query_attr(fchost, "port_type");
 	fcoeadm_query_attr(fchost, "symbolic_name");
@@ -201,36 +204,48 @@ int fcoeadm_check_fchost(const char *ifname, const char *dname)
 	free(buf);
 	return 0;
 }
-/*
- * TODO -  FCoE dump the instance
- */
-int fcoeadm_query(char *ifname)
+
+int fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n;
 	int found = 0;
-	char fchost[64];
 	struct dirent **namelist;
 
 	if (!ifname)
 		return -EINVAL;
 
-	memset(fchost, 0, sizeof(fchost));
+	if ((!fchost) || (len <= 0))
+		return -EINVAL;
+
+	memset(fchost, 0, len);
 	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 	if (n > 0) {
 		while (n--) {
 			/* check symboli name */
 			if (!fcoeadm_check_fchost(ifname,
 						  namelist[n]->d_name)) {
-				strncpy(fchost, namelist[n]->d_name,
-					sizeof(fchost));
+				strncpy(fchost, namelist[n]->d_name, len - 1);
 				found = 1;
 			}
 			free(namelist[n]);
 		}
 	}
 	free(namelist);
+
 	/* check */
-	if (!found) {
+	return found;
+}
+/*
+ * TODO -  FCoE dump the instance
+ */
+int fcoeadm_query(char *ifname)
+{
+	char fchost[64];
+
+	if (!ifname)
+		return -EINVAL;
+
+	if (!fcoeadm_find_fchost(ifname, fchost, sizeof(fchost))) {
 		fprintf(stderr, "FCoE instance not found for %s\n", ifname);
 		return -EINVAL;
 	}
@@ -264,6 +279,26 @@ int fcoeadm_destroy(char *ifname)
 	return fcoeadm_action(FCOE_DESTROY, ifname);
 }
 
+/*
+ * reset the fc_host that is associated w/ this ifname
+ */
+int fcoeadm_reset(char *ifname)
+{
+	char fchost[64];
+	char path[256];
+	if (fcoeadm_check(ifname)) {
+		fprintf(stderr, "Failed to create FCoE instance on %s!\n",
+			ifname);
+		return -EINVAL;
+	}
+	if (!fcoeadm_find_fchost(ifname, fchost, sizeof(fchost))) {
+		fprintf(stderr, "No fc_host found for %s\n", ifname);
+		return -EINVAL;
+	}
+	fprintf(stderr, "Resetting fc_host %s for %s\n", fchost, ifname);
+	sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
+	return fcoeadm_action(path, "1");
+}
 
 int main(int argc, char *argv[])
 {
@@ -286,6 +321,9 @@ int main(int argc, char *argv[])
 			goto done;
 		case 'q':
 			rc = fcoeadm_query(optarg);
+			goto done;
+		case 'r':
+			rc = fcoeadm_reset(optarg);
 			goto done;
 		case 'h':
 		default:

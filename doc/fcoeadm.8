@@ -1,69 +1,60 @@
-.TH fcoeadm 1 "August 12, 2008"
-
-.SH NAME
-fcoeadm - Fibre Channel over Ethernet (FCoE) user space tool
-
-.SH SYNOPSIS
-.PD fcoeadm  [[--create|-c] | [--destroy|-d] | [--query|-q]] <ifname> 
-fcoeadm  [--help | -h]
-.LP
-
-.SH DESCRIPTION
-Creates, destroys, or queries FCoE instance on a given netword interface.
-.LP
-
-.SH OPTIONS
-.IP
-.B --create, -c <ifname>
-.IP
-Creates a FCoE instance based on the givne <ifname>. It first checks the 
-existence of /sys/module/fcoe first to check if fcoe module is loaded. 
-The <ifname> is then written to /sys/module/fcoe/create.
-.LP
-
-.B --destroy, -d <ifname>
-.IP
-Destroys an FCoE instance based on the givne <ifname>. It first checks the 
-existence of /sys/module/fcoe first to check if fcoe module is loaded. 
-The <ifname> is then written to /sys/module/fcoe/destroy.
-.LP
-
-.B --query, -q <ifname> 
-.IP
-Queries basic FCoE information for the given <ifname>. It looks for the
-corresponding fc_host un /sys/class/fc_host. When such fc_host is found for
-the <ifname>, basic information such as worldwide port name, worldwide 
-node name, fabric name, etc., will be displayed.
-.LP
-
-.B --help, -h
-.IP
-Display this help information.
-.LP
-.B <ifname>
-.IP
+.TH FCOEADM 8 "August 21, 2008" "Open-FCoE Applications" "Open-FCoE Tools"
+.SH "NAME"
+fcoeadm \- The Fibre Channel over Ethernet (FCoE) administration tool
+.SH "SYNOPSIS"
+fcoeadm [[\fB\-c\fR|\fB\-\-create\fR] | [\fB\-d\fR|\fB\-\-destroy\fR] | [\fB\-r\fR|\fB\-\-reset\fR] | [\fB\-q\fR|\fB\-\-query\fR]] \fI<ifname>\fR]
+.P
+fcoeadm [\fB\-h\fR|\fB\-\-help\fR]
+.SH "DESCRIPTION"
+Creates, destroys, resets, or queries an FCoE instance on a given network interface.
+.SH "OPTIONS"
+.TP
+\fB\-c\fR, \fB\-\-create\fR \fI<ifname>\fR
+Creates an FCoE instance based on the given \fI<ifname>\fR. It first checks the 
+existence of /sys/module/fcoe/ to verify that the fcoe module is loaded. Then 
+the \fI<ifname>\fR is written to /sys/module/fcoe/create.
+.TP
+\fB\-d\fR, \fB\-\-destroy\fR \fI<ifname>\fR
+Destroys an FCoE instance based on the given \fI<ifname>\fR. It first checks the
+existence of /sys/module/fcoe/ to verify that fcoe module is loaded. Then
+the \fI<ifname>\fR is written to /sys/module/fcoe/destroy. 
+.TP
+\fB\-r\fR, \fB\-\-reset\fR \fI<ifname>\fR
+Resets the fc_host associated with the FCoE interface given by \fI<ifname>\fR.
+.TP
+\fB\-q\fR, \fB\-\-query\fR \fI<ifname>\fR
+Queries basic FCoE information for the given \fI<ifname>\fR. It looks for the
+corresponding fc_host under /sys/class/fc_host/. If a fc_host is found
+for the \fI<ifname>\fR, basic information such as port ID, worldwide port name,
+worldwide node name, and fabric name will be displayed.
+.TP
+\fB\-h\fR, \fB\-\-help\fR \fI<ifname>\fR
+Displays this help information.
+.TP 
+\fI<ifname>\fR
 The network interface name, such as eth0, eth1, etc.
-.LP
-
-.SH EXAMPLES
-.LP
-Create a FCoE instance on eth2
-.IP
+.SH "EXAMPLES"
+Creates an FCoE instance on eth2
+.IP 
 $ fcoeadm --create eth2
-.LP
-Destroy a FCoE instance on eth2
-.IP
+.P
+Destroys the FCoE instance on eth2
+.IP 
 $ fcoeadm --destroy eth2
-.LP
-Query FCoE information on eth2
-.IP
+.P
+Resets the FCoE instance on eth2
+.IP 
+$ fcoeadm --reset eth2
+.P
+Queries FCoE information on eth2
+.IP 
 $ fcoeadm --query eth2
-
-.SH SUPPORT
-.LP
-Open-FCoE is maintained at www.Open-FCoE.org. There are resources available for
-both developers and users at that site. If you have identified a defect please 
-either file a bug or engage the development mailing list at www.Open-FCoE.org.
-.LP
+.SH "REPORTING BUGS"
+If you have identified a
+defect please either file a bug or engage the development mailing list at
+<http://www.Open-FCoE.org>.
+.SH "SUPPORT"
+Open-FCoE is maintained at <http://www.Open-FCoE.org>. There are resources
+available for both developers and users at that site.
 
 

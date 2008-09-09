@@ -332,6 +332,5 @@ int main(int argc, char *argv[])
 		}
 	}
 done:
-	printf((rc == 0) ? "Success!\n" : "Failed!\n");
 	return 0;
 }

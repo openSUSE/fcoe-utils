@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
-	while ((opt = getopt_long(argc, argv, "c:d:q:h",
+	while ((opt = getopt_long(argc, argv, "c:d:q:r:h",
 				  fcoeadm_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'c':

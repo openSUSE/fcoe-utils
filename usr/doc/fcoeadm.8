@@ -1,54 +1,140 @@
 .TH FCOEADM 8 "August 21, 2008" "Open-FCoE Applications" "Open-FCoE Tools"
 .SH "NAME"
-fcoeadm \- The Fibre Channel over Ethernet (FCoE) administration tool
+\fBfcoeadm\fR \- The Fibre Channel over Ethernet (FCoE) administration tool
 .SH "SYNOPSIS"
-fcoeadm [[\fB\-c\fR|\fB\-\-create\fR] | [\fB\-d\fR|\fB\-\-destroy\fR] | [\fB\-r\fR|\fB\-\-reset\fR] | [\fB\-q\fR|\fB\-\-query\fR]] \fI<ifname>\fR]
+\fBfcoeadm\fR [\fB\-c\fR|\fB\-\-create\fR] [\fI<ethX>\fR]
 .P
-fcoeadm [\fB\-h\fR|\fB\-\-help\fR]
+\fBfcoeadm\fR [\fB\-d\fR|\fB\-\-destroy\fR] [\fI<ethX>\fR]
+.P
+\fBfcoeadm\fR [\fB\-r\fR|\fB\-\-reset\fR] [\fI<ethX>\fR]
+.P
+\fBfcoeadm\fR [\fB\-i\fR|\fB\-\-adapter\fR] [\fI<ethX>\fR]
+.P
+\fBfcoeadm\fR [\fB\-t\fR|\fB\-\-target\fR] [\fI<ethX>\fR]
+.P
+\fBfcoeadm\fR [\fB\-l\fR|\fB\-\-lun\fR] [\fI<target_port_id>\fR [\fI<lun_id>\fR]]
+.P
+\fBfcoeadm\fR [\fB\-s\fR|\fB\-\-stats\fR] [\fI<ethX>\fR [\fB\-n\fR \fI<interval>\fR]]
+.P
+\fBfcoeadm\fR [\fB\-h\fR|\fB\-\-help\fR]
 .SH "DESCRIPTION"
-Creates, destroys, resets, or queries an FCoE instance on a given network interface.
+The \fBfcoeadm\fR command is intended to be the FCoE management tool for the Linux systems.
+The \fB\-c\fR, \fB\-d\fR, and \fB\-r\fR options are used to create, destroy, and reset
+an FCoE instance on a given network interface.  The other options are used to query the
+information of the FCoE instance which includes the adapter information, target information,
+LUN information, and port statistics.  The \fBfcoeadm\fR command invokes the \fBHBAAPI\fR library
+routines to obtain these information.  The \fBHBAAPI\fR library routines invoke the vendor-specific
+library, \fBlibhbalinux\fR, to grab the information from the /sys file system.  In other words,
+the \fBfcoeadm\fR command requires to have \fBlibHBAAPI\fR and \fBlibhbalinux\fR installed on the system to work.
+The \fBlibhbalinux\fR is maintained at \fB\fIwww.Open-FCoE.org\fR. The installation instructions of
+\fBlibhbalinux\fR also instructs how to download the \fBHBAAPI\fR source code, build and install with
+the \fBlibhbalinux\fR.  The last option \fB\-h\fR is used to show a brief usage message of the supported
+command syntax.
 .SH "OPTIONS"
 .TP
-\fB\-c\fR, \fB\-\-create\fR \fI<ifname>\fR
-Creates an FCoE instance based on the given \fI<ifname>\fR. It first checks the 
+\fB\-c\fR, \fB\-\-create\fR \fI<ethX>\fR
+Creates an FCoE instance based on the given \fI<ethX>\fR. It first checks the 
 existence of /sys/module/fcoe/ to verify that the fcoe module is loaded. Then 
-the \fI<ifname>\fR is written to /sys/module/fcoe/create.
+the \fI<ethX>\fR is written to /sys/module/fcoe/create.
 .TP
-\fB\-d\fR, \fB\-\-destroy\fR \fI<ifname>\fR
-Destroys an FCoE instance based on the given \fI<ifname>\fR. It first checks the
+\fB\-d\fR, \fB\-\-destroy\fR \fI<ethX>\fR
+Destroys an FCoE instance based on the given \fI<ethX>\fR. It first checks the
 existence of /sys/module/fcoe/ to verify that fcoe module is loaded. Then
-the \fI<ifname>\fR is written to /sys/module/fcoe/destroy. 
+the \fI<ethX>\fR is written to /sys/module/fcoe/destroy. 
 .TP
-\fB\-r\fR, \fB\-\-reset\fR \fI<ifname>\fR
-Resets the fc_host associated with the FCoE interface given by \fI<ifname>\fR.
+\fB\-r\fR, \fB\-\-reset\fR \fI<ethX>\fR
+Resets the fc_host associated with the FCoE interface given by \fI<ethX>\fR.
 .TP
-\fB\-q\fR, \fB\-\-query\fR \fI<ifname>\fR
-Queries basic FCoE information for the given \fI<ifname>\fR. It looks for the
-corresponding fc_host under /sys/class/fc_host/. If a fc_host is found
-for the \fI<ifname>\fR, basic information such as port ID, worldwide port name,
-worldwide node name, and fabric name will be displayed.
+\fB\-i\fR, \fB\-\-adapter\fR \fI<ethX>\fR
+Show the information of the FCoE instances created at \fI<ethX>\fR.
+If \fI<ethX>\fR is not specified the command will show the information of all the
+FCoE instances created on the system.
 .TP
-\fB\-h\fR, \fB\-\-help\fR \fI<ifname>\fR
+\fB\-t\fR, \fB\-\-target\fR \fI<ethX>\fR
+Show the information of all the discovered targets from the FCoE instances created
+at \fI<ethX>\fR.  If \fI<ethX>\fR is not specified the command will
+show the information of all the discovered targets from all the FCoE instances created.
+.TP
+\fB\-l\fR, \fB\-\-lun\fR \fI<target_port_id>\fR \fI<lun_id>\fR
+Show the detailed information of a specific LUN with \fI<lun_id>\fR at the target
+with port id \fI<target_port_id>\fR. port id is also known as FC-ID. If \fI<lun_id>\fR
+is not specified, all the LUNs associated with the target will be shown.
+.TP
+\fB\-s\fR, \fB\-\-stats\fR \fI<ethX>\fR \fB\-n\fR \fI<interval>\fR
+Show the statistics (including FC4 statistics) of the FCoE instances created at \fI<ethX>\fR.
+The information will be display in one line on the screen per given time interval. \fI<interval>\fR should
+be specified in whole intergers greater than 0. It specifies the time interval in the unit of second.
+If \fI<interval>\fR is not specified, the default interval is one second.
+.TP
+\fB\-h\fR, \fB\-\-help\fR \fI<ethX>\fR
 Displays this help information.
 .TP 
-\fI<ifname>\fR
+\fI<ethX>\fR
 The network interface name, such as eth0, eth1, etc.
 .SH "EXAMPLES"
 Creates an FCoE instance on eth2
 .IP 
-$ fcoeadm --create eth2
+$ \fBfcoeadm\fR -c eth2
 .P
 Destroys the FCoE instance on eth2
 .IP 
-$ fcoeadm --destroy eth2
+$ \fBfcoeadm\fR -d eth2
 .P
 Resets the FCoE instance on eth2
 .IP 
-$ fcoeadm --reset eth2
+$ \fBfcoeadm\fR -r eth2
 .P
-Queries FCoE information on eth2
+Show the information of all the adapters and their ports having FCoE instances created.
 .IP 
-$ fcoeadm --query eth2
+$ \fBfcoeadm\fR -i
+.P
+Show the information of a specific adapter eth3 and the ports on the adapters.
+If eth3 has no FCoE instances created, the command will show the error "No fc_host found for eth3".
+.IP 
+$ \fBfcoeadm\fR -i eth3
+.P
+Show the information of all the discovered targets from all the ports having FCoE instances
+created (they may be on different adapter cards). A brief listing of discovered LUNs are
+listed after the target they are associated with, if any. 
+.IP 
+$ \fBfcoeadm\fR -t
+.P
+Show the information of all the discovered targets from a given port (eth3) having FCoE instance
+created. A brief listing of discovered LUNs are listed after each target they are associated with, if any.
+.IP 
+$ \fBfcoeadm\fR -t eth3
+.P
+Show the detailed information of all the LUNs associated with a specific target.
+The target is identified by its port id (aka FC-ID) 0xD700EF.
+.IP 
+$ \fBfcoeadm\fR -l 0xD700EF 
+.P
+.IP 
+$ \fBfcoeadm\fR -l D700EF 
+.P
+.IP 
+$ \fBfcoeadm\fR -l 0xd700ef 
+.P
+.IP 
+$ \fBfcoeadm\fR -l d700ef 
+.P
+Show the detailed information of a LUN associated with a specific target.
+The target is identified by its port id (aka FC-ID) 0xD700EF and the LUN
+is identified by its LUN id.
+.IP 
+$ \fBfcoeadm\fR -l 0xD700EF 1
+.P
+Show the statistics information of a specific port eth3 having FCoE instances created.
+The statistics are displayed one line per time interval. The default interval is one
+second if -n option is not specified.
+.IP 
+$ \fBfcoeadm\fR -s eth3
+.P
+.IP 
+$ \fBfcoeadm\fR -s eth3 -n 3
+.P
+.IP 
+$ \fBfcoeadm\fR -s eth3 -n3
 .SH "REPORTING BUGS"
 If you have identified a
 defect please either file a bug or engage the development mailing list at

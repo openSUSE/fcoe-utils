@@ -18,23 +18,3 @@ This is the user space fcoe administration tool. It creates and destroys
 FCoE instances on a given interface name. It can also query some basic information
 about the created fc_host. Currently it has limited functionality, but we expect 
 to add more features in the near future. 
-
-Install
-=======
-To build the management tool, 
-	make 
-
-To install fcoeadm,
-	make install [DESTDIR=/sbin]
-
-DESTDIR by default is set to /sbin, you can modify Makefile to point to your
-preferreed destination directory for installation or pass to DESTDIR on the
-command line. Below are the default installation destinations:
-
-Local			Default Install Destination
-====================================================
-etc/initd/inid.fcoe	/etc/init.d/open-fcoe
-etc/fcoe.conf		/etc/fcoe/open-fcoe.conf
-usr/fcoeadm		/sbin/fcoeadm
-doc/fcoeadm.8		/usr/share/man/man8/fcoeadm.8
-doc/fcoeadm.8.gz	/usr/share/man/man8/fcoeadm.8.gz

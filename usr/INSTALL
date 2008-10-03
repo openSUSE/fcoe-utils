@@ -1,0 +1,53 @@
+                fcoeadm Management Tool Installation Guide
+                ==========================================
+
+The HBAAPI library and the HBAAPI vendor library must be installed before
+you can build the tools. The HBAAPI vendor library may be downloaded from
+www.Open-FCoE.org. The instructions in the package describes how to download
+and build the HBAAPI library.
+
+The default source code location of the HBAAPI vendor library is assumed
+to be /usr/local/src/hbalinux. If you place the source in a different
+localtion, you will need to specify HBALINUX=<library source code path> in
+the make commands.
+
+1) Instructions to build and install the tools:
+
+   cd open-fcoe/usr/tools
+
+   To build the tools, issue
+
+       make
+
+   or
+
+       make HBALINUX=<library source code path>
+
+   To cleanup the binaries before rebuild, issue
+
+       make clean
+
+   To build and install the tools, issue
+
+       make install
+
+   or
+
+       make HBALINUX=<library source code path> install
+
+   To uninstall the tools, issue
+
+       make uninstall
+
+2) The installation adds the following files to the system,
+
+       /usr/local/bin/fcoeadm
+       /usr/share/man/man8/fcoeadm.8.gz
+       /etc/fcoe/open-fcoe.conf
+       /etc/rc.d/init.d/open-fcoe
+
+3) Running the tools require to have the libHBAAPI.so and libhbalinux.so,
+   and /etc/hba.conf installed on the system. See the INSTALL instructions
+   of HBAAPI Vendor Libraries.
+
+

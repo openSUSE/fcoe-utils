@@ -1,6 +1,11 @@
 # File: open-fcoe/usr/tools/Makefile
 
 #
+# Installation directory of the tools
+#
+INSTALL_DIR=/sbin
+
+#
 # List of legal build component names
 #
 LEGAL_ARCH = i386 i486 i586 i686 x86_64
@@ -36,14 +41,11 @@ CFLAGS += -I.
 CFLAGS += -I$(HBALINUX)/include
 CFLAGS += -I$(HBALINUX)/hbaapi_src_2.2
 
-LIBRARIES = -ldl -lHBAAPI
-
 ifeq ($(shell uname -i),x86_64)
 	CFLAGS += -m64
-	LDFLAGS += $(LIBRARIES)
 else
 	CFLAGS += -m32
-	LDFLAGS += -melf_i386 $(LIBRARIES)
+	LDFLAGS += -melf_i386
 endif
 
 PROGRAMS = fcoeadm
@@ -53,22 +55,30 @@ default: all
 all: $(PROGRAMS)
 
 clean:
-	@$(RM) -f *.o .depend $(PROGRAMS) > /dev/null 2>&1
+	@$(RM) -f *.o version.* $(PROGRAMS) > /dev/null 2>&1
 
 .c.o:
 	@echo '       CC PIC' $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-fcoeadm: fcoeadm_display.o fcoeadm.o
+fcoeadm: version.o fcoeadm_display.o fcoeadm.o
 	@echo '       LINK' $@
-	@$(LD) -o $@ $(LDFLAGS) $^
+	@$(LD) -o $@ $(LDFLAGS) -ldl -lHBAAPI $^
 
 install: all
-	@echo '       INSTALL' $(PROGRAMS)
-	@$(INSTALL) fcoeadm /usr/local/bin
+	@$(if $(PROGRAMS), $(foreach i, $(PROGRAMS), \
+		$(INSTALL) -v -m 775 $(i) $(INSTALL_DIR); ))
 
 uninstall:
-	@$(RM) -f /usr/local/bin/fcoeadm > /dev/null 2>&1
+	@$(if $(PROGRAMS), $(foreach i, $(PROGRAMS), \
+		$(RM) -v -f $(INSTALL_DIR)/$(i); ))
+
+version.c: FORCE
+	@echo '       BUILD $(@F)'
+	@$(RM) -f $@
+	@echo char tools_version[] = '"'$(BUILD_VERSION) $(shell date)'";' > $@
+
+.PHONY: FORCE
 
 endif
 endif

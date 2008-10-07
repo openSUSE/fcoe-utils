@@ -13,7 +13,7 @@ the make commands.
 
 1) Instructions to build and install the tools:
 
-   cd open-fcoe/usr/tools
+   cd open-fcoe/usr
 
    To build the tools, issue
 
@@ -41,7 +41,7 @@ the make commands.
 
 2) The installation adds the following files to the system,
 
-       /usr/local/bin/fcoeadm
+       /sbin/fcoeadm
        /usr/share/man/man8/fcoeadm.8.gz
        /etc/fcoe/open-fcoe.conf
        /etc/rc.d/init.d/open-fcoe
@@ -50,4 +50,20 @@ the make commands.
    and /etc/hba.conf installed on the system. See the INSTALL instructions
    of HBAAPI Vendor Libraries.
 
+4) If you have edited the file /etc/fcoe/open-fcoe.conf to include
+   one and only one line of
+
+       HBA=<ethX>
+
+   where <ethX> is the ethernet interface you will use to create FCoE
+   instance, you may start and stop the open-fcoe service with the
+   following commands:
+
+       # service open-fcoe start
+       # service open-fcoe stop
+
+       # service open-fcoe
+       Usage: /etc/init.d/open-fcoe {start|stop|reload|restart|status}
+
+   The fcoeadm tool requires the open-fcoe service to be started.
 

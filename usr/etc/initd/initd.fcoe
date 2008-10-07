@@ -25,7 +25,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
 HBA=
 FCOEADM=fcoeadm
-FCOE_CONF=/etc/fcoe/fcoe.conf
+FCOE_CONF=/etc/fcoe/open-fcoe.conf
 
 # validates the ifname
 fcoe_gethba() {
@@ -37,16 +37,14 @@ fcoe_gethba() {
 	fi
 	# get HBA=
 	HBA=`grep -v "#" $FCOE_CONF | grep "HBA=" | cut -f2 -d=`
-	if ifconfig $HBA &> /dev/null
+	if ! ifconfig $HBA &> /dev/null
 	then
-		echo "Found HBA $HBA!"
-	else
-		echo "HBA not found in $FCOE_CONF!"
+		echo "HBA $HBA not found in $FCOE_CONF!"
 		HBA=
 	fi
 }
 # check fcoeadm
-which $FCOEADM
+which $FCOEADM > /dev/null 2>&1
 if [ "$?" -eq "1" ]
 then
 	echo "$0: $FCOEADM command not installed" >&2
@@ -73,8 +71,9 @@ start)
 	if [ -z "$HBA" ]
 	then
 		echo "Please setup the config file $FCOE_CONF first!"
-		$FCOEADM --create $HBA >&2
 		exit 1
+	else
+		$FCOEADM --create $HBA >&2
 	fi
 	;;
 

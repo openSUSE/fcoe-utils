@@ -30,16 +30,11 @@ RM = rm
 DATE=`date "+%D-%T"`
 OSNAME = $(shell uname -s)
 
-# If HBALINUX is not defined, set it to default
-ifeq ($(HBALINUX),)
-	HBALINUX=/usr/local/src/hbalinux
-endif
-
 CFLAGS += -fPIC -O0 -g -Wall -Werror
 CFLAGS += -D$(OSNAME) -DBUILD_DATE="\"${DATE}\""
 CFLAGS += -I.
-CFLAGS += -I$(HBALINUX)/include
-CFLAGS += -I$(HBALINUX)/hbaapi_src_2.2
+CFLAGS += -I$(LIBHBALINUX)/include
+CFLAGS += -I$(LIBHBALINUX)/hbaapi_src_2.2
 
 ifeq ($(shell uname -i),x86_64)
 	CFLAGS += -m64

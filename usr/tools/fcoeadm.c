@@ -36,7 +36,7 @@ static struct option fcoeadm_opts[] = {
     {"create", 1, 0, 'c'},
     {"destroy", 1, 0, 'd'},
     {"reset", 1, 0, 'r'},
-    {"adapter", 1, 0, 'a'},
+    {"interface", 1, 0, 'a'},
     {"target", 1, 0, 't'},
     {"lun", 1, 0, 'l'},
     {"stats", 1, 0, 's'},
@@ -55,7 +55,7 @@ fcoeadm_help(void)
 		"\t [-c|--create] <ethX>\n"
 		"\t [-d|--destroy] <ethX>\n"
 		"\t [-r|--reset] <ethX>\n"
-		"\t [-i|--adapter] [<ethX>]\n"
+		"\t [-i|--interface] [<ethX>]\n"
 		"\t [-t|--target] [<ethX>]\n"
 		"\t [-l|--lun] [<target port_id> [<lun_id>]]\n"
 		"\t [-s|--stats] <ethX> [-n <interval>]\n"

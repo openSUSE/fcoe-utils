@@ -8,7 +8,7 @@
 .P
 \fBfcoeadm\fR [\fB\-r\fR|\fB\-\-reset\fR] [\fI<ethX>\fR]
 .P
-\fBfcoeadm\fR [\fB\-i\fR|\fB\-\-adapter\fR] [\fI<ethX>\fR]
+\fBfcoeadm\fR [\fB\-i\fR|\fB\-\-interface\fR] [\fI<ethX>\fR]
 .P
 \fBfcoeadm\fR [\fB\-t\fR|\fB\-\-target\fR] [\fI<ethX>\fR]
 .P
@@ -21,7 +21,7 @@
 The \fBfcoeadm\fR command is intended to be the FCoE management tool for the Linux systems.
 The \fB\-c\fR, \fB\-d\fR, and \fB\-r\fR options are used to create, destroy, and reset
 an FCoE instance on a given network interface.  The other options are used to query the
-information of the FCoE instance which includes the adapter information, target information,
+information of the FCoE instance which includes the interface information, target information,
 LUN information, and port statistics.  The \fBfcoeadm\fR command invokes the \fBHBAAPI\fR library
 routines to obtain these information.  The \fBHBAAPI\fR library routines invoke the vendor-specific
 library, \fBlibhbalinux\fR, to grab the information from the /sys file system.  In other words,
@@ -45,7 +45,7 @@ the \fI<ethX>\fR is written to /sys/module/fcoe/destroy.
 \fB\-r\fR, \fB\-\-reset\fR \fI<ethX>\fR
 Resets the fc_host associated with the FCoE interface given by \fI<ethX>\fR.
 .TP
-\fB\-i\fR, \fB\-\-adapter\fR \fI<ethX>\fR
+\fB\-i\fR, \fB\-\-interface\fR \fI<ethX>\fR
 Show the information of the FCoE instances created at \fI<ethX>\fR.
 If \fI<ethX>\fR is not specified the command will show the information of all the
 FCoE instances created on the system.
@@ -88,8 +88,8 @@ Show the information of all the adapters and their ports having FCoE instances c
 .IP 
 $ \fBfcoeadm\fR -i
 .P
-Show the information of a specific adapter eth3 and the ports on the adapters.
-If eth3 has no FCoE instances created, the command will show the error "No fc_host found for eth3".
+Show the information of a specific interface eth3.  If eth3 has no FCoE instances created,
+the command will show the error "No fc_host found for eth3".
 .IP 
 $ \fBfcoeadm\fR -i eth3
 .P

@@ -13,11 +13,6 @@ initddir = $(etcdir)/init.d
 
 MANPAGES = fcoeadm.8
 
-# If HBALINUX is not defined, set it to default
-ifeq ($(HBALINUX),)
-	HBALINUX=/usr/local/src/hbalinux
-endif
-
 INSTALL = install
 MAKE = make
 GZIP = gzip
@@ -26,7 +21,7 @@ RM = rm
 default: all
 
 all:
-	$(MAKE) HBALINUX=$(HBALINUX) -C tools
+	$(MAKE) LIBHBALINUX="$(LIBHBALINUX)" -C tools
 
 clean:
 	$(MAKE) -C tools clean
@@ -42,7 +37,7 @@ install: install_tools
 uninstall: uninstall_tools
 
 install_tools: install_doc install_initd
-	$(MAKE) -C tools install
+	$(MAKE) LIBHBALINUX=$(LIBHBALINUX) -C tools install
 
 uninstall_tools:
 	$(MAKE) -C tools uninstall

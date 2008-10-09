@@ -56,7 +56,7 @@ case "$1" in
 start)
 	
 	# start fcmon
-	lsmod | grep fcoe &> dev/null
+	lsmod | grep fcoe &> /dev/null
 	if [ "$?" -eq "1" ]
 	then
 		modprobe -q fcoe 2> /dev/null
@@ -78,7 +78,7 @@ start)
 	;;
 
 stop)
-	lsmod | grep fcoe &> dev/null
+	lsmod | grep fcoe &> /dev/null
 	if [ "$?" -eq "1" ]
 	then
 		echo "Open-FCoE driver module not loaded!"
@@ -92,7 +92,7 @@ stop)
 	;;
 
 status)
-	lsmod | grep fcoe &> dev/null
+	lsmod | grep fcoe &> /dev/null
 	if [ "$?" -eq "1" ]
 	then
 		echo "Open-FCoE driver module not loaded!"

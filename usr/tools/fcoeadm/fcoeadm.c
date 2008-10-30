@@ -28,7 +28,7 @@
 #define SYSFS_MOUNT	"/sys"
 #define SYSFS_NET	SYSFS_MOUNT "/class/net"
 #define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
-#define SYSFS_FCOE	SYSFS_MOUNT "/module/fcoe"
+#define SYSFS_FCOE	SYSFS_MOUNT "/module/fcoe/parameters"
 #define FCOE_CREATE	SYSFS_FCOE "/create"
 #define FCOE_DESTROY	SYSFS_FCOE "/destroy"
 

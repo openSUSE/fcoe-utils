@@ -246,7 +246,6 @@ fcoeadm_create(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	printf("%s: Creating FCoE instance for %s\n", progname, ifname);
 	return fcoeadm_action(FCOE_CREATE, ifname);
 }
 
@@ -262,7 +261,6 @@ fcoeadm_destroy(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	printf("%s: Destroying FCoE instance for %s\n", progname, ifname);
 	return fcoeadm_action(FCOE_DESTROY, ifname);
 }
 
@@ -296,7 +294,6 @@ fcoeadm_reset(char *ifname)
 	if (fcoeadm_validate_interface(ifname, fchost))
 		return -EINVAL;
 
-	printf("%s: Resetting fc_host %s for %s\n", progname, fchost, ifname);
 	sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
 	return fcoeadm_action(path, "1");
 }

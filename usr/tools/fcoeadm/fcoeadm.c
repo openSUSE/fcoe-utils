@@ -546,5 +546,5 @@ error:
 	exit(-EINVAL);
 
 done:
-	exit(0);
+	return rc;
 }

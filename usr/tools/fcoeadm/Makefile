@@ -39,7 +39,7 @@ OSNAME = $(shell uname -s)
 MANPAGES = fcoeadm.8
 
 CFLAGS += -fPIC -O0 -g -Wall -Werror
-CFLAGS += -D$(OSNAME)
+CFLAGS += -D$(OSNAME) -D_GNU_SOURCE
 CFLAGS += -I.
 CFLAGS += -I$(LIBHBALINUX)/include
 CFLAGS += -I$(LIBHBALINUX)/hbaapi_src_2.2

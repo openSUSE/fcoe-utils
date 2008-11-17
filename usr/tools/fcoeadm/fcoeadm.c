@@ -32,6 +32,8 @@
 #define FCOE_CREATE	SYSFS_FCOE "/create"
 #define FCOE_DESTROY	SYSFS_FCOE "/destroy"
 
+#define FCHOSTBUFLEN    64
+
 static struct option fcoeadm_opts[] = {
     {"create", 1, 0, 'c'},
     {"destroy", 1, 0, 'd'},
@@ -204,7 +206,7 @@ fcoeadm_check_fchost(const char *ifname, const char *dname)
 static int
 fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 {
-	int n;
+	int n, dname_len;
 	int found = 0;
 	struct dirent **namelist;
 
@@ -218,18 +220,31 @@ fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 	if (n > 0) {
 		while (n--) {
-			/* check symboli name */
+			/* check symbolic name */
 			if (!fcoeadm_check_fchost(ifname,
 						  namelist[n]->d_name)) {
-				strncpy(fchost, namelist[n]->d_name, len - 1);
-				found = 1;
+				dname_len = strnlen(namelist[n]->d_name, len);
+				if (dname_len != len) {
+					/* 
+					 * This assumes that d_name is always
+					 * NULL terminated.
+					 */
+					strncpy(fchost, namelist[n]->d_name,
+						dname_len + 1);
+					found = 1;
+				} else {
+					fprintf(stderr, "scsi_host (%s) is "
+						"too large for a buffer that "
+						"is only %d bytes large\n",
+						namelist[n]->d_name, dname_len);
+					free(namelist[n]);
+				}
 			}
 			free(namelist[n]);
 		}
 	}
 	free(namelist);
 
-	/* check */
 	return found;
 }
 
@@ -268,12 +283,12 @@ fcoeadm_destroy(char *ifname)
  * Validate an existing FCoE instance for an Ethernet interface
  */
 static int
-fcoeadm_validate_interface(char *ifname, char *fchost)
+fcoeadm_validate_interface(char *ifname, char *fchost, int len)
 {
 	if (fcoeadm_check(ifname))
 		return -EINVAL;
 
-	if (!fcoeadm_find_fchost(ifname, fchost, sizeof(fchost))) {
+	if (!fcoeadm_find_fchost(ifname, fchost, len)) {
 		fprintf(stderr, "%s: No fc_host found for %s\n",
 			progname, ifname);
 		return -EINVAL;
@@ -288,10 +303,10 @@ fcoeadm_validate_interface(char *ifname, char *fchost)
 static int
 fcoeadm_reset(char *ifname)
 {
-	char fchost[64];
+	char fchost[FCHOSTBUFLEN];
 	char path[256];
 
-	if (fcoeadm_validate_interface(ifname, fchost))
+	if (fcoeadm_validate_interface(ifname, fchost, FCHOSTBUFLEN))
 		return -EINVAL;
 
 	sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
@@ -412,7 +427,7 @@ fcoeadm_display_port_stats(struct opt_info *opt_info)
 
 int main(int argc, char *argv[])
 {
-	char fchost[64];
+	char fchost[FCHOSTBUFLEN];
 	int opt, rc = -1;
 
 	if (argc <= 1) {
@@ -440,7 +455,8 @@ int main(int argc, char *argv[])
 				goto error;
 			opt_info->a_flag = 1;
 			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost))
+				if (fcoeadm_validate_interface(argv[2], fchost,
+							       FCHOSTBUFLEN))
 					goto error;
 				strncpy(opt_info->ifname, argv[2],
 					sizeof(opt_info->ifname));
@@ -452,7 +468,8 @@ int main(int argc, char *argv[])
 				goto error;
 			opt_info->t_flag = 1;
 			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost))
+				if (fcoeadm_validate_interface(argv[2], fchost,
+							       FCHOSTBUFLEN))
 					goto error;
 				strncpy(opt_info->ifname, argv[2],
 					sizeof(opt_info->ifname));
@@ -491,7 +508,8 @@ int main(int argc, char *argv[])
 			opt_info->s_flag = 1;
 			opt_info->n_interval = DEFAULT_STATS_INTERVAL;
 			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost))
+				if (fcoeadm_validate_interface(argv[2], fchost,
+							       FCHOSTBUFLEN))
 					goto error;
 				strncpy(opt_info->ifname, argv[2],
 					sizeof(opt_info->ifname));

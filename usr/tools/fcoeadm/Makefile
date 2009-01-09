@@ -70,7 +70,7 @@ fcoeadm: version.o fcoeadm_display.o fcoeadm.o
 
 install: all install_doc
 	@$(if $(PROGRAMS), $(foreach i, $(PROGRAMS), \
-		$(INSTALL) -v -m 775 $(i) $(DESTDIR)$(SBINDIR) ; ))
+		$(INSTALL) -v -m 744 $(i) $(DESTDIR)$(SBINDIR) ; ))
 
 install_doc:
 	@$(INSTALL) -d $(DESTDIR)$(MANDIR)/man8

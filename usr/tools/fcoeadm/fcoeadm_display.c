@@ -1017,7 +1017,7 @@ display_port_stats(struct opt_info *opt_info)
 
 	hba_cnt = HBA_GetNumberOfAdapters();
 	if (!hba_cnt) {
-		fprintf(stderr, "Not enough local ports\n");
+		fprintf(stderr, "No FCoE interfaces created.\n");
 		return;
 	}
 
@@ -1171,7 +1171,7 @@ display_adapter_info(struct opt_info *opt_info)
 
 	hba_cnt = HBA_GetNumberOfAdapters();
 	if (!hba_cnt) {
-		fprintf(stderr, "Not enough local ports\n");
+		fprintf(stderr, "No FCoE interfaces created.\n");
 		return;
 	}
 
@@ -1254,7 +1254,7 @@ display_target_info(struct opt_info *opt_info)
 
 	hba_cnt = HBA_GetNumberOfAdapters();
 	if (!hba_cnt) {
-		fprintf(stderr, "Not enough local ports\n");
+		fprintf(stderr, "No FCoE interfaces created.\n");
 		return;
 	}
 

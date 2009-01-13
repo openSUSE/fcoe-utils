@@ -48,7 +48,7 @@ struct sa_nameval {
 	u_int32_t   nv_val;
 };
 
-struct sa_nameval ofc_port_states[] = {
+struct sa_nameval port_states[] = {
 	{ "Not Present",    HBA_PORTSTATE_UNKNOWN },
 	{ "Online",         HBA_PORTSTATE_ONLINE },
 	{ "Offline",        HBA_PORTSTATE_OFFLINE },
@@ -65,7 +65,7 @@ struct sa_nameval ofc_port_states[] = {
 /*
  * table of /sys port speed strings to HBA-API values.
  */
-struct sa_nameval ofc_port_speeds[] = {
+struct sa_nameval port_speeds[] = {
 	{ "10 Gbit",        HBA_PORTSPEED_10GBIT },
 	{ "2 Gbit",         HBA_PORTSPEED_2GBIT },
 	{ "1 Gbit",         HBA_PORTSPEED_1GBIT },
@@ -245,10 +245,10 @@ show_port_info(int hba_index, int lp_index,
 					show_wwn(lp_info->FabricName.wwn);
 					printf("    \n");
 
-	sa_enum_decode(buf, len, ofc_port_speeds, lp_info->PortSpeed);
+	sa_enum_decode(buf, len, port_speeds, lp_info->PortSpeed);
 	printf("        Speed:             %s\n", buf);
 
-	sa_enum_decode(buf, len, ofc_port_speeds, lp_info->PortSupportedSpeed);
+	sa_enum_decode(buf, len, port_speeds, lp_info->PortSupportedSpeed);
 	printf("        Supported Speed:   %s\n", buf);
 
 	printf("        MaxFrameSize:      %d\n",
@@ -257,7 +257,7 @@ show_port_info(int hba_index, int lp_index,
 	printf("        FC-ID (Port ID):   0x%06X\n",
 					lp_info->PortFcId);
 
-	sa_enum_decode(buf, sizeof(buf), ofc_port_states, lp_info->PortState);
+	sa_enum_decode(buf, sizeof(buf), port_states, lp_info->PortState);
 	printf("        State:             %s\n", buf);
 
 	/* TODO: Display PortSupportedFc4Types and PortActiveFc4Types */
@@ -297,7 +297,7 @@ show_target_info(int hba_index, int lp_index, int rp_index,
 
 	printf("    FC-ID (Port ID):  0x%06X\n", rp_info->PortFcId);
 
-	sa_enum_decode(buf, sizeof(buf), ofc_port_states, rp_info->PortState);
+	sa_enum_decode(buf, sizeof(buf), port_states, rp_info->PortState);
 	printf("    State:            %s\n", buf);
 
 	printf("    \n");
@@ -791,7 +791,7 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 
 /* Compare two LUN mappings for qsort */
 static int
-fcc_lun_compare(const void *arg1, const void *arg2)
+lun_compare(const void *arg1, const void *arg2)
 {
 	const HBA_FCP_SCSI_ENTRY *e1 = arg1;
 	const HBA_FCP_SCSI_ENTRY *e2 = arg2;
@@ -814,15 +814,15 @@ get_device_map(HBA_HANDLE hba_handle, HBA_PORTATTRIBUTES *lp_info,
 	u_int32_t limit;
 	u_int32_t i;
 
-#define FCC_LUN_COUNT_START     8       /* number of LUNs to start with */
-#define FCC_LUN_COUNT_INCR      4       /* excess to allocate */
+#define LUN_COUNT_START     8       /* number of LUNs to start with */
+#define LUN_COUNT_INCR      4       /* excess to allocate */
 
 	/*
 	 * Get buffer large enough to retrieve all the mappings.
 	 * If they don't fit, increase the size of the buffer and retry.
 	 */
 	*lun_count = 0;
-	limit = FCC_LUN_COUNT_START;
+	limit = LUN_COUNT_START;
 	for (;;) {
 		i = (limit - 1) * sizeof(*ep) +  sizeof(*map);
 		map = malloc(i);
@@ -839,7 +839,7 @@ get_device_map(HBA_HANDLE hba_handle, HBA_PORTATTRIBUTES *lp_info,
 				hba_handle, lp_info->PortWWN, map);
 #endif
 		if (map->NumberOfEntries > limit) {
-			limit = map->NumberOfEntries + FCC_LUN_COUNT_INCR;
+			limit = map->NumberOfEntries + LUN_COUNT_INCR;
 			free(map);
 			continue;
 		}
@@ -868,7 +868,7 @@ get_device_map(HBA_HANDLE hba_handle, HBA_PORTATTRIBUTES *lp_info,
 	limit = map->NumberOfEntries;
 
 	/* Sort the response by LUN number */
-	qsort(ep, limit, sizeof(*ep), fcc_lun_compare);
+	qsort(ep, limit, sizeof(*ep), lun_compare);
 
 	*lun_count = limit;
 	*tgtmap = map;

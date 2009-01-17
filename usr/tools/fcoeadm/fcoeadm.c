@@ -280,14 +280,11 @@ fcoeadm_destroy(char *ifname)
 }
 
 /*
- * Validate an existing FCoE instance for an Ethernet interface
+ * Validate an existing instance for an FC interface
  */
 static int
 fcoeadm_validate_interface(char *ifname, char *fchost, int len)
 {
-	if (fcoeadm_check(ifname))
-		return -EINVAL;
-
 	if (!fcoeadm_find_fchost(ifname, fchost, len)) {
 		fprintf(stderr, "%s: No fc_host found for %s\n",
 			progname, ifname);

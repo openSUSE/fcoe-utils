@@ -1130,7 +1130,7 @@ find_hba_index(char *serial_number, int *hba_index)
 {
 	int i, j;
 
-	j = sizeof(hba_name_table[0].SerialNumber);
+	j = sizeof(hba_name_table[0].SerialNumber) - 1;
 	for (i = 0; i < MAX_HBA_COUNT; i++) {
 		if (hba_name_table[i].index == -1) {
 			/* not found */
@@ -1141,9 +1141,11 @@ find_hba_index(char *serial_number, int *hba_index)
 			*hba_index = i;
 			return 1;    /* print hba info */
 		}
-		if (!strncmp(serial_number, hba_name_table[i].SerialNumber, j))
+		if (!strncmp(serial_number,
+		    hba_name_table[i].SerialNumber, j)) {
 			*hba_index = hba_name_table[i].index;
 			return 0;    /* do not print hba info */
+		}
 	}
 	/* table full */
 	return -1;

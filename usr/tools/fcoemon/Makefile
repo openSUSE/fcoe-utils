@@ -16,8 +16,11 @@ SERVICE_NAME=fcoe
 SERVICE_DIR=$(DESTDIR)/etc/init.d
 CONFIG_DIR=$(DESTDIR)/etc/$(SERVICE_NAME)
 
+# Source directory of /etc/ files
+ETC_SRC=../../etc/
+
 # Source directory of init.d
-INITD_SRC=../../etc/initd
+INITD_SRC=$(ETC_SRC)initd/
 
 #
 # List of legal build component names
@@ -91,7 +94,7 @@ install: all install_config install_doc
 install_config:
 	@$(INSTALL) -d $(CONFIG_DIR)
 	@if [ ! -f $(CONFIG_DIR)/config ]; then \
-		$(INSTALL) -v -m 644 $(INITD_SRC)/config \
+		$(INSTALL) -v -m 644 $(ETC_SRC)/config \
 			$(CONFIG_DIR)/config ; \
 	fi ;
 	@$(INSTALL) -d $(CONFIG_DIR)/scripts
@@ -99,7 +102,7 @@ install_config:
 		$(CONFIG_DIR)/scripts/fcoeplumb
 	@$(foreach i, $(IFNAMES), \
 		if [ ! -f $(CONFIG_DIR)/cfg-$(i) ]; then \
-			$(INSTALL) -v -m 744 $(INITD_SRC)/cfg-ethx \
+			$(INSTALL) -v -m 744 $(ETC_SRC)/cfg-ethx \
 				$(CONFIG_DIR)/cfg-$(i) ; \
 		fi ; \
 	)

@@ -1,9 +1,9 @@
-## Type:       yesno
+## Type:       yes/no
 ## Default:    no
 # Enable/Disable FCoE service at the Ethernet port
 FCOE_ENABLE="no"
 
-## Type:       yesno
+## Type:       yes/no
 ## Default:    yes
 # Indicate if DCB service is required at the Ethernet port
 DCB_REQUIRED="yes"

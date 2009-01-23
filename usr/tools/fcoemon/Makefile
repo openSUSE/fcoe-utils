@@ -89,7 +89,7 @@ fcoemon: version.o fcoemon_utils.o fcoemon.o
 
 install: all install_config install_doc
 	@$(if $(PROGRAMS), $(foreach i, $(PROGRAMS), \
-		$(INSTALL) -v -m 744 $(i) $(SBINDIR) ; ))
+		$(INSTALL) -v -m 755 $(i) $(SBINDIR) ; ))
 
 install_config:
 	@$(INSTALL) -d $(CONFIG_DIR)
@@ -102,21 +102,21 @@ install_config:
 		$(CONFIG_DIR)/scripts/fcoeplumb
 	@$(foreach i, $(IFNAMES), \
 		if [ ! -f $(CONFIG_DIR)/cfg-$(i) ]; then \
-			$(INSTALL) -v -m 744 $(ETC_SRC)/cfg-ethx \
+			$(INSTALL) -v -m 644 $(ETC_SRC)/cfg-ethx \
 				$(CONFIG_DIR)/cfg-$(i) ; \
 		fi ; \
 	)
 	@if [ -f /etc/fedora-release ]; then \
-		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.fedora \
+		$(INSTALL) -v -m 755 $(INITD_SRC)/initd.fedora \
 			$(SERVICE_DIR)/$(SERVICE_NAME) ; \
 	elif [ -f /etc/SuSE-release ]; then \
-		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.suse \
+		$(INSTALL) -v -m 755 $(INITD_SRC)/initd.suse \
 			$(SERVICE_DIR)/$(SERVICE_NAME) ; \
 		$(RM) -f $(SBINDIR)/rc$(SERVICE_NAME) ; \
 		$(LN) -s $(SERVICE_DIR)/$(SERVICE_NAME) \
 			$(SBINDIR)/rc$(SERVICE_NAME); \
 	else \
-		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.fcoe \
+		$(INSTALL) -v -m 755 $(INITD_SRC)/initd.fcoe \
 			$(SERVICE_DIR)/$(SERVICE_NAME) ; \
 	fi
 	@$(CHKCONFIG) $(SERVICE_NAME) on

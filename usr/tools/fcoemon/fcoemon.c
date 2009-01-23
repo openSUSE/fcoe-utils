@@ -87,6 +87,12 @@ struct fcoe_config {
 	struct fcoe_port_config *port;
 } fcoe_config;
 
+enum fcoeadm_action {
+	ADM_DESTROY = 0,
+	ADM_CREATE,
+	ADM_RESET
+};
+
 static u_int8_t fcm_def_qos_mask = FCM_DEFAULT_QOS_MASK;
 
 struct clif;			/* for dcbtool.h only */
@@ -115,7 +121,7 @@ static void fcm_dcbd_next(void);
 static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_dcbd_port_advance(struct fcm_fcoe *);
-static void fcm_dcbd_setup(struct fcm_fcoe *, u_int);
+static void fcm_dcbd_setup(struct fcm_fcoe *, enum fcoeadm_action);
 
 struct fcm_clif {
 	int cl_fd;
@@ -840,7 +846,7 @@ fcm_dcbd_shutdown(void)
 			ff = fcm_fcoe_lookup_name(p->ifname);
 			if (fcm_dcbd_debug)
 				SA_LOG("Shut down %s\n", p->ifname);
-			fcm_dcbd_setup(ff, 0);
+			fcm_dcbd_setup(ff, ADM_DESTROY);
 		}
 		p = p->next;
 	}
@@ -1493,21 +1499,21 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 							"QOS = 0x%x\n",
 							ff->ff_name,
 							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, 1);
+					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else if (rc == 2) {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: QOS changed"
 							" to 0x%x\n",
 							ff->ff_name,
 							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, 2);
+					fcm_dcbd_setup(ff, ADM_RESET);
 				} else if (!ff->ff_enabled) {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: Re-create "
 							"QOS = 0x%x\n",
 							ff->ff_name,
 							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, 1);
+					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: No action will "
@@ -1520,7 +1526,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 						"qualified for FCoE "
 						"operations.",
 						ff->ff_name);
-				fcm_dcbd_setup(ff, 0);
+				fcm_dcbd_setup(ff, ADM_DESTROY);
 				clear_dcbd_info(ff);
 			}
 
@@ -1546,7 +1552,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				SA_LOG("resp:%s\n", orig_resp);
 				print_errors("", val);
 			}
-			/* fcm_dcbd_setup(ff, 0); */
+			/* fcm_dcbd_setup(ff, ADM_DESTROY); */
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
 		}
@@ -1696,7 +1702,7 @@ ignore_event:
  *         enable = 2      Reset the interface
  */
 static void
-fcm_dcbd_setup(struct fcm_fcoe *ff, u_int32_t enable)
+fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 {
 	char *op;
 	char *qos_arg;
@@ -1705,13 +1711,13 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, u_int32_t enable)
 	int rc;
 	int fd;
 
-	if (enable == 0)
+	if (action == 0)
 		op = "--disable";
-	else if (enable == 1)
+	else if (action == 1)
 		op = "--enable";
 	else
 		op = "--reset";
-	if (enable && !ff->ff_qos_mask)
+	if (action && !ff->ff_qos_mask)
 		return;
 	if (fcm_dcbd_cmd == NULL) {
 		SA_LOG("Should %s %s per op state", op, ff->ff_name);
@@ -1720,7 +1726,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, u_int32_t enable)
 	/*
 	 * XXX should wait for child status
 	 */
-	ff->ff_enabled = enable;
+	ff->ff_enabled = action;
 
 	rc = fork();
 	if (rc < 0) {
@@ -1729,7 +1735,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, u_int32_t enable)
 		for (fd = ulimit(4 /* __UL_GETOPENMAX */ , 0); fd > 2; fd--)
 			close(fd);
 		qos_arg = NULL;
-		if (enable) {
+		if (action) {
 			mask = ff->ff_qos_mask;
 			if (mask) {
 				int off = 0;
@@ -1749,7 +1755,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, u_int32_t enable)
 			}
 		}
 		if (fcm_dcbd_debug) {
-			if (!enable)
+			if (!action)
 				SA_LOG("%s %s %s\n",
 					fcm_dcbd_cmd, ff->ff_name, op);
 			else

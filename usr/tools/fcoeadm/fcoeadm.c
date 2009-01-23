@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2008 Intel Corporation. All rights reserved.
+ * Copyright(c) 2009 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,11 +19,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <libgen.h>
 #include <errno.h>
 #include <getopt.h>
 #include <dirent.h>
 #include <string.h>
 #include "fcoeadm.h"
+
+static char *fcoeadm_version = "\
+fcoeadm v1.0.6\n\
+Copyright (c) 2009, Intel Corporation.\n\
+";
 
 #define SYSFS_MOUNT	"/sys"
 #define SYSFS_NET	SYSFS_MOUNT "/class/net"
@@ -43,16 +49,17 @@ static struct option fcoeadm_opts[] = {
     {"lun", 1, 0, 'l'},
     {"stats", 1, 0, 's'},
     {"help", 0, 0, 'h'},
+    {"version", 0, 0, 'v'},
     {0, 0, 0, 0}
 };
 
 struct opt_info _opt_info, *opt_info = &_opt_info;
-char progname[256];
+char progname[20];
 
 static void
 fcoeadm_help(void)
 {
-	/* printf("Build Date: %s\n", BUILD_DATE); */
+	printf("%s\n", fcoeadm_version);
 	printf("Usage: %s\n"
 		"\t [-c|--create] <ethX>\n"
 		"\t [-d|--destroy] <ethX>\n"
@@ -61,7 +68,8 @@ fcoeadm_help(void)
 		"\t [-t|--target] [<ethX>]\n"
 		"\t [-l|--lun] [<target port_id> [<lun_id>]]\n"
 		"\t [-s|--stats] <ethX> [-n <interval>]\n"
-		"\t [-h|--help]\n", progname);
+		"\t [-v|--version]\n"
+		"\t [-h|--help]\n\n", progname);
 }
 
 /*
@@ -225,7 +233,7 @@ fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 						  namelist[n]->d_name)) {
 				dname_len = strnlen(namelist[n]->d_name, len);
 				if (dname_len != len) {
-					/* 
+					/*
 					 * This assumes that d_name is always
 					 * NULL terminated.
 					 */
@@ -432,10 +440,10 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
-	strncpy(progname, argv[0], sizeof(progname));
+	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
 
-	while ((opt = getopt_long(argc, argv, "c:d:r:itls:n:h",
+	while ((opt = getopt_long(argc, argv, "c:d:r:itls:n:hv",
 				  fcoeadm_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'c':
@@ -525,6 +533,9 @@ int main(int argc, char *argv[])
 			if (!opt_info->s_flag)
 				goto error;
 			goto stats;
+		case 'v':
+			printf("%s\n", fcoeadm_version);
+			goto done;
 		case 'h':
 		default:
 			fcoeadm_help();

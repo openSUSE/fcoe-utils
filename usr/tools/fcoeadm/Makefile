@@ -90,7 +90,7 @@ version.c: FORCE
 		Please read the INSTALL file.))
 	@echo '       BUILD $(@F)'
 	@$(RM) -f $@
-	@echo char tools_version[] = '"'$(BUILD_VERSION) $(shell date)'";' > $@
+	@echo char build_date[] = '"'$(shell date)'";' > $@
 
 .PHONY: FORCE
 

@@ -1,0 +1,376 @@
+#!/bin/sh
+#
+# Copyright(c) 2009 Intel Corporation. All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Maintained at www.Open-FCoE.org
+#
+#
+# Open-FCoE User-Space Software
+# Based on:
+#     Template LSB system startup script for example service/daemon FOO
+#     Copyright (C) 1995--2005  Kurt Garloff, SUSE / Novell Inc.
+#
+# /etc/init.d/fcoe         This shell script takes care of starting and stopping
+#                          of the fcoemon daemon
+#   and its symbolic link
+# /sbin/rcfcoe
+#
+# chkconfig: 345 20 80
+#
+### BEGIN INIT INFO
+# Provides: fcoe
+# Required-Start: network
+# Required-Stop:
+# Default-Start: 3 5
+# Default-Stop: 3 5
+# Description: Open-FCoE SAN Setup
+### END INIT INFO
+
+CONFIG_DIR=/etc/fcoe
+CONFIG_SCRIPT=$CONFIG_DIR/scripts/fcoeplumb
+PID_FILE="/var/run/fcoemon.pid"
+LOG_FILE="/var/log/fcoemon.log"
+FCOEMON=/sbin/fcoemon
+FCOEADM=/sbin/fcoeadm
+DCBD=dcbd
+LOGGER="logger -t fcoe -s"
+
+. /etc/rc.status
+rc_reset
+
+test -r $CONFIG_DIR/config || {
+	$LOGGER "$CONFIG_DIR/config not installed";
+	if [ "$1" = "stop" ]; then exit 0;
+	else
+		rc_failed
+		rc_status -v
+		rc_exit
+	fi
+}
+
+varify_yesno_values()
+{
+	value=$1
+
+	case $value in
+		"yes" | "YES" ) return 1 ;;
+		"no" | "NO" ) return 2 ;;
+		*) return 0 ;;
+	esac
+}
+
+verify_configuration()
+{
+	. $CONFIG_DIR/config
+	varify_yesno_values $USE_SYSLOG
+	if [ $? -eq 0 ]; then
+		echo "Invalid USE_SYSLOG in $CONFIG_DIR/config"
+		return 1
+	fi
+	varify_yesno_values $DEBUG
+	if [ $? -eq 0 ]; then
+		echo "Invalid DEBUG in $CONFIG_DIR/config"
+		return 1
+	fi
+
+	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
+	do
+		. $ifcfg_file
+		varify_yesno_values $FCOE_ENABLE
+		if [ $? -eq 0 ]; then
+			echo "Invalid FCOE_ENABLE in $ifcfg_file"
+			return 1
+		fi
+		varify_yesno_values $DCB_REQUIRED
+		if [ $? -eq 0 ]; then
+			echo "Invalid DCB_REQUIRED in $ifcfg_file"
+			return 1
+		fi
+	done
+	return 0
+}
+
+verify_configuration
+if [ $? -ne 0 ]; then
+	rc_failed
+	rc_status -v
+	rc_exit
+fi
+if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
+	LOGGER="echo"
+fi
+if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
+	DEBUG="yes"
+fi
+
+test -x $CONFIG_SCRIPT || {
+	$LOGGER "$CONFIG_SCRIPT not installed";
+	if [ "$1" = "stop" ]; then exit 0;
+	else
+		rc_failed
+		rc_status -v
+		rc_exit
+	fi
+}
+
+test -x $FCOEADM || {
+	$LOGGER "$FCOEADM not installed";
+	if [ "$1" = "stop" ]; then exit 0;
+	else
+		rc_failed
+		rc_status -v
+		rc_exit
+	fi
+}
+
+test -x $FCOEMON || {
+	$LOGGER "$FCOEMON not installed";
+	if [ "$1" = "stop" ]; then exit 0;
+	else
+		rc_failed
+		rc_status -v
+		rc_exit
+	fi
+}
+
+startup_fcoe_modules()
+{
+	modprobe fcoe > /dev/null 2>&1
+}
+
+configure_dcb_interface()
+{
+	ifname=$1
+
+	checkproc $DCBD
+	if [ $? -ne 0 ]; then
+		MSGLINE1="Fatal: dcbd is not runnng.\n"
+		MSGLINE2="      The dcbd must be running because DCB is\n"
+		MSGLINE3="      configured as REQUIRED at Ethernet port $ifname."
+		MSG=`echo -e "$MSGLINE1$MSGLINE2$MSGLINE3"`
+		$LOGGER "$MSG"
+		return 1
+	fi
+
+	#
+	# At this moment, the dcbd may not be ready to
+	# accept any client connections.
+	#
+	retry_count=6
+	while true
+	do
+		[ $retry_count -eq 0 ] && break
+		retry_count=$(($retry_count-1))
+		dcbtool gc $ifname dcb > /dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			usleep 500000
+			continue
+		fi
+		dcbtool sc $ifname dcb on > /dev/null 2>&1
+		dcbtool sc $ifname app:0 e:1 a:1 w:1 > /dev/null 2>&1
+		dcbtool sc $ifname ll:0 e:1 a:1 w:1 > /dev/null 2>&1
+		dcbtool sc $ifname pfc a:1 > /dev/null 2>&1
+		dcbtool sc $ifname pg a:0 > /dev/null 2>&1
+		STATUS=`dcbtool gc $ifname dcb 2>&1 | awk '/Status:/{print $2}'`
+		STATE=`dcbtool gc $ifname dcb 2>&1 | awk '/DCB State:/{print $3}'`
+		if [ "$STATUS" = "Successful" ] && [ "$STATE" = "on" ]; then
+			return 0
+		fi
+		# Not likely to reach here!
+		usleep 500000
+	done
+	$LOGGER "Warning: Failed to configure dcb at $ifname"
+	return 1
+}
+
+validate_link_flow_control()
+{
+	ifname=$1
+
+	retry_count=1
+	while true
+	do
+		TX_STATUS=`ethtool -a $ifname 2>&1 | awk '/TX:/{print $2}'`
+		RX_STATUS=`ethtool -a $ifname 2>&1 | awk '/RX:/{print $2}'`
+
+		if [ "$TX_STATUS" = "on" ] && [ "$RX_STATUS" = "on" ]; then
+			return 0
+		fi
+
+		ethtool -A $ifname rx on tx on
+		[ $retry_count -eq 0 ] && return 0
+		retry_count=$(($retry_count-1))
+		usleep 500000
+	done
+	$LOGGER "Warning: Failed to bring up link flow control of $ifname."
+	return 1
+}
+
+service_start()
+{
+	checkproc ${FCOEMON}
+	if [ $? -eq 0 ]; then
+		$LOGGER "Warning: daemon already running."
+		return
+	fi
+	rm -f /var/run/fcoemon.*
+
+	startup_fcoe_modules
+
+	HAS_DCB_IF="false"
+	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
+	do
+		ifname=`basename $ifcfg_file | cut -d"-" -f2`
+		. $ifcfg_file
+		[ "$FCOE_ENABLE" != "yes" ] &&
+		[ "$FCOE_ENABLE" != "YES" ] && continue
+
+		if [ "$DCB_REQUIRED" != "yes" ] &&
+		   [ "$DCB_REQUIRED" != "YES" ]; then
+			#
+			# DCB is not required, we nee to validate the
+			# link flow control of the Ethernet port
+			#
+			validate_link_flow_control $ifname
+			[ $? -ne 0 ] && continue
+			#
+			# Create the FCoE interface
+			#
+			$FCOEADM -c $ifname
+		else
+			#
+			# Configure the DCB for the Ethernet
+			# port if DCB is required
+			#
+			configure_dcb_interface $ifname
+			if [ $? -eq 0 ]; then
+				HAS_DCB_IF="true"
+			fi
+		fi
+	done
+
+	#
+	# If DCB-required Ethernet port exists, then start the fcoemon
+	# daemon to create the FCoE interfaces for these ports.
+	#
+	if [ "$HAS_DCB_IF" = "true" ]; then
+		startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON}
+	fi
+
+	rc_status -v
+	return
+}
+
+service_stop()
+{
+	checkproc $FCOEMON
+	[ $? -eq 0 ] && killproc -TERM $FCOEMON
+
+	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
+	do
+		ifname=`basename $ifcfg_file | cut -d"-" -f2`
+		. $ifcfg_file
+		[ "$FCOE_ENABLE" != "yes" ] &&
+		[ "$FCOE_ENABLE" != "YES" ] && continue
+		if [ "$DCB_REQUIRED" != "yes" ] &&
+		   [ "$DCB_REQUIRED" != "YES" ]; then
+			STATUS=`$FCOEADM -i $ifname 2>&1 | \
+				awk '/Interface Name:/{print $3}'`
+			if [ "$STATUS" = "$ifname" ]; then
+				$FCOEADM -d $ifname
+			fi
+		fi
+	done
+
+	retry_count=5
+	while true
+	do
+		[ $retry_count -eq 0 ] && break
+		ps | grep -q fcoeplumb
+		[ $? -ne 0 ] && [ ! -f $PID_FILE ] && break
+		sleep 1
+		retry_count=$(($retry_count-1))
+	done
+	rm -f /var/run/fcoemon.*
+	rm -f /tmp/fcoemon.dcbd.*
+
+	rc_status -v
+}
+
+service_status()
+{
+	rc_status -v
+	checkproc $FCOEMON
+	if [ $? -eq 0 ]; then
+		echo "$FCOEMON -- RUNNING, pid=`cat $PID_FILE`"
+	else
+		echo "$FCOEMON -- UNUSED"
+	fi
+	IF_LIST=`$FCOEADM -i 2>&1 | \
+		awk '/Interface Name:/{print $3}' | \
+		sort | awk '{printf("%s ", $1)}'`
+	if [ -z "$IF_LIST" ]; then
+		echo "No interfaces created."
+	else
+		echo "Created interfaces: $IF_LIST"
+	fi
+}
+
+case "$1" in
+	start)
+		$LOGGER "Service starting up"
+		service_start
+		;;
+	stop)
+		$LOGGER "Service shutting down"
+		service_stop
+		;;
+	try-restart|condrestart)
+		if test "$1" = "condrestart"; then
+			$LOGGER "${attn} Use try-restart ${done}(LSB)${attn} " \
+				"rather than condrestart ${warn}(RH)${norm}"
+		fi
+		$0 status
+		if test $? = 0; then
+			$0 restart
+		else
+			rc_reset	# Not running is not a failure.
+		fi
+		rc_status
+		;;
+	restart)
+		$0 stop
+		$0 start
+		rc_status
+		;;
+	force-reload)
+		$0 try-restart
+		rc_status
+		;;
+	reload)
+		$LOGGER "Service reloading"
+		rc_failed 3
+		rc_status -v
+		;;
+	status)
+		service_status
+		;;
+	*)
+		echo "Usage: $0 {start|stop|status|try-restart|restart|force-reload|reload}"
+		exit 1
+		;;
+esac
+rc_exit

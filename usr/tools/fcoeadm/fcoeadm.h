@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2008 Intel Corporation. All rights reserved.
+ * Copyright(c) 2009 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,9 @@
  *
  * Maintained at www.Open-FCoE.org
  */
+
+#ifndef _FCOEADM_H_
+#define _FCOEADM_H_
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -60,7 +63,10 @@ struct opt_info {
 	int n_interval;		/* seconds */
 };
 extern struct opt_info *opt_info;
+extern char build_date[];
 
 extern void display_adapter_info(struct opt_info *opt_info);
 extern void display_target_info(struct opt_info *opt_info);
 extern void display_port_stats(struct opt_info *opt_info);
+
+#endif /* _FCOEADM_H_ */

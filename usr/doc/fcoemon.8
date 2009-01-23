@@ -1,0 +1,215 @@
+.TH "FCOEMON" "8" "December 22, 2008" "Open-FCoE Applications" "Open-FCoE Tools"
+.SH "NAME"
+\fBfcoemon\fR \- The Fibre Channel over Ethernet (FCoE) administration tool
+          for monitoring and processing events from DCB daemon.
+.SH "SYNOPSIS"
+\fBfcoemon\fR [\fB\-h\fR | \fB\-\-help\fR]
+.P
+\fBfcoemon\fR [\fB\-v\fR | \fB\-\-version\fR]
+.P
+\fBfcoemon\fR [\fB\-d\fR | \fB\-\-debug\fR] [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
+.SH "DESCRIPTION"
+The \fBfcoemon\fR command is a FCoE management tool provided by the Open\-FCoE package.
+\fBfcoemon\fR is the daemon of the \fBfcoe\fR system service.  When \fBfcoemon\fR starts, it establishes a socket
+connection with the \fBDCB\fR daemon. It then sends commands to, and receives responses
+and event from the \fBDCB\fR daemon. The \fBfcoemon\fR  will process the received responses
+and events and invoke the \fBfcoeplumb\fR script to create and destroy the FCoE interfaces.
+Since the \fBfcoemon\fR depend on the existence of \fBDCB service\fR, there
+are settings required for \fBDCB\fR before \fBfcoemon\fR can be started. See
+the \fIDCB Settings\fR section below.
+
+Notice that the fcoe system service does not depend on dcbd service. However, the fcoemon daemon will be
+started by the fcoe service only if any one of the Ethernet port requires DCB service. In this case, fcoe
+service depends on dcbd service.  If none of the Ethernet ports requires DCB service, the fcoemon will not
+be started and, in this case, the fcoe service does not depend on dcbd service.
+
+.SH "OPTIONS"
+.TP
+\fB\-h | \-\-version\fR
+Show the usage message of the \fBfcoeemon\fR command.
+.TP
+\fB\-v | \-\-version\fR
+Show the version of the \fBfcoeemon\fR command.
+.TP
+\fB\-d | \-\-debug\fR
+Enable debugging messages.
+.TP
+\fB\-e | \-\-exec\fR \fI<path\-of\-fcoeplumb\-script>\fR
+Specify the location of the \fBfcoeplumb\fR script.
+.SH "TERMINOLOGY"
+.TP
+\fBPFC\fR \- The DCB Priority Flow Control feature.
+.TP
+\fBApp:FCoE\fR \- The DCB Fibre Channel over Ethernet feature.
+.TP
+\fBLLINK\fR \- The DCB Logical Link TLV (or Logical Link) feature.
+.TP
+\fBmultiq\fR \- See Documentation/networking/multiqueue.txt of linux kernel 2.6.28 or higher.
+.TP
+\fBskbedit\fR \- See Documentation/networking/multiqueue.txt of linux kernel 2.6.28 or higher.
+.SH "INSTALLATION REQUIREMENTS"
+The linux kernel must be at version 2.6.27.1\-2 beta6 or higher. The DCB and FCoE kernel
+configuration options must be enabled. Both the linux kernel and iproute2 must support multiq
+and skbedit.  The DCB must be installed with version 0.9.2 and higher.
+.SH "SUPPORTED DCB EVENTS"
+In response to each supported event from the DCB daemon, the fcoemon collects the current
+settings from the DCB daemon and decide whether to delete and re-add the multiq queue discipline
+and skbedit filter. The \fBfcoemon\fR does not destroy, reset, or create FCoE interfaces during
+the DCB event processing.
+.TP
+\fBFEATURE_APP\fR
+If an event message is received from dcbd and if the feature code in the event message
+is FEATURE_APP (5), and if the subtype field is APP_FCOE_STYPE (0), we got a mode or
+configuration change event of the FCoE application.  The fcoemon will then issue queries
+to the DCB daemon to collect the current mode and configuration information.
+.TP
+\fBFEATURE_PFC\fR
+If an event message is received from dcbd and if the feature code in the event message
+is FEATURE_PFC (3), we got a mode or configuration change event of the Priority Flow
+Control (PFC) feature.  The fcoemon will then issue queries to the DCB daemon to collect
+the current mode and configuration information.
+.TP
+\fBFEATURE_LLINK\fR
+If an event message is received from dcbd and if the feature code in the event message
+is FEATURE_LLINK (6), and if the subtype field is LLINK_FCOE_STYPE (0), we got a mode
+or configuration change event of the Logical Link TLV feature.  The fcoemon will then
+issue queries to the DCB daemon to collect the current mode and configuration information.
+.SH "CRITERIA OF CREATING, RESETTING  AND DESTROYING FCOE INTERFACE"
+In this section the \fBdcbtool\fR is used to describe the conditions of the DCB feture status
+beccause the meaning is more understandable and precise. Although you may also issue the
+commands at run-time, the commands are intended only to be used for description purpose.
+.TP
+\fBPFC and App:FCoE\fR
+DCB is configured correctly if
+.RS
+.PD 0
+.TP 3
+.BR "1)" "  The command \fBdcbtool gc ethX dcb\fR shows DCB State: on"
+.TP 3
+.BR "2)" "  The command \fBdcbtool gc ethX app:0\fR shows Enable:true,"
+.TP 3
+.BR "  " "      Advertise:true, Willing:true."
+.TP 3
+.BR "3)" "  The command \fBdcbtool go ethX app:0\fR shows OperMode:true."
+.TP 3
+.BR "4)" "  The command \fBdcbtool go ethX pfc\fR shows OperMode:true and"
+.TP 3
+.BR "  " "      the values of pfcup."
+.TP 3
+.BR "5)" "  The command \fBdcbtool go ethX app:0\fR shows appcfg. The bits"
+.TP 3
+.BR "  " "      set to 1 are also set to 1 in pfcup found in (4)."
+.PD
+.RE
+.TP
+\fBLogical Link TLV\fR
+The Logical Link TLV feature is configured correctly if
+.RS
+.PD 0
+.TP 3
+.BR "1)" "  The command \fBdcbtool gc ethX ll:0\fR shows"
+.TP 3
+.BR "  " "      Enable:true, Advertise:true, Willing:true."
+.TP 3
+.BR "2)" "  The command \fBdcbtool go ethX ll:0\fR shows OperMode:true."
+.TP 3
+.BR "3)" "  The command \fBdbtool gp ethX ll:0\fR shows Link Status:up."
+.PD
+.RE
+.TP
+\fBCriteria to create FCoE interface\fR
+If DCB is required at the Ethernet port, a FCoE interface may be created only if
+the DCB and the Logical Link TLV feature are configured correctly. If DCB is not
+required at the Ethernet port, the FCoE interface may be created. FCoE interfaces
+are normally created by the \fBfcoe\fR system service.
+.TP
+\fBCriteria to Destroy FCoE Interface\fR
+An FCoE interface will only be destroyed when the \fBfcoe\fR system service is stopped.
+.TP
+\fBCriteria to reset a FCoE interface\fR
+The \fBfcoe\fR system service does not reset any FCoE interfaces.
+.TP
+\fBChanging DCB Configuration, Qdisc and Filters\fR
+Changing the DCB configuration, qdisc, and filter are considered to be administrative actions.
+When the \fBfcoe\fR system service starts up, it sets up the default DCB configuration, qdisc, and filter
+for reliable FCoE operations. Administrators may alter the configuration while the service is running.
+Changing the DCB parameters may cause the fcoemon daemon to delete the existing multiq queue discipline,
+skbedit filter and re-add; but the fcoe service will not touch (e.g. destroy or reset) the FCoE interface.
+Changing the DCB configuration, qdisc, and filter should be avoided while I/O traffic are in progress.
+.SH "FILES"
+The Installation of the Open-FCoE management tools include the following files:
+.TP
+\fB/etc/fcoe/config\fR
+This is the common configuration file for the \fBfcoe\fR system service. This file will
+be read by the \fI/etc/init.d/fcoe\fR" script, the \fI/etc/fcoe/scripts/fcoeplumb\fR script,
+and the \fIfcoemon\fR daemon. The default options in this file are:
+\fBDEBUG="yes"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable (select yes) or disable (select no)
+debugging messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script. The latter is
+to indicate if the log messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script are
+to be output to the system log.  Use editor to set the desired \fByes/no\fR values.
+.TP
+\fB/etc/fcoe/cfg-ethX\fR
+There is one of this file for each Ethernet interface \fBethX\fR found in the output of
+\fBcat /proc/net/dev\fR at the time of installation. This file will be read by the
+\fI/etc/init.d/fcoe\fR script and the \fIfcoemon\fR daemon.  The default options in this file are:
+\fBFCOE_ENABLE="no"\fR and \fBDCB_REQUIRED="yes"\fR.  The former is used to enable (select yes) or
+disable (select no) the FCoE service at the ethX port. The latter is to indicate if the DCB service
+is required (select yes) or not required (select no) at the ethX port. If the former is set to no, the
+latter is ignored. The selection of the settings should match the settings of the FCoE switch port connected
+to the local Ethernet ethX port. Use editor to set the desired \fByes/no\fR
+values for the \fBethX\fR interfaces.
+.TP
+\fB/etc/init.d/fcoe\fR
+This is the \fIfcoe\fR system service shell script. This script is invoked by the \fBinit\fR process
+or by the \fBservice\fR command.
+.TP
+\fB/sbin/fcoemon\fR
+This is the \fIfcoemon\fR daemon only invoked by the \fIfcoe\fR system service script.
+.TP
+\fB/sbin/fcoeadm\fR
+This is the program used by the \fIfcoe\fR system service to create or destroy FCoE interfaces.
+.TP
+\fB/etc/fcoe/scripts/fcoeplumb\fR
+This is a script only used by the \fBfcoemon\fR daemon.
+.TP
+\fB/usr/share/man/man8/fcoemon.8.gz\fR
+This is the man page of the \fBfcoemon\fR daemon (This file).
+.TP
+\fB/usr/share/man/man8/fcoeadm.8.gz\fR
+This is the man page of the \fBfcoeadm\fR program.
+.SH "FCOE SYSTEM SERVICE"
+If the \fIfcoe\fR system service is enabled, it will be started after the
+dcb service is started when the Linux system boots up. The following are the
+sample commands at system run-time for the \fIfcoe\fR system service.
+.TP
+\fBchkconfig --list fcoe\fR
+To check if the service is enabled.
+.TP
+\fBchkconfig fcoe off\fR
+To disable the \fBfcoe\fR system service.
+.TP
+\fBchkconfig fcoe on\fR
+To enable the \fBfcoe\fR system service.
+.TP
+\fBservice fcoe stop\fR
+To stop the \fBfcoe\fR system service.
+.TP
+\fBservice fcoe start\fR
+To start the stopped \fBfcoe\fR system service.
+.TP
+\fBservice fcoe restart\fR
+To stop and then start the \fBfcoe\fR system service.
+.TP
+\fBservice fcoe status\fR
+To check the status of the \fBfcoe\fR system service.
+.TP
+\fBservice fcoe\fR
+To show the command-line options of the \fBfcoe\fR system service.
+.SH "REPORTING BUGS"
+If you have identified a defect please either file a bug or engage the
+development mailing list at <http://www.Open\-FCoE.org>.
+.SH "SUPPORT"
+Open\-FCoE is maintained at <http://www.Open\-FCoE.org>. There are resources
+available for both developers and users at that site.
+
+

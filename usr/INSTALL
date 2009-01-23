@@ -3,12 +3,16 @@
 
 The FCoE Management Tools included in this package are
 
-        fcoeadm - program to create, destroy, and to display FCoE interfaces
+        fcoeadm - program to create, reset, destroy, and display FCoE interfaces
+        fcoemon - program to monitor the events from the DCB daemon
 
-The HBAAPI library and the HBAAPI vendor library source must be build and
-installed before you can build the management tools. The HBAAPI vendor
+Requirements:
+
+        The HBAAPI library and the HBAAPI vendor library source must be build
+and installed before you can build the management tools. The HBAAPI vendor
 library, libhbalinux, may be downloaded from www.Open-FCoE.org. The instructions
-in the package describes how to download and build the libraries.
+in the package describes how to download and build the libraries.  See the man
+pages for other requirements.
 
 Build and Install The Management Tools
 --------------------------------------
@@ -19,39 +23,40 @@ Build and Install The Management Tools
 
    To build the tools,
 
-       make LIBHBALINUX=<path-to-libhbalinux-source>
-       make LIBHBALINUX=<path-to-libhbalinux-source> install
+       make LIBHBALINUX=<path-to-libhbalinux-source> \
+            DCB_SRC=<path-to-DCB-source>
+       make LIBHBALINUX=<path-to-libhbalinux-source> \
+            DCB_SRC=<path-to-DCB-source> install
+
+    For example,
+
+        make LIBHBALINUX=/var/work/libhbalinux \
+             DCB_SRC=/var/work/dcb/dcbd-0.7.31rt
 
    To cleanup, issue
 
        make clean
        make uninstall
 
+   Notice that before issuing "make uninstall", make sure the fcoe service is not
+   running.
+
 2) The installation adds the following files to the system,
 
        /sbin/fcoeadm
+       /sbin/fcoemon
        /usr/share/man/man8/fcoeadm.8.gz
-       /etc/fcoe/open-fcoe.conf
-       /etc/rc.d/init.d/open-fcoe
+       /usr/share/man/man8/fcoemon.8.gz
+       /etc/fcoe/config
+       /etc/fcoe/cfg-ethX (one file per ethX port)
+       /etc/fcoe/scripts/fcoeplumb
+       /etc/init.d/fcoe
 
-3) Running the tools require to have the libHBAAPI.so and libhbalinux.so,
-   and /etc/hba.conf installed on the system. See the INSTALL instructions
-   of HBAAPI Vendor Libraries.
 
-4) If you have edited the file /etc/fcoe/open-fcoe.conf to include
-   one and only one line of
+	The /etc/fcoe is default configuration files location but this can be changed
+	by updating this in usr/doc/fcoemon.8 and CONFIG_DIR variable in
 
-       HBA=<ethX>
-
-   where <ethX> is the ethernet interface you will use to create FCoE
-   instance, you may start and stop the open-fcoe service with the
-   following commands:
-
-       # service open-fcoe start
-       # service open-fcoe stop
-
-       # service open-fcoe
-       Usage: /etc/init.d/open-fcoe {start|stop|reload|restart|status}
-
-   The fcoeadm tool requires the open-fcoe service to be started.
-
+	etc/initd/initd.suse
+	tools/fcoemon/fcoemon.c
+	tools/fcoemon/fcoeplumb.sh
+	tools/fcoemon/Makefile

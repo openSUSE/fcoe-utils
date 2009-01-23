@@ -1,0 +1,10 @@
+## Type:       yesno
+## Default:    yes
+# Switch on/off debug messages (script & C code)
+DEBUG="yes"
+
+## Type:       yesno
+## Default:    yes
+# All the messages go to syslog and stderr (script & C code)
+USE_SYSLOG="yes"
+

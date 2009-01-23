@@ -104,7 +104,7 @@ install_config:
 		fi ; \
 	)
 	@if [ -f /etc/fedora-release ]; then \
-		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.fcoe \
+		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.fedora \
 			$(SERVICE_DIR)/$(SERVICE_NAME) ; \
 	elif [ -f /etc/SuSE-release ]; then \
 		$(INSTALL) -v -m 744 $(INITD_SRC)/initd.suse \

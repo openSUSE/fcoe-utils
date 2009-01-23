@@ -35,14 +35,10 @@ command syntax.
 .SH "OPTIONS"
 .TP
 \fB\-c\fR, \fB\-\-create\fR \fI<ethX>\fR
-Creates an FCoE instance based on the given \fI<ethX>\fR. It first checks the
-existence of /sys/module/fcoe/ to verify that the fcoe module is loaded. Then
-the \fI<ethX>\fR is written to /sys/module/fcoe/create.
+Creates an FCoE instance based on the given \fI<ethX>\fR.
 .TP
 \fB\-d\fR, \fB\-\-destroy\fR \fI<ethX>\fR
-Destroys an FCoE instance based on the given \fI<ethX>\fR. It first checks the
-existence of /sys/module/fcoe/ to verify that fcoe module is loaded. Then
-the \fI<ethX>\fR is written to /sys/module/fcoe/destroy.
+Destroys an FCoE instance based on the given \fI<ethX>\fR.
 .TP
 \fB\-r\fR, \fB\-\-reset\fR \fI<ethX>\fR
 Resets the fc_host associated with the FCoE interface given by \fI<ethX>\fR.

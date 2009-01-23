@@ -53,10 +53,10 @@ Build and Install The Management Tools
        /etc/init.d/fcoe
 
 
-	The /etc/fcoe is default configuration files location but this can be changed
-	by updating this in usr/doc/fcoemon.8 and CONFIG_DIR variable in
+	/etc/fcoe/ is the default configuration files location but this can be changed
+	by updating the CONFIG_DIR variable in
 
-	etc/initd/initd.suse
+	etc/initd/initd.*
 	tools/fcoemon/fcoemon.c
 	tools/fcoemon/fcoeplumb.sh
 	tools/fcoemon/Makefile

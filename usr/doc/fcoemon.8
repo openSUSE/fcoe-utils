@@ -9,14 +9,16 @@
 .P
 \fBfcoemon\fR [\fB\-f\fR | \fB\-\-foreground\fR]
 .P
-\fBfcoemon\fR [\fB\-d\fR | \fB\-\-debug\fR] [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
+\fBfcoemon\fR [\fB\-d\fR | \fB\-\-debug\fR]
+.P
+\fBfcoemon\fR [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
 .SH "DESCRIPTION"
 The \fBfcoemon\fR command is a FCoE management tool provided by the Open\-FCoE package.
 \fBfcoemon\fR is the daemon of the \fBfcoe\fR system service.  When \fBfcoemon\fR starts, it establishes a socket
 connection with the \fBDCB\fR daemon. It then sends commands to, and receives responses
 and event from the \fBDCB\fR daemon. The \fBfcoemon\fR  will process the received responses
 and events and invoke the \fBfcoeplumb\fR script to create and destroy the FCoE interfaces.
-Since the \fBfcoemon\fR depend on the existence of \fBDCB service\fR, there
+Since \fBfcoemon\fR depends on the existence of \fBDCB service\fR, there
 are settings required for \fBDCB\fR before \fBfcoemon\fR can be started. See
 the \fIDCB Settings\fR section below.
 
@@ -27,11 +29,8 @@ be started and, in this case, the fcoe service does not depend on dcbd service.
 
 .SH "OPTIONS"
 .TP
-\fB\-h | \-\-version\fR
-Show the usage message of the \fBfcoeemon\fR command.
-.TP
-\fB\-v | \-\-version\fR
-Show the version of the \fBfcoeemon\fR command.
+\fB\-h | \-v | \-\-version\fR
+Show the version of the \fBfcoemon\fR command.
 .TP
 \fB\-f | \-\-foreground\fR
 Run \fBfcoemon\fR in the foreground.
@@ -53,9 +52,7 @@ Specify the location of the \fBfcoeplumb\fR script.
 .TP
 \fBskbedit\fR \- See Documentation/networking/multiqueue.txt of linux kernel 2.6.28 or higher.
 .SH "INSTALLATION REQUIREMENTS"
-The linux kernel must be at version 2.6.27.1\-2 beta6 or higher. The DCB and FCoE kernel
-configuration options must be enabled. Both the linux kernel and iproute2 must support multiq
-and skbedit.  The DCB must be installed with version 0.9.2 and higher.
+The DCB and FCoE kernel configuration options must be enabled, these were introduced in v2.6.29. Both the linux kernel and iproute2 must support multiq and skbedit.  The DCB must be installed with version 0.9.4 and higher.
 .SH "SUPPORTED DCB EVENTS"
 In response to each supported event from the DCB daemon, the fcoemon collects the current
 settings from the DCB daemon and decide whether to delete and re-add the multiq queue discipline
@@ -176,40 +173,6 @@ This is the program used by the \fIfcoe\fR system service to create or destroy F
 .TP
 \fB/etc/fcoe/scripts/fcoeplumb\fR
 This is a script only used by the \fBfcoemon\fR daemon.
-.TP
-\fB/usr/share/man/man8/fcoemon.8.gz\fR
-This is the man page of the \fBfcoemon\fR daemon (This file).
-.TP
-\fB/usr/share/man/man8/fcoeadm.8.gz\fR
-This is the man page of the \fBfcoeadm\fR program.
-.SH "FCOE SYSTEM SERVICE"
-If the \fIfcoe\fR system service is enabled, it will be started after the
-dcb service is started when the Linux system boots up. The following are the
-sample commands at system run-time for the \fIfcoe\fR system service.
-.TP
-\fBchkconfig --list fcoe\fR
-To check if the service is enabled.
-.TP
-\fBchkconfig fcoe off\fR
-To disable the \fBfcoe\fR system service.
-.TP
-\fBchkconfig fcoe on\fR
-To enable the \fBfcoe\fR system service.
-.TP
-\fBservice fcoe stop\fR
-To stop the \fBfcoe\fR system service.
-.TP
-\fBservice fcoe start\fR
-To start the stopped \fBfcoe\fR system service.
-.TP
-\fBservice fcoe restart\fR
-To stop and then start the \fBfcoe\fR system service.
-.TP
-\fBservice fcoe status\fR
-To check the status of the \fBfcoe\fR system service.
-.TP
-\fBservice fcoe\fR
-To show the command-line options of the \fBfcoe\fR system service.
 .SH "REPORTING BUGS"
 If you have identified a defect please either file a bug or engage the
 development mailing list at <http://www.Open\-FCoE.org>.

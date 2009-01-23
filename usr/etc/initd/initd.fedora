@@ -225,7 +225,7 @@ service_start()
 	# daemon to create the FCoE interfaces for these ports.
 	#
 	if [ "$HAS_DCB_IF" = "true" ]; then
-	    daemon --pidfile ${PID_FILE} ${FCOEMON} &
+	    daemon --pidfile ${PID_FILE} ${FCOEMON}
 	fi
 
 	return

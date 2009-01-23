@@ -150,6 +150,7 @@ static int fcm_link_buf_check(size_t);
 static struct option fcm_options[] = {
 	{"debug", 0, NULL, 'd'},
 	{"exec", 1, NULL, 'e'},
+	{"foreground", 0, NULL, 'f'},
 	{"version", 0, NULL, 'v'},
 	{NULL, 0, NULL, 0}
 };
@@ -1878,10 +1879,11 @@ fcm_usage(void)
 {
 	printf("%s\n", fcoemon_version);
 	printf("Usage: %s\n"
-		"\t [-e|--exec <exec>]\n"
-		"\t [-d|--debug]\n"
-		"\t [-v|--version]\n"
-		"\t [-h|--help]\n\n", progname);
+	       "\t [-e|--exec <exec>]\n"
+	       "\t [-f|--foreground]\n"
+	       "\t [-d|--debug]\n"
+	       "\t [-v|--version]\n"
+	       "\t [-h|--help]\n\n", progname);
 	exit(1);
 }
 
@@ -1924,6 +1926,7 @@ fcm_pidfile_create(void)
 int main(int argc, char **argv)
 {
 	struct sigaction sig;
+	int fcm_fg = 0;
 	int rc;
 	int c;
 
@@ -1932,9 +1935,11 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "de:hv",
+	while ((c = getopt_long(argc, argv, "fde:hv",
 			fcm_options, NULL)) != -1) {
 		switch (c) {
+		case 'f':
+			fcm_fg = 1;
 		case 'd':
 			fcm_dcbd_debug = 1;
 			break;
@@ -1952,6 +1957,30 @@ int main(int argc, char **argv)
 	}
 	if (argc != optind)
 		fcm_usage();
+
+	if (!fcm_fg) {
+		pid_t pid, sid;
+
+		pid = fork();
+		if (pid < 0) {
+			SA_LOG("Starting daemon failed");
+			exit(EXIT_FAILURE);
+		} else if (pid) {
+			SA_LOG("fcoemon daemon started with pid=%d!", pid);
+			exit(EXIT_SUCCESS);
+		}
+
+		/* Create a new SID for the child process */
+		sid = setsid();
+		if (sid < 0)
+			exit(EXIT_FAILURE);
+	}
+
+	umask(0);
+
+	/* Change the current working directory */
+        if ((chdir("/")) < 0)
+                exit(EXIT_FAILURE);
 
 	/*
 	 * Set up for signals.

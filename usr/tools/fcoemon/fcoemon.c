@@ -2072,6 +2072,6 @@ print_errors(char *buf, int errors)
 		sprintf(msg + j, "peer feature not present");
 	}
 
-	SA_LOG_ERR(errors, "%s %s\n", buf, msg);
+	SA_LOG("%s %s\n", buf, msg);
 }
 

@@ -312,13 +312,9 @@ service_stop()
 
 service_status()
 {
+	echo -n "Checking status for fcoe service "
+	checkproc -p ${PID_FILE} ${FCOEMON}
 	rc_status -v
-	checkproc $FCOEMON
-	if [ $? -eq 0 ]; then
-		echo "$FCOEMON -- RUNNING, pid=`cat $PID_FILE`"
-	else
-		echo "$FCOEMON -- UNUSED"
-	fi
 	IF_LIST=`$FCOEADM -i 2>&1 | \
 		awk '/Interface Name:/{print $3}' | \
 		sort | awk '{printf("%s ", $1)}'`

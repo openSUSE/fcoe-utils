@@ -1054,7 +1054,7 @@ display_port_stats(struct opt_info *opt_info)
 			continue;
 		}
 
-		if (!strstr(port_attrs.PortSymbolicName, opt_info->ifname)) {
+		if (strstr(port_attrs.PortSymbolicName, opt_info->ifname)) {
 			found = 1;
 			break;
 		}

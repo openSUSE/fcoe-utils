@@ -120,38 +120,41 @@ configure_dcb_interface()
 {
 	ifname=$1
 
-	echo "Interface starting on: $ifname ($1)"
-###
-# This relies too heavily on the format of the service output
-###
-	if [ `service $DCBD status | grep -ic running` != 1 ]; then
-		MSGLINE1="Fatal: dcbd service is not runnng.\n"
-		MSGLINE2="      The dcbd service must be running because DCB is\n"
+	pidof $DCBD
+	if [ $? -ne 0 ]; then
+		MSGLINE1="Fatal: dcbd is not runnng.\n"
+		MSGLINE2="      The dcbd must be running because DCB is\n"
 		MSGLINE3="      configured as REQUIRED at Ethernet port $ifname."
 		MSG=`echo -e "$MSGLINE1$MSGLINE2$MSGLINE3"`
 		$LOGGER "$MSG"
 		return 1
 	fi
 
-	retry_count=3
+	#
+	# At this moment, the dcbd may not be ready to
+	# accept any client connections.
+	#
+	retry_count=6
 	while true
 	do
+		[ $retry_count -eq 0 ] && break
+		retry_count=$(($retry_count-1))
+		dcbtool gc $ifname dcb > /dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			usleep 500000
+			continue
+		fi
 		dcbtool sc $ifname dcb on > /dev/null 2>&1
 		dcbtool sc $ifname app:0 e:1 a:1 w:1 > /dev/null 2>&1
 		dcbtool sc $ifname ll:0 e:1 a:1 w:1 > /dev/null 2>&1
 		dcbtool sc $ifname pfc a:1 > /dev/null 2>&1
 		dcbtool sc $ifname pg a:0 > /dev/null 2>&1
-
-		if [ `dcbtool gc $ifname dcb 2>&1 | \
-			awk '/Status:/{print $2}'` = "Successful" ] &&
-		   [ `dcbtool gc $ifname dcb 2>&1 | \
-			awk '/DCB State:/{print $3}'` = "on" ]
-		then
+		STATUS=`dcbtool gc $ifname dcb 2>&1 | awk '/Status:/{print $2}'`
+		STATE=`dcbtool gc $ifname dcb 2>&1 | awk '/DCB State:/{print $3}'`
+		if [ "$STATUS" = "Successful" ] && [ "$STATE" = "on" ]; then
 			return 0
 		fi
-
-		[ $retry_count -eq 0 ] && return 0
-		retry_count=$(($retry_count-1))
+		# Not likely to reach here!
 		usleep 500000
 	done
 	$LOGGER "Warning: Failed to configure dcb at $ifname"

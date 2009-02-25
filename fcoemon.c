@@ -108,7 +108,7 @@ struct clif;			/* for dcbtool.h only */
 #define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
-#define FCM_DCBD_TIMEOUT_USEC   (30 * 1000 * 1000)	/* 30 seconds */
+#define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
 #define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
 
 /*
@@ -801,6 +801,28 @@ is_query_in_progress(void)
 }
 
 static void
+fcm_fcoe_config_reset(void)
+{
+	struct fcoe_port_config *p;
+	struct fcm_fcoe *ff;
+
+	p = fcoe_config.port;
+	while (p) {
+		if (p->fcoe_enable && p->dcb_required) {
+			ff = fcm_fcoe_lookup_name(p->ifname);
+			if (ff) {
+				fcm_dcbd_setup(ff, ADM_DESTROY);
+				ff->ff_qos_mask = fcm_def_qos_mask;
+				ff->ff_pfc_saved.u.pfcup = 0xffff;
+			}
+			if (fcm_dcbd_debug)
+				SA_LOG("Port %s config reset\n", p->ifname);
+		}
+		p = p->next;
+	}
+}
+
+static void
 fcm_dcbd_timeout(void *arg)
 {
 	if (fcm_clif->cl_ping_pending > 0) {
@@ -829,6 +851,8 @@ fcm_dcbd_disconnect(void)
 		fcm_clif->cl_local.sun_path[0] = '\0';
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */
 		fcm_clif->cl_busy = 0;
+		fcm_clif->cl_ping_pending = 0;
+		fcm_fcoe_config_reset();
 		if (fcm_dcbd_debug)
 			SA_LOG("disconnected from dcbd");
 	}
@@ -837,23 +861,10 @@ fcm_dcbd_disconnect(void)
 static void
 fcm_dcbd_shutdown(void)
 {
-	struct fcm_fcoe *ff;
-	struct fcoe_port_config *p;
-
+	if (fcm_dcbd_debug)
+		SA_LOG("Shut down dcbd connection\n");
 	fcm_dcbd_request("D");	/* DETACH_CMD */
 	fcm_dcbd_disconnect();
-
-	p = fcoe_config.port;
-	while (p) {
-		if (p->fcoe_enable && p->dcb_required) {
-			ff = fcm_fcoe_lookup_name(p->ifname);
-			if (fcm_dcbd_debug)
-				SA_LOG("Shut down %s\n", p->ifname);
-			fcm_dcbd_setup(ff, ADM_DESTROY);
-		}
-		p = p->next;
-	}
-
 	unlink(fcm_pidfile);
 	closelog();
 }
@@ -1693,9 +1704,9 @@ handle_event:
 		}
 		break;
 	default:
-ignore_event:
 		SA_LOG("%s: Unknown feature 0x%x in msg %s",
 			ff->ff_name, feature, msg);
+ignore_event:
 		break;
 	}
 }

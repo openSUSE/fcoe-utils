@@ -315,8 +315,6 @@ else
 		find_skbedit_filter $ifname
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
-			[ "$DEBUG" = "yes" ] && $LOGGER \
-				"$ifname: Filter is not found"
 			add_skbedit_filter $ifname $qdisc_id $qos_queue
 		elif [ $found_filter -ne $qos_queue ]; then
 			[ "$DEBUG" = "yes" ] && $LOGGER \
@@ -327,7 +325,6 @@ else
 				"$ifname: Filter is found and is identical"
 		fi
 	else
-		[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Qdisc is not found"
 		add_multiq_qdisc $ifname $qdisc_id
 		add_skbedit_filter $ifname $qdisc_id $qos_queue
 		delete_qdisc $ifname

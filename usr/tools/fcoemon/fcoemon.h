@@ -99,7 +99,6 @@ extern char build_date[];
 
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);
-static void fcm_dcbd_update(void);
 static void fcm_fcoe_init(void);
 #ifdef NOT_YET
 static struct fcm_fcoe *fcm_fcoe_lookup_mac(u_int64_t ff_mac, int vlan);

@@ -525,7 +525,6 @@ rest:
 			break;
 		}
 	}
-	fcm_dcbd_update();
 }
 
 /*
@@ -741,7 +740,7 @@ fcm_dcbd_init()
 	fcm_dcbd_timeout(NULL);
 }
 
-static void
+static int
 fcm_dcbd_connect(void)
 {
 	int rc;
@@ -753,7 +752,7 @@ fcm_dcbd_connect(void)
 	fd = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (fd < 0) {
 		SA_LOG_ERR(errno, "clif socket open failed");	/* XXX */
-		return;
+		return 0;
 	}
 
 	lp = &fcm_clif->cl_local;
@@ -764,7 +763,7 @@ fcm_dcbd_connect(void)
 	if (rc < 0) {
 		SA_LOG_ERR(errno, "clif bind failed");
 		close(fd);
-		return;
+		return 0;
 	}
 
 	memset(&dest, 0, sizeof(dest));
@@ -776,12 +775,13 @@ fcm_dcbd_connect(void)
 		SA_LOG_ERR(errno, "clif connect failed");
 		unlink(lp->sun_path);
 		close(fd);
-		return;
+		return 0;
 	}
 	fcm_clif->cl_fd = fd;
 	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, fcm_dcbd_ex, fcm_clif);
 	if (fcm_dcbd_debug)
 		SA_LOG("connected to dcbd");
+	return 1;
 }
 
 static int
@@ -805,8 +805,8 @@ fcm_dcbd_timeout(void *arg)
 		fcm_dcbd_disconnect();
 	}
 	if (fcm_clif->cl_fd < 0) {
-		fcm_dcbd_connect();
-		fcm_dcbd_request("A");	/* ATTACH_CMD: attach for events */
+		if (fcm_dcbd_connect())
+			fcm_dcbd_request("A");	/* ATTACH_CMD: attach for events */
 	} else {
 		if (!is_query_in_progress()) {
 			fcm_clif->cl_ping_pending++;
@@ -854,13 +854,6 @@ fcm_dcbd_shutdown(void)
 	unlink(fcm_pidfile);
 	closelog();
 }
-
-static void
-fcm_dcbd_update(void)
-{
-	fcm_dcbd_next();
-}
-
 
 static u_int32_t
 fcm_get_hex(char *cp, u_int32_t len, char **endptr)

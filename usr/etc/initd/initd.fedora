@@ -116,51 +116,6 @@ test -x $FCOEMON || {
 	fi
 }
 
-configure_dcb_interface()
-{
-	ifname=$1
-
-	pidof $DCBD
-	if [ $? -ne 0 ]; then
-		MSGLINE1="Fatal: dcbd is not runnng.\n"
-		MSGLINE2="      The dcbd must be running because DCB is\n"
-		MSGLINE3="      configured as REQUIRED at Ethernet port $ifname."
-		MSG=`echo -e "$MSGLINE1$MSGLINE2$MSGLINE3"`
-		$LOGGER "$MSG"
-		return 1
-	fi
-
-	#
-	# At this moment, the dcbd may not be ready to
-	# accept any client connections.
-	#
-	retry_count=6
-	while true
-	do
-		[ $retry_count -eq 0 ] && break
-		retry_count=$(($retry_count-1))
-		dcbtool gc $ifname dcb > /dev/null 2>&1
-		if [ $? -ne 0 ]; then
-			usleep 500000
-			continue
-		fi
-		dcbtool sc $ifname dcb on > /dev/null 2>&1
-		dcbtool sc $ifname app:0 e:1 a:1 w:1 > /dev/null 2>&1
-		dcbtool sc $ifname ll:0 e:1 a:1 w:1 > /dev/null 2>&1
-		dcbtool sc $ifname pfc a:1 > /dev/null 2>&1
-		dcbtool sc $ifname pg a:0 > /dev/null 2>&1
-		STATUS=`dcbtool gc $ifname dcb 2>&1 | awk '/Status:/{print $2}'`
-		STATE=`dcbtool gc $ifname dcb 2>&1 | awk '/DCB State:/{print $3}'`
-		if [ "$STATUS" = "Successful" ] && [ "$STATE" = "on" ]; then
-			return 0
-		fi
-		# Not likely to reach here!
-		usleep 500000
-	done
-	$LOGGER "Warning: Failed to configure dcb at $ifname"
-	return 1
-}
-
 validate_link_flow_control()
 {
 	ifname=$1
@@ -216,10 +171,7 @@ service_start()
 			# Configure the DCB for the Ethernet
 			# port if DCB is required
 			#
-			configure_dcb_interface $ifname
-			if [ $? -eq 0 ]; then
-				HAS_DCB_IF="true"
-			fi
+			HAS_DCB_IF="true"
 		fi
 	done
 

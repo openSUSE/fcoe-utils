@@ -26,6 +26,7 @@
  */
 enum fcm_dcbd_state {
    FCD_INIT = 0,        /* starting state */
+   FCD_SEND_CONF,       /* set proposed configuration */
    FCD_GET_PFC_CONFIG,  /* getting PFC configuration */
    FCD_GET_LLINK_CONFIG,/* getting LLINK configuration */
    FCD_GET_APP_CONFIG,  /* getting APP configuration */
@@ -40,6 +41,7 @@ enum fcm_dcbd_state {
 
 #define FCM_DCBD_STATES {                         \
     { "INIT",             FCD_INIT },             \
+    { "SEND_CONF",        FCD_SEND_CONF },        \
     { "GET_PFC_CONFIG",   FCD_GET_PFC_CONFIG },   \
     { "GET_LLINK_CONFIG", FCD_GET_LLINK_CONFIG }, \
     { "GET_APP_CONFIG",   FCD_GET_APP_CONFIG },   \

@@ -790,7 +790,7 @@ is_query_in_progress(void)
 	struct fcm_fcoe *ff;
 
 	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (ff->ff_dcbd_state >= FCD_GET_PFC_CONFIG &&
+		if (ff->ff_dcbd_state >= FCD_SEND_CONF &&
 		    ff->ff_dcbd_state < FCD_DONE)
 			return 1;
 	}
@@ -1364,6 +1364,16 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	}
 
 	switch (cmd) {
+	case CMD_SET_CONFIG:
+		if (ff->ff_dcbd_state == FCD_SEND_CONF) {
+			if (st != cmd_success) {
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+				break;
+			}
+			fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+		}
+		break;
+
 	case CMD_GET_CONFIG:
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_PFC_CONFIG:
@@ -1770,7 +1780,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 static void
 fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 {
-	char buf[80];
+	char buf[80], params[30];
 	struct fcoe_port_config *p;
 
 	ASSERT(ff);
@@ -1793,8 +1803,19 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
+		fcm_dcbd_state_set(ff, FCD_SEND_CONF);
+		/* Fall through */
+	case FCD_SEND_CONF:
 		fcm_fcoe_get_dcb_settings(ff);
-		fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+		snprintf(params, sizeof(params), "%x1%x02%2.2x",
+			 ff->ff_app_info.enable,
+			 ff->ff_app_info.willing,
+			 ff->ff_qos_mask);
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+			DCB_CMD, CLIF_RSP_VERSION,
+			CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
+			(u_int) strlen(ff->ff_name), ff->ff_name, params);
+		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",

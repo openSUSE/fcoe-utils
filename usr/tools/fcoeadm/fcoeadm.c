@@ -415,8 +415,11 @@ fcoeadm_display_port_stats(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
 
-	if (!opt_info->s_flag || !opt_info->n_flag)
+	if (!opt_info->s_flag)
 		return -EINVAL;
+
+	if (!opt_info->n_flag)
+		opt_info->n_interval = DEFAULT_STATS_INTERVAL;
 
 	retval = HBA_LoadLibrary();
 	if (retval != HBA_STATUS_OK) {
@@ -430,114 +433,146 @@ fcoeadm_display_port_stats(struct opt_info *opt_info)
 	return 0;
 }
 
+#define MAX_ARG_LEN 32
+
 int main(int argc, char *argv[])
 {
-	char fchost[FCHOSTBUFLEN];
+	char fchost[FCHOSTBUFLEN], *s;
 	int opt, rc = -1;
-
-	if (argc <= 1) {
-		fcoeadm_help();
-		exit(-EINVAL);
-	}
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
 
-	while ((opt = getopt_long(argc, argv, "c:d:r:itls:n:hv",
+	while ((opt = getopt_long(argc, argv, "c:d:r:itl:s:n:hv",
 				  fcoeadm_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'c':
+			if ((argc < 2 || argc > 3) ||
+			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+				goto error;
 			rc = fcoeadm_create(optarg);
 			goto done;
 		case 'd':
+			if ((argc < 2 || argc > 3) ||
+			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+				goto error;
 			rc = fcoeadm_destroy(optarg);
 			goto done;
 		case 'r':
+			if ((argc < 2 || argc > 3) ||
+			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+				goto error;
 			rc = fcoeadm_reset(optarg);
 			goto done;
 		case 'i':
-			if (argc > 3)
+			if (argc < 2 || argc > 3)
 				goto error;
-			opt_info->a_flag = 1;
-			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost,
-							       FCHOSTBUFLEN))
+			s = NULL;
+			if (argc == 2 && argv[optind]) {
+				if (strnlen(argv[optind], MAX_ARG_LEN) >
+						(IFNAMSIZ - 1))
 					goto error;
-				strncpy(opt_info->ifname, argv[2],
-					sizeof(opt_info->ifname));
+				if (strnlen(argv[optind], MAX_ARG_LEN) > 2)
+					s = argv[optind] + 2;
 			}
+			if (argc == 3) {
+				if ((optind == 1) &&
+				    strnlen(argv[1], MAX_ARG_LEN) > 2)
+					goto error;
+				s = argv[optind];
+			}
+			if (s)
+				strncpy(opt_info->ifname, s,
+					sizeof(opt_info->ifname));
+			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
+				if (fcoeadm_validate_interface(
+					opt_info->ifname,
+					fchost, FCHOSTBUFLEN))
+				goto error;
+			}
+			opt_info->a_flag = 1;
 			rc = fcoeadm_display_adapter_info(opt_info);
 			goto done;
 		case 't':
-			if (argc > 3)
+			if ((argc < 2 || argc > 3) ||
+			    (argv[1] &&
+			     strnlen(argv[1], MAX_ARG_LEN) > (IFNAMSIZ - 1)) ||
+			    (argv[2] &&
+			     strnlen(argv[2], MAX_ARG_LEN) > (IFNAMSIZ - 1)))
 				goto error;
-			opt_info->t_flag = 1;
-			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost,
-							       FCHOSTBUFLEN))
+			if (strnlen(argv[1], MAX_ARG_LEN) > 2) {
+				if (argc >= 3)
 					goto error;
-				strncpy(opt_info->ifname, argv[2],
+				strncpy(opt_info->ifname, argv[1] + 2,
 					sizeof(opt_info->ifname));
 			}
+			if (argv[2])
+				strncpy(opt_info->ifname, argv[2],
+					sizeof(opt_info->ifname));
+			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
+				if (fcoeadm_validate_interface(
+					opt_info->ifname,
+					fchost, FCHOSTBUFLEN))
+				goto error;
+			}
+			opt_info->t_flag = 1;
 			rc = fcoeadm_display_target_info(opt_info);
 			goto done;
 		case 'l':
-			opt_info->l_flag = 1;
-			if (argv[2]) {
-				/* ethX not specified, signal error */
-				if (strstr(argv[2], "eth"))
-					goto error;
-
-				/*
-				 * ethX not specified, fcid
-				 * must be specified.
-				 */
-				rc = parse_fcid(&opt_info->l_fcid, argv[2]);
-				if (rc)
+			if (argc < 2 || argc > 4)
+				goto error;
+			if (optarg) {
+				if (parse_fcid(&opt_info->l_fcid, optarg))
 					goto error;
 				opt_info->l_fcid_present = 1;
-
-				/*
-				 * If LUN ID is specified, pick it up.
-				 */
-				if (argv[3]) {
-					opt_info->l_lun_id = atoi(argv[3]);
+				if (argv[optind]) {
+					opt_info->l_lun_id = atoi(argv[optind]);
 					opt_info->l_lun_id_present = 1;
 				}
 			}
+			opt_info->l_flag = 1;
 			rc = fcoeadm_display_target_info(opt_info);
 			goto done;
 		case 's':
-			if (argc > 5)
+			if ((argc < 2 || argc > 5) ||
+			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1))
 				goto error;
-			opt_info->s_flag = 1;
-			opt_info->n_interval = DEFAULT_STATS_INTERVAL;
-			if (argv[2]) {
-				if (fcoeadm_validate_interface(argv[2], fchost,
-							       FCHOSTBUFLEN))
-					goto error;
-				strncpy(opt_info->ifname, argv[2],
+			if (optarg)
+				strncpy(opt_info->ifname, optarg,
 					sizeof(opt_info->ifname));
-				if (argc == 3) {
-					opt_info->n_flag = 1;
-					goto stats;
-				}
-				break;
-			}
-			goto error;
-		case 'n':
-			opt_info->n_flag = 1;
-			opt_info->n_interval = atoi(optarg);
-			if (!opt_info->n_interval)
+			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
+				if (fcoeadm_validate_interface(
+					opt_info->ifname,
+					fchost, FCHOSTBUFLEN))
 				goto error;
+			}
+			opt_info->s_flag = 1;
+			if (argv[optind] && !strncmp(argv[optind], "-n", 2))
+				break;
+			goto stats;
+		case 'n':
 			if (!opt_info->s_flag)
 				goto error;
+			opt_info->n_interval = atoi(optarg);
+			if (opt_info->n_interval <= 0)
+				goto error;
+			if (argv[optind] &&
+			    strnlen(argv[optind], MAX_ARG_LEN<<1) > MAX_ARG_LEN)
+				goto error;
+			opt_info->n_flag = 1;
 			goto stats;
 		case 'v':
+			if (argc != 2)
+				goto error;
 			printf("%s\n", fcoeadm_version);
 			goto done;
 		case 'h':
 		default:
+			if (argc != 2)
+				goto error;
 			fcoeadm_help();
 			exit(-EINVAL);
 		}

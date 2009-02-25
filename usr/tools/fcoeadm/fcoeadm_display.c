@@ -964,12 +964,12 @@ scan_device_map(HBA_HANDLE hba_handle,
 }
 
 static void
-show_port_stats_header(char *ifname)
+show_port_stats_header(struct opt_info *opt_info)
 {
 	printf("\n");
-	printf("%-7s                                                 Err  Inv  "
+	printf("%-7s interval: %-2d                                    Err  Inv  "
 		"IvTx Link Cntl Input     Input     Output    Output\n",
-		 ifname);
+		 opt_info->ifname, opt_info->n_interval);
 	printf("Seconds TxFrames  TxBytes      RxFrames  RxBytes        "
 		"Frms CRC  Byte Fail Reqs Requests  MBytes    "
 		"Requests  MBytes\n");
@@ -1105,7 +1105,7 @@ display_port_stats(struct opt_info *opt_info)
 			break;
 		}
 		if (!(i % 52))
-			show_port_stats_header(opt_info->ifname);
+			show_port_stats_header(opt_info);
 		show_port_stats_in_row(start_time, &port_stats, &port_fc4stats);
 		i++;
 

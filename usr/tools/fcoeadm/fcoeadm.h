@@ -42,14 +42,17 @@
 #include <scsi/sg.h>
 #include <getopt.h>
 #include <byteswap.h>
+#include <net/if.h>
 
 #include "hbaapi.h"
 #include "net_types.h"
 #include "fc_types.h"
 #include "fc_scsi.h"
 
+#define FCOE_MAX_LUN	255
+
 struct opt_info {
-	char ifname[20];
+	char ifname[IFNAMSIZ];
 	char a_flag;
 	char t_flag;
 	char l_flag;

@@ -110,6 +110,8 @@ struct clif;			/* for dcbtool.h only */
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
 #define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
 #define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
+#define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
+#define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
 /*
  * Interact with DCB daemon.
@@ -928,7 +930,7 @@ fcm_dcbd_rx(void *arg)
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
-		if (fcm_dcbd_debug)
+		if (fcm_dcbd_debug && len > FCM_PING_RSP_LEN)
 			SA_LOG("received len %d buf '%s'", len, buf);
 
 		switch (buf[CLIF_RSP_MSG_OFF]) {
@@ -1007,7 +1009,7 @@ fcm_dcbd_request(char *req)
 		return;
 	}
 
-	if (fcm_dcbd_debug)
+	if (fcm_dcbd_debug && rc > FCM_PING_REQ_LEN)
 		SA_LOG("sent '%s', rc=%d bytes succeeded", req, rc);
 	return;
 }
@@ -1167,18 +1169,20 @@ static int
 validating_app_pfc(struct fcm_fcoe *ff)
 {
 	if (fcm_dcbd_debug) {
+		SA_LOG("\tff_app_info.op_mode=%d\n",
+			ff->ff_app_info.op_mode);
 		SA_LOG("\tff_app_info.enable=%d\n",
 			ff->ff_app_info.enable);
 		SA_LOG("\tff_app_info.willing=%d\n",
-			ff->ff_app_info.op_mode);
-		SA_LOG("\tff_app_info.willing=%d\n",
-			ff->ff_app_info.op_mode);
+			ff->ff_app_info.willing);
+		SA_LOG("\tff_app_info.advertise=%d\n",
+			ff->ff_app_info.advertise);
+		SA_LOG("\tff_app_info.u.appcfg=0x%02x\n",
+			ff->ff_app_info.u.appcfg);
 		SA_LOG("\tff_pfc_info.op_mode=%d\n",
 			ff->ff_pfc_info.op_mode);
 		SA_LOG("\tff_pfc_info.u.pfcup=0x%02x\n",
 			ff->ff_pfc_info.u.pfcup);
-		SA_LOG("\tff_app_info.u.appcfg=0x%02x\n",
-			ff->ff_app_info.u.appcfg);
 	}
 
 	if (!ff->ff_app_info.willing ||
@@ -1435,10 +1439,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		}
 		if (val != 0) {
 			if (fcm_dcbd_debug) {
-				SA_LOG("resp:%s\n", orig_resp);
+				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
 				print_errors("", val);
 			}
-			/* fcm_dcbd_setup(ff, 0); */
+			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
 		}
@@ -1566,10 +1570,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		}
 		if (val != 0) {
 			if (fcm_dcbd_debug) {
-				SA_LOG("resp:%s\n", orig_resp);
+				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
 				print_errors("", val);
 			}
-			/* fcm_dcbd_setup(ff, ADM_DESTROY); */
+			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
 		}
@@ -1999,10 +2003,8 @@ int main(int argc, char **argv)
 		if (pid < 0) {
 			SA_LOG("Starting daemon failed");
 			exit(EXIT_FAILURE);
-		} else if (pid) {
-			SA_LOG("fcoemon daemon started with pid=%d!", pid);
+		} else if (pid)
 			exit(EXIT_SUCCESS);
-		}
 
 		/* Create a new SID for the child process */
 		sid = setsid();

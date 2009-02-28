@@ -18,19 +18,20 @@ else
 
 MAKE = make
 
+TOOLS = fcoeadm fcoemon
 default: all
 
 all:
-	@$(foreach i, $(wildcard tools/*), $(MAKE) -C $(i) ; )
+	@$(foreach i, $(TOOLS), $(MAKE) -f Makefile.$(i) ; )
 
 clean:
-	@$(foreach i, $(wildcard tools/*), $(MAKE) -C $(i) clean ; )
+	@$(foreach i, $(TOOLS), $(MAKE) -f Makefile.$(i) clean ; )
 
 install:
-	@$(foreach i, $(wildcard tools/*), $(MAKE) -C $(i) install ; )
+	@$(foreach i, $(TOOLS), $(MAKE) -f Makefile.$(i) install ; )
 
 uninstall:
-	@$(foreach i, $(wildcard tools/*), $(MAKE) -C $(i) uninstall ; )
+	@$(foreach i, $(TOOLS), $(MAKE) -f Makefile.$(i) uninstall ; )
 
 endif
 endif

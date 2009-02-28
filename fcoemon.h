@@ -26,6 +26,7 @@
  */
 enum fcm_dcbd_state {
    FCD_INIT = 0,        /* starting state */
+   FCD_GET_DCB_STATE,   /* getting DCB state */
    FCD_SEND_CONF,       /* set proposed configuration */
    FCD_GET_PFC_CONFIG,  /* getting PFC configuration */
    FCD_GET_LLINK_CONFIG,/* getting LLINK configuration */
@@ -41,6 +42,7 @@ enum fcm_dcbd_state {
 
 #define FCM_DCBD_STATES {                         \
     { "INIT",             FCD_INIT },             \
+    { "GET_DCB_STATE",    FCD_GET_DCB_STATE },    \
     { "SEND_CONF",        FCD_SEND_CONF },        \
     { "GET_PFC_CONFIG",   FCD_GET_PFC_CONFIG },   \
     { "GET_LLINK_CONFIG", FCD_GET_LLINK_CONFIG }, \
@@ -49,7 +51,7 @@ enum fcm_dcbd_state {
     { "GET_LLINK_OPER",   FCD_GET_LLINK_OPER },   \
     { "GET_LLINK_PEER",   FCD_GET_LLINK_PEER },   \
     { "GET_APP_OPER",     FCD_GET_APP_OPER },     \
-    { "GET_PEER",         FCD_GET_PEER },   \
+    { "GET_PEER",         FCD_GET_PEER },         \
     { "DONE",             FCD_DONE },             \
     { "ERROR",            FCD_ERROR },            \
     { NULL,               0 }                     \
@@ -79,6 +81,7 @@ struct fcm_fcoe {
    u_int32_t             ff_flags;         /* kernel interface flags */
    u_int32_t             ff_last_flags;    /* previously known flags */
    u_int32_t             ff_enabled:1;     /* operational status */
+   u_int32_t             ff_dcb_state;     /* DCB feature state */
    struct feature_info   ff_pfc_info;      /* PFC feature info */
    struct feature_info   ff_pfc_saved;     /* saved PFC feature info */
    struct feature_info   ff_app_info;      /* App feature info */

@@ -795,7 +795,7 @@ is_query_in_progress(void)
 	struct fcm_fcoe *ff;
 
 	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (ff->ff_dcbd_state >= FCD_SEND_CONF &&
+		if (ff->ff_dcbd_state >= FCD_GET_DCB_STATE &&
 		    ff->ff_dcbd_state < FCD_DONE)
 			return 1;
 	}
@@ -833,7 +833,7 @@ fcm_dcbd_timeout(void *arg)
 	}
 	if (fcm_clif->cl_fd < 0) {
 		if (fcm_dcbd_connect())
-			fcm_dcbd_request("A");	/* ATTACH_CMD: attach for events */
+			fcm_dcbd_request("A");	/* ATTACH_CMD: for events */
 	} else {
 		if (!is_query_in_progress()) {
 			fcm_clif->cl_ping_pending++;
@@ -1075,30 +1075,44 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	struct feature_info *f_info;
 	char buf[20];
 
-	if (st != cmd_success)
+	if (st != cmd_success)	/* log msg already issued */
 		return -1;
 
 	feature = hex2int(rsp+DCB_FEATURE_OFF);
-	if (feature != FEATURE_PFC &&
+	if (feature != FEATURE_DCB &&
+	    feature != FEATURE_PFC &&
 	    feature != FEATURE_APP &&
-	    feature != FEATURE_LLINK)
+	    feature != FEATURE_LLINK) {
+		SA_LOG("WARNING: Unexpected DCB feature %d\n", feature);
 		return -1;
+	}
 
 	dcb_cmd = hex2int(rsp+DCB_CMD_OFF);
 	if (dcb_cmd != CMD_GET_CONFIG &&
 	    dcb_cmd != CMD_GET_OPER &&
-	    dcb_cmd != CMD_GET_PEER)
+	    dcb_cmd != CMD_GET_PEER) {
+		SA_LOG("WARNING: Unexpected DCB cmd %d\n", dcb_cmd);
 		return -1;
+	}
 
 	version = rsp[DCB_VER_OFF] & 0x0f;
-	if (version != CLIF_MSG_VERSION)
+	if (version != CLIF_MSG_VERSION) {
+		SA_LOG("WARNING: Unexpected rsp version %d\n", version);
 		return -1;
+	}
 
 	subtype = hex2int(rsp+DCB_SUBTYPE_OFF);
 	plen = hex2int(rsp+DCB_PORTLEN_OFF);
 	doff = DCB_PORT_OFF + plen;
 
 	switch (feature) {
+	case FEATURE_DCB:
+		ff->ff_dcb_state = (*(rsp+doff+CFG_ENABLE) == '1');
+		if (!ff->ff_dcb_state) {
+			SA_LOG("WARNING: DCB state is off\n");
+			return -1;
+		}
+		return 0;
 	case FEATURE_PFC:
 		f_info = &ff->ff_pfc_info;
 		break;
@@ -1152,7 +1166,7 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 }
 
 /*
- * validating_app_pfc - Validating App:FCoE and PFC requirements
+ * validating_dcb_app_pfc - Validating App:FCoE and PFC requirements
  *
  * DCB is configured correctly when
  * 1) The local configuration of the App:FCoE feature is
@@ -1161,45 +1175,55 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
  * 3) PFC feasture is in Opertional Mode = TRUE,
  * 4) The priority indicated by the App:FCoE Operational Configuration
  *    is also enabled in the PFC Operational Configuration.
+ * 5) DCB State is on.
  *
  * Returns:  1 if succeeded
  *           0 if failed
  */
 static int
-validating_app_pfc(struct fcm_fcoe *ff)
+validating_dcb_app_pfc(struct fcm_fcoe *ff)
 {
-	if (fcm_dcbd_debug) {
-		SA_LOG("\tff_app_info.op_mode=%d\n",
-			ff->ff_app_info.op_mode);
-		SA_LOG("\tff_app_info.enable=%d\n",
-			ff->ff_app_info.enable);
-		SA_LOG("\tff_app_info.willing=%d\n",
-			ff->ff_app_info.willing);
-		SA_LOG("\tff_app_info.advertise=%d\n",
-			ff->ff_app_info.advertise);
-		SA_LOG("\tff_app_info.u.appcfg=0x%02x\n",
-			ff->ff_app_info.u.appcfg);
-		SA_LOG("\tff_pfc_info.op_mode=%d\n",
-			ff->ff_pfc_info.op_mode);
-		SA_LOG("\tff_pfc_info.u.pfcup=0x%02x\n",
+	int error = 0;
+
+	if (!ff->ff_dcb_state) {
+		SA_LOG("WARNING: DCB state is off\n");
+		error++;
+	}
+	if (!ff->ff_app_info.willing) {
+		SA_LOG("WARNING: APP:0 willing mode is false\n");
+		error++;
+	}
+	if (!ff->ff_app_info.advertise) {
+		SA_LOG("WARNING: APP:0 advertise mode is false\n");
+		error++;
+	}
+	if (!ff->ff_app_info.enable) {
+		SA_LOG("WARNING: APP:0 enable mode is false\n");
+		error++;
+	}
+	if (!ff->ff_app_info.op_mode) {
+		SA_LOG("WARNING: APP:0 operational mode is false\n");
+		error++;
+	}
+	if (!ff->ff_pfc_info.op_mode) {
+		SA_LOG("WARNING: PFC operational mode is false\n");
+		error++;
+	}
+	if ((ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) \
+		!= ff->ff_app_info.u.appcfg) {
+		SA_LOG("WARNING: APP:0 priority (0x%02x) doesn't "
+			"match PFC priority (0x%02x)\n",
+			ff->ff_app_info.u.appcfg,
 			ff->ff_pfc_info.u.pfcup);
+		error++;
 	}
-
-	if (!ff->ff_app_info.willing ||
-	    !ff->ff_app_info.advertise ||
-	    !ff->ff_app_info.enable)
-		return 0;
-
-	if ((!ff->ff_app_info.op_mode || \
-	     !ff->ff_pfc_info.op_mode) || \
-	     ((ff->ff_pfc_info.u.pfcup & \
-	    ff->ff_app_info.u.appcfg) != ff->ff_app_info.u.appcfg)) {
-		SA_LOG("DCB is not configured correctly\n");
+	if (error) {
+		SA_LOG("WARNING: DCB is configured incorrectly\n");
 		return 0;
 	}
-
 	if (fcm_dcbd_debug)
 		SA_LOG("DCB is configured correctly\n");
+
 	return 1;
 }
 
@@ -1218,39 +1242,41 @@ validating_app_pfc(struct fcm_fcoe *ff)
 static int
 validating_llink_tlv(struct fcm_fcoe *ff)
 {
-	if (fcm_dcbd_debug) {
-		SA_LOG("\tff_llink_info.enable=%d\n",
-			ff->ff_llink_info.enable);
-		SA_LOG("\tff_llink_info.advertise=%d\n",
-			ff->ff_llink_info.advertise);
-		SA_LOG("\tff_llink_info.willing=%d\n",
-			ff->ff_llink_info.willing);
-		SA_LOG("\tff_llink_info.op_mode=%d\n",
-			ff->ff_llink_info.op_mode);
-		SA_LOG("\tff_llink_status=%d\n",
-			ff->ff_llink_status);
-	}
+	int error = 0;
 
-	if ((!ff->ff_llink_info.enable  ||
-	     !ff->ff_llink_info.advertise ||
-	     !ff->ff_llink_info.willing) ||
-	     (!ff->ff_llink_info.op_mode)) {
-		SA_LOG("FCoE Logical Link is not configured correctly\n");
+	if (!ff->ff_llink_info.enable) {
+		SA_LOG("WARNING: LLINK:0 enable mode is false\n");
+		error++;
+	}
+	if (!ff->ff_llink_info.advertise) {
+		SA_LOG("WARNING: LLINK:0 advertise mode is false\n");
+		error++;
+	}
+	if (!ff->ff_llink_info.willing) {
+		SA_LOG("WARNING: LLINK:0 willing mode is false\n");
+		error++;
+	}
+	if (!ff->ff_llink_info.op_mode) {
+		SA_LOG("WARNING: LLINK:0 operational mode is false\n");
+		error++;
+	}
+	if (error) {
+		SA_LOG("WARNING: FCoE LLINK is configured incorrectly\n");
 		return 0;
 	}
 	if (fcm_dcbd_debug)
-		SA_LOG("FCoE Logical Link is configured correctly\n");
+		SA_LOG("FCoE LLINK is configured correctly\n");
 
 	/*
 	 * At this point, this should be the link status
 	 * reported by the switch.
 	 */
 	if (!ff->ff_llink_status) {
-		SA_LOG("Switch Reports FCoE Logical Link is DOWN\n");
+		SA_LOG("WARNING: Switch reports FCoE LLINK is DOWN\n");
 		return 0;
 	}
 	if (fcm_dcbd_debug)
-		SA_LOG("Switch Reports FCoE Logical Link is up\n");
+		SA_LOG("Switch reports FCoE LLINK is UP\n");
 
 	return 1;
 }
@@ -1266,7 +1292,7 @@ validating_dcbd_info(struct fcm_fcoe *ff)
 {
 	int rc;
 
-	rc = validating_app_pfc(ff);
+	rc = validating_dcb_app_pfc(ff);
 	if (!rc)
 		return rc;
 	rc = validating_llink_tlv(ff);
@@ -1312,6 +1338,7 @@ update_saved_pfcup(struct fcm_fcoe *ff)
 static void
 clear_dcbd_info(struct fcm_fcoe *ff)
 {
+	ff->ff_dcb_state = 0;
 	ff->ff_app_info.advertise = 0;
 	ff->ff_app_info.enable = 0;
 	ff->ff_app_info.op_mode = 0;
@@ -1394,13 +1421,27 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 
 	case CMD_GET_CONFIG:
 		switch (ff->ff_dcbd_state) {
+		case FCD_GET_DCB_STATE:
+			if (st != cmd_success) {
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+				break;
+			}
+			rc = dcb_rsp_parser(ff, resp, st);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_SEND_CONF);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+			break;
 		case FCD_GET_PFC_CONFIG:
 			if (st != cmd_success) {
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 				break;
 			}
 			rc = dcb_rsp_parser(ff, resp, st);
-			fcm_dcbd_state_set(ff, FCD_GET_LLINK_CONFIG);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_GET_LLINK_CONFIG);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_LLINK_CONFIG:
 			if (st != cmd_success) {
@@ -1408,7 +1449,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				break;
 			}
 			rc = dcb_rsp_parser(ff, resp, st);
-			fcm_dcbd_state_set(ff, FCD_GET_APP_CONFIG);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_GET_APP_CONFIG);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_APP_CONFIG:
 			if (st != cmd_success) {
@@ -1416,7 +1460,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				break;
 			}
 			rc = dcb_rsp_parser(ff, resp, st);
-			fcm_dcbd_state_set(ff, FCD_GET_PFC_OPER);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_GET_PFC_OPER);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		default:
 			fcm_dcbd_state_set(ff, FCD_ERROR);
@@ -1463,7 +1510,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			}
 			ff->ff_pfc_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
-			fcm_dcbd_state_set(ff, FCD_GET_LLINK_OPER);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_GET_LLINK_OPER);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_LLINK_OPER:
 			if (fcm_dcbd_debug) {
@@ -1476,7 +1526,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			}
 			ff->ff_llink_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
-			fcm_dcbd_state_set(ff, FCD_GET_LLINK_PEER);
+			if (!rc)
+				fcm_dcbd_state_set(ff, FCD_GET_LLINK_PEER);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_APP_OPER:
 			if (fcm_dcbd_debug) {
@@ -1489,6 +1542,10 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 					"on" : "off ");
 			}
 			rc = dcb_rsp_parser(ff, resp, st);
+			if (rc) {
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+				break;
+			}
 
 			parm_len = fcm_get_hex(cp + OPER_LEN, 2, &ep);
 			cp += OPER_LEN + 2;
@@ -1584,12 +1641,16 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_LLINK_PEER:
 			rc = dcb_rsp_parser(ff, resp, st);
-			if (fcm_dcbd_debug) {
-				SA_LOG("%s Peer LLINK link status is %s",
-				       ff->ff_name,
-				       ff->ff_llink_status ? "up" : "down");
-			}
-			fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
+			if (!rc) {
+				if (fcm_dcbd_debug) {
+					SA_LOG("%s Peer LLINK link status"
+						" is %s", ff->ff_name,
+						ff->ff_llink_status ?
+						"up" : "down");
+				}
+				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
+			} else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		default:
 			fcm_dcbd_state_set(ff, FCD_ERROR);
@@ -1617,7 +1678,7 @@ fcm_event_timeout(void *arg)
 		fcm_clif->cl_ping_pending++;
 		fcm_dcbd_request("P");
 	}
-	fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+	fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 }
 
 /*
@@ -1821,10 +1882,17 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
-		fcm_dcbd_state_set(ff, FCD_SEND_CONF);
+		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 		/* Fall through */
-	case FCD_SEND_CONF:
+	case FCD_GET_DCB_STATE:
 		fcm_fcoe_get_dcb_settings(ff);
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
+			DCB_CMD, CLIF_RSP_VERSION,
+			CMD_GET_CONFIG, FEATURE_DCB, 0,
+			(u_int) strlen(ff->ff_name), ff->ff_name);
+		fcm_dcbd_request(buf);
+		break;
+	case FCD_SEND_CONF:
 		snprintf(params, sizeof(params), "%x1%x02%2.2x",
 			 ff->ff_app_info.enable,
 			 ff->ff_app_info.willing,
@@ -2015,8 +2083,8 @@ int main(int argc, char **argv)
 	umask(0);
 
 	/* Change the current working directory */
-        if ((chdir("/")) < 0)
-                exit(EXIT_FAILURE);
+	if ((chdir("/")) < 0)
+		exit(EXIT_FAILURE);
 
 	/*
 	 * Set up for signals.

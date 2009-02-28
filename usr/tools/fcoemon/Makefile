@@ -60,8 +60,8 @@ MANPAGES = fcoemon.8
 CFLAGS += -fPIC -O0 -g -Wall -Werror
 CFLAGS += -D$(OSNAME) -D_GNU_SOURCE
 CFLAGS += -I.
-CFLAGS += -I$(LIBHBALINUX)/include
-CFLAGS += -I$(DCB_SRC)/include
+CFLAGS += -I/usr/local/include/libhbalinux
+CFLAGS += -I//usr/local/include/dcbd
 
 ifeq ($(shell uname -i),x86_64)
 	CFLAGS += -m64
@@ -77,13 +77,13 @@ default: all
 all: $(PROGRAMS)
 
 clean:
-	@$(RM) -f *.o version.* $(PROGRAMS) > /dev/null 2>&1
+	@$(RM) -f *.o $(PROGRAMS) > /dev/null 2>&1
 
 .c.o:
 	@echo '       CC PIC' $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-fcoemon: version.o fcoemon_utils.o fcoemon.o
+fcoemon: fcoemon_utils.o fcoemon.o
 	@echo '       LINK' $@
 	@$(LD) -o $@ $(LDFLAGS) -lrt $^
 
@@ -142,15 +142,6 @@ uninstall_config:
 uninstall_doc:
 	@$(if $(MANPAGES), $(foreach i, $(MANPAGES), \
 		$(RM) -vf $(MANDIR)/man8/$(i).gz ; ))
-
-version.c: FORCE
-	@$(if $(DCB_SRC),, $(error Error! DCB_SRC is not defined. \
-		Please read the INSTALL file.))
-	@$(if $(LIBHBALINUX),, $(error Error! LIBHBALINUX is not defined. \
-		Please read the INSTALL file.))
-	@echo '       BUILD $(@F)'
-	@$(RM) -f $@
-	@echo char build_date[] = '"'$(shell date)'";' > $@
 
 .PHONY: FORCE
 

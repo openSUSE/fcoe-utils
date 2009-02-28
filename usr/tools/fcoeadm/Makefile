@@ -41,8 +41,7 @@ MANPAGES = fcoeadm.8
 CFLAGS += -fPIC -O0 -g -Wall -Werror
 CFLAGS += -D$(OSNAME) -D_GNU_SOURCE
 CFLAGS += -I.
-CFLAGS += -I$(LIBHBALINUX)/include
-CFLAGS += -I$(LIBHBALINUX)/hbaapi_src_2.2
+CFLAGS += -I/usr/local/include/libhbalinux
 
 ifeq ($(shell uname -i),x86_64)
 	CFLAGS += -m64
@@ -58,13 +57,13 @@ default: all
 all: $(PROGRAMS)
 
 clean:
-	@$(RM) -f *.o version.* $(PROGRAMS) > /dev/null 2>&1
+	@$(RM) -f *.o $(PROGRAMS) > /dev/null 2>&1
 
 .c.o:
 	@echo '       CC PIC' $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-fcoeadm: version.o fcoeadm_display.o fcoeadm.o
+fcoeadm: fcoeadm_display.o fcoeadm.o
 	@echo '       LINK' $@
 	@$(LD) -o $@ $(LDFLAGS) -ldl -lHBAAPI $^
 
@@ -84,13 +83,6 @@ uninstall:
 		$(RM) -vf $(DESTDIR)$(SBINDIR)/$(i) ; ))
 	@$(if $(MANPAGES), $(foreach i, $(MANPAGES), \
 		$(RM) -vf $(DESTDIR)$(MANDIR)/man8/$(i).gz ; ))
-
-version.c: FORCE
-	@$(if $(LIBHBALINUX),, $(error Error! LIBHBALINUX is not defined,\
-		Please read the INSTALL file.))
-	@echo '       BUILD $(@F)'
-	@$(RM) -f $@
-	@echo char build_date[] = '"'$(shell date)'";' > $@
 
 .PHONY: FORCE
 

@@ -52,5 +52,5 @@ etc/initd/fcoe:
 init_ddir = ${sysconfdir}/init.d
 init_d_SCRIPTS = etc/initd/fcoe
 
-dist_noinst_DATA = README COPYING INSTALL
+dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec
 

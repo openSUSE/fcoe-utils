@@ -1,0 +1,70 @@
+Name:           fcoe-utils
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        Fibre Channel over Ethernet utilities
+
+Group:          Applications/System
+License:        GPLv2
+URL:            http://www.open-fcoe.org
+Source0:        http://www.open-fcoe.org/openfc/%{name}-%{version}.tar.gz
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires:  libHBAAPI-devel dcbd-devel
+Requires:       dcbd
+Requires(post):   chkconfig
+Requires(preun):  chkconfig initscripts
+Requires(postun): initscripts
+
+%description
+Fibre Channel over Ethernet utilities
+fcoeadm - command line tool for configuring FCoE interfaces
+fcoemon - service to configure DCB Ethernet QOS filters, works with dcbd
+
+%prep
+%setup -q
+
+
+%build
+%configure
+make %{?_smp_mflags}
+
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+%post
+/sbin/chkconfig --add fcoe
+
+%preun
+if [ $1 = 0 ]; then
+        /sbin/service fcoe stop
+        /sbin/chkconfig --del fcoe
+fi
+
+%postun
+if [ $1 = 1 ]; then
+        /sbin/service fcoe condrestart
+fi
+
+
+%files
+%defattr(-,root,root,-)
+%doc README
+%doc COPYING
+%{_sbindir}/*
+%{_mandir}/man8/*
+%{_sysconfdir}/fcoe
+%config(noreplace) %{_sysconfdir}/fcoe/config
+%{_sysconfdir}/init.d/fcoe
+
+
+%changelog
+* Wed Feb 25 2009 Chris Leech <christopher.leech@intel.com> - 1.0.6-1
+- initial rpm build of fcoe tools
+

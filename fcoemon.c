@@ -58,7 +58,10 @@ Copyright (c) 2009, Intel Corporation.\n\
 /*
  * Defines for FCoE config file.
  */
-#define CONFIG_DIR                  "/etc/fcoe"
+#ifndef SYSCONFDIR
+#define SYSCONFDIR                  "/etc"
+#endif
+#define CONFIG_DIR                  SYSCONFDIR "/fcoe"
 #define CONFIG_MIN_VAL_LEN          (1 + 2)
 #define CONFIG_MAX_VAL_LEN          (20 + 2)
 #define DCB_APP_0_DEFAULT_ENABLE    1

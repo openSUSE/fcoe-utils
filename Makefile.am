@@ -4,6 +4,9 @@ sbin_PROGRAMS = fcoeadm fcoemon
 ## all targets should look for headers in the include directory
 AM_CPPFLAGS = -Iinclude
 
+## pass the sysconfdir into the C proprocessor
+AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
+
 ## rules for building fcoeadm
 ## only listed sources get packaged, so must list all headers too
 fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h \
@@ -28,7 +31,7 @@ dist_fcoe_config_DATA = etc/config etc/cfg-ethx
 
 ## install fcoeplumb script in $(prefix)/etc/fcoe/scripts
 fcoe_scriptsdir = ${sysconfdir}/fcoe/scripts
-dist_fcoe_scripts_SCRIPTS = fcoeplumb.sh
+fcoe_scripts_SCRIPTS = fcoeplumb.sh
 
 ## man pages for fcoeadm and fcoemon
 dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8
@@ -46,8 +49,8 @@ etc/initd/fcoe:
 		ln -s initd.fcoe $@; \
 	fi
 
-init_ddir = ${sysconfdir}/etc/init.d
-init_d_SCRIPTS= etc/initd/fcoe
+init_ddir = ${sysconfdir}/init.d
+init_d_SCRIPTS = etc/initd/fcoe
 
 dist_noinst_DATA = README COPYING INSTALL
 

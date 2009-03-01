@@ -41,7 +41,9 @@ cmd=
 TC_CMD="/usr/sbin/tc"		# /sbin/tc or debug command
 FCOEADM=/sbin/fcoeadm		# command to create/destroy FCoE instances
 LOGGER="logger -s -t fcoeplumb"
-CONFIG_DIR=/etc/fcoe
+prefix=@prefix@
+sysconfdir=@sysconfdir@
+CONFIG_DIR=${sysconfdir}/fcoe
 
 . $CONFIG_DIR/config
 if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then

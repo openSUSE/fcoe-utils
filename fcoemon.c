@@ -96,11 +96,11 @@ enum fcoeadm_action {
 static u_int8_t fcm_def_qos_mask = FCM_DEFAULT_QOS_MASK;
 
 struct clif;			/* for dcbtool.h only */
-#include "dcb_types.h"
-#include "dcbtool.h"		/* for typedef cmd_status */
-#include "clif.h"
-#include "clif_cmds.h"
-#include "common.h"		/* for event msg level definitions */
+#include <dcbd/dcb_types.h>
+#include <dcbd/dcbtool.h>	/* for typedef cmd_status */
+#include <dcbd/clif.h>
+#include <dcbd/clif_cmds.h>
+#include <dcbd/common.h>	/* for event msg level definitions */
 
 #define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"

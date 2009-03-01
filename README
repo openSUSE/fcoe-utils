@@ -1,0 +1,16 @@
+                  FCoE Management Tools Installation Guide
+                  ========================================
+
+The FCoE Management Tools included in this package are
+
+        fcoeadm - program to create, reset, destroy, and display FCoE interfaces
+        fcoemon - program to monitor the events from the DCB daemon
+
+Requirements:
+
+        The HBAAPI library and the HBAAPI vendor library source must be build
+and installed before you can build the management tools. The HBAAPI vendor
+library, libhbalinux, may be downloaded from www.Open-FCoE.org. The instructions
+in the package describes how to download and build the libraries.  See the man
+pages for other requirements.
+

@@ -51,7 +51,7 @@
 #include "fcoemon.h"
 
 static char *fcoemon_version = "\
-fcoemon v1.0.6\n\
+fcoemon v1.0.7\n\
 Copyright (c) 2009, Intel Corporation.\n\
 ";
 

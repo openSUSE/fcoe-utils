@@ -27,7 +27,7 @@
 #include "fcoeadm.h"
 
 static char *fcoeadm_version = "\
-fcoeadm v1.0.6\n\
+fcoeadm v1.0.7\n\
 Copyright (c) 2009, Intel Corporation.\n\
 ";
 

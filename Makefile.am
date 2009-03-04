@@ -31,7 +31,7 @@ dist_fcoe_config_DATA = etc/config etc/cfg-ethx
 
 ## install fcoeplumb script in $(prefix)/etc/fcoe/scripts
 fcoe_scriptsdir = ${sysconfdir}/fcoe/scripts
-fcoe_scripts_SCRIPTS = fcoeplumb.sh
+fcoe_scripts_SCRIPTS = fcoeplumb
 
 ## man pages for fcoeadm and fcoemon
 dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8

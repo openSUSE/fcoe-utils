@@ -11,6 +11,6 @@ AC_SUBST(HBAAPI_LIBS)
 PKG_CHECK_MODULES(DCBD, dcbd)
 AC_SUBST(DCBD_CFLAGS)
 
-AC_CONFIG_FILES([Makefile fcoeplumb.sh fcoe-utils.spec])
+AC_CONFIG_FILES([Makefile fcoeplumb fcoe-utils.spec])
 AC_OUTPUT
 

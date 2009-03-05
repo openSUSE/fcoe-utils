@@ -1,5 +1,8 @@
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm fcoemon
+sbin_PROGRAMS = fcoeadm
+if WITH_DCB
+sbin_PROGRAMS += fcoemon
+endif
 
 ## all targets should look for headers in the include directory
 AM_CPPFLAGS = -Iinclude
@@ -34,7 +37,10 @@ fcoe_scriptsdir = ${sysconfdir}/fcoe/scripts
 fcoe_scripts_SCRIPTS = fcoeplumb
 
 ## man pages for fcoeadm and fcoemon
-dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8
+dist_man_MANS = doc/fcoeadm.8
+if WITH_DCB
+dist_man_MANS += doc/fcoemon.8
+endif
 
 ## init script for fcoemon
 dist_noinst_SCRIPTS = etc/initd/initd.fcoe etc/initd/initd.suse etc/initd/initd.fedora

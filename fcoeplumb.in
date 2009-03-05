@@ -37,12 +37,16 @@ qdisc_id=1:
 qos_list=
 FILTER_ID=
 cmd=
-#
-TC_CMD="/usr/sbin/tc"		# /sbin/tc or debug command
-FCOEADM=/sbin/fcoeadm		# command to create/destroy FCoE instances
-LOGGER="logger -s -t fcoeplumb"
+# automake paths
 prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+sbindir=@sbindir@
 sysconfdir=@sysconfdir@
+# make sure there's a sane path to find basic commands and system tools (tc)
+PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin
+FCOEADM=${sbindir}/fcoeadm	# command to create/destroy FCoE instances
+LOGGER="logger -s -t fcoeplumb"
 CONFIG_DIR=${sysconfdir}/fcoe
 
 . $CONFIG_DIR/config
@@ -59,7 +63,7 @@ find_multiq_qdisc()
 
 	found=0
 	type=unknown
-	if set -- `$TC_CMD qdisc show dev $ifname` none none none
+	if set -- `tc qdisc show dev $ifname` none none none
 	then
 		type=$2
 		qdisc_id=$3
@@ -75,8 +79,8 @@ add_multiq_qdisc()
 	qdisc_id=$2
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"$TC_CMD qdisc add dev $ifname root handle $qdisc_id multiq"
-	$TC_CMD qdisc add dev $ifname root handle $qdisc_id multiq
+		"tc qdisc add dev $ifname root handle $qdisc_id multiq"
+	tc qdisc add dev $ifname root handle $qdisc_id multiq
 }
 
 delete_qdisc()
@@ -84,8 +88,8 @@ delete_qdisc()
 	ifname=$1
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"$TC_CMD qdisc del dev $ifname root"
-	$TC_CMD qdisc del dev $ifname root
+		"tc qdisc del dev $ifname root"
+	tc qdisc del dev $ifname root
 }
 
 get_filter_id()
@@ -109,7 +113,7 @@ find_skbedit_filter()
 {
 	ifname=$1
 
-	found=`$TC_CMD filter show dev $ifname | awk '
+	found=`tc filter show dev $ifname | awk '
 	BEGIN {
 		x1 = 0
 		x2 = 0
@@ -143,18 +147,18 @@ delete_skbedit_filter()
 	queue=$?
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"$TC_CMD filter delete dev $ifname skbedit queue_mapping $queue"
-	PARENT=`$TC_CMD filter show dev $ifname | awk \
+		"tc filter delete dev $ifname skbedit queue_mapping $queue"
+	PARENT=`tc filter show dev $ifname | awk \
 		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
 		{ print $3 }'`
-	PRIO=`$TC_CMD filter show dev $ifname | awk \
+	PRIO=`tc filter show dev $ifname | awk \
 		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
 		{ print $7 }'`
-	$TC_CMD filter delete dev $ifname parent $PARENT \
+	tc filter delete dev $ifname parent $PARENT \
 		protocol 802_3 pref $PRIO handle $FILTER_ID basic match \
 		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue
-	$TC_CMD filter delete dev $ifname parent $PARENT \
+	tc filter delete dev $ifname parent $PARENT \
 		protocol 802_3 pref $PRIO basic
 }
 
@@ -165,8 +169,8 @@ add_skbedit_filter()
 	queue=$3
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"$TC_CMD filter add dev $ifname skbedit queue_mapping $queue"
-	$TC_CMD filter add dev $ifname parent $qdisc_id protocol 802_3 \
+		"tc filter add dev $ifname skbedit queue_mapping $queue"
+	tc filter add dev $ifname parent $qdisc_id protocol 802_3 \
 		handle $FILTER_ID basic match 'cmp(u16' at 12 \
 		layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue
@@ -178,14 +182,14 @@ replace_skbedit_filter()
 	queue=$2
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"$TC_CMD filter replace dev $ifname skbedit queue_mapping $queue"
-	PARENT=`$TC_CMD filter show dev $ifname | awk \
+		"tc filter replace dev $ifname skbedit queue_mapping $queue"
+	PARENT=`tc filter show dev $ifname | awk \
 		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
 		{ print $3 }'`
-	PRIO=`$TC_CMD filter show dev $ifname | \
+	PRIO=`tc filter show dev $ifname | \
 		awk '/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
 		{ print $7 }'`
-	$TC_CMD filter replace dev $ifname parent $PARENT protocol \
+	tc filter replace dev $ifname parent $PARENT protocol \
 		802_3 pref $PRIO handle $FILTER_ID basic match \
 		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue

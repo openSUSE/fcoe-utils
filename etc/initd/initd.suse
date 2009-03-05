@@ -43,8 +43,8 @@ CONFIG_DIR=/etc/fcoe
 CONFIG_SCRIPT=$CONFIG_DIR/scripts/fcoeplumb
 PID_FILE="/var/run/fcoemon.pid"
 LOG_FILE="/var/log/fcoemon.log"
-FCOEMON=/sbin/fcoemon
-FCOEADM=/sbin/fcoeadm
+FCOEMON=/usr/sbin/fcoemon
+FCOEADM=/usr/sbin/fcoeadm
 DCBD=dcbd
 LOGGER="logger -t fcoe -s"
 

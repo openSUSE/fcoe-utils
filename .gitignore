@@ -1,0 +1,27 @@
+# standard autotools stuff
+.deps/
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+compile
+config.log
+config.status
+configure
+depcomp
+install-sh
+missing
+
+# other autoconf generated files
+fcoe-utils.spec
+fcoeplumb
+
+# compile generated files
+*.o
+fcoeadm
+fcoemon
+etc/initd/fcoe
+
+# build.sh generated files
+fcoe-utils-*.tar.gz
+fcoe-utils-*.rpm

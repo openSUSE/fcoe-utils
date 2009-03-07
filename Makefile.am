@@ -5,7 +5,7 @@ sbin_PROGRAMS += fcoemon
 endif
 
 ## all targets should look for headers in the include directory
-AM_CPPFLAGS = -Iinclude
+AM_CPPFLAGS = -I${srcdir}/include
 
 ## pass the sysconfdir into the C proprocessor
 AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
@@ -47,12 +47,13 @@ dist_noinst_SCRIPTS = etc/initd/initd.fcoe etc/initd/initd.suse etc/initd/initd.
 
 CLEANFILES = etc/initd/fcoe
 etc/initd/fcoe:
+	mkdir -p etc/initd
 	if [ -f /etc/fedora-release ]; then \
-		ln -s initd.fedora $@; \
+		ln -s ${abs_srcdir}/etc/initd/initd.fedora $@; \
 	elif [ -f /etc/SuSE-release ]; then \
-		ln -s initd.suse $@; \
+		ln -s ${abs_srcdir}/etc/initd/initd.suse $@; \
 	else \
-		ln -s initd.fcoe $@; \
+		ln -s ${abs_srcdir}/etc/initd/initd.fcoe $@; \
 	fi
 
 init_ddir = ${sysconfdir}/init.d

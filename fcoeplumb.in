@@ -120,7 +120,7 @@ find_skbedit_filter()
 		x3 = 0
 		queue = 8
 	}
-	/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ {
+	/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ {
 		if (x1 == 0 && x2 == 0 && x3 == 0)
 			x1 = 1
 	}
@@ -149,17 +149,17 @@ delete_skbedit_filter()
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter delete dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
 		{ print $3 }'`
 	PRIO=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
 		{ print $7 }'`
 	tc filter delete dev $ifname parent $PARENT \
-		protocol 802_3 pref $PRIO handle $FILTER_ID basic match \
+		protocol $FCOE_ETHERTYPE pref $PRIO handle $FILTER_ID basic match \
 		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue
 	tc filter delete dev $ifname parent $PARENT \
-		protocol 802_3 pref $PRIO basic
+		protocol $FCOE_ETHERTYPE pref $PRIO basic
 }
 
 add_skbedit_filter()
@@ -170,7 +170,7 @@ add_skbedit_filter()
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter add dev $ifname skbedit queue_mapping $queue"
-	tc filter add dev $ifname parent $qdisc_id protocol 802_3 \
+	tc filter add dev $ifname parent $qdisc_id protocol $FCOE_ETHERTYPE \
 		handle $FILTER_ID basic match 'cmp(u16' at 12 \
 		layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue
@@ -184,13 +184,13 @@ replace_skbedit_filter()
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter replace dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
 		{ print $3 }'`
 	PRIO=`tc filter show dev $ifname | \
-		awk '/^filter.*parent.*protocol 802_3.* handle '$FILTER_ID'/ \
+		awk '/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
 		{ print $7 }'`
 	tc filter replace dev $ifname parent $PARENT protocol \
-		802_3 pref $PRIO handle $FILTER_ID basic match \
+		$FCOE_ETHERTYPE pref $PRIO handle $FILTER_ID basic match \
 		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
 		action skbedit queue_mapping $queue
 }

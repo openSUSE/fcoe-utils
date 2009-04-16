@@ -200,7 +200,7 @@ service_stop()
 		if [ "$DCB_REQUIRED" != "yes" ] &&
 		   [ "$DCB_REQUIRED" != "YES" ]; then
 			STATUS=`$FCOEADM -i $ifname 2>&1 | \
-				awk '/Interface Name:/{print $3}'`
+				awk '/Symbolic Name:/{print $6}'`
 			if [ "$STATUS" = "$ifname" ]; then
 				$FCOEADM -d $ifname
 			fi
@@ -229,7 +229,7 @@ service_status()
 		echo "$FCOEMON -- UNUSED"
 	fi
 	IF_LIST=`$FCOEADM -i 2>&1 | \
-		awk '/Interface Name:/{print $3}' | \
+		awk '/Symbolic Name:/{print $6}' | \
 		sort | awk '{printf("%s ", $1)}'`
 	if [ -z "$IF_LIST" ]; then
 		echo "No interfaces created."

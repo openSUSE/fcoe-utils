@@ -200,7 +200,7 @@ remove_fcoe_interface()
 	ifname=$1
 
 	STATUS=`$FCOEADM -i $ifname 2>&1 | \
-		awk '/Interface Name:/{print $3}'`
+		awk '/Symbolic Name:/{print $6}'`
 	if [ "$STATUS" = "$ifname" ]; then
 		[ "$DEBUG" = "yes" ] && $LOGGER "$FCOEADM -d $ifname"
 		$FCOEADM -d $ifname
@@ -215,7 +215,7 @@ create_fcoe_interface()
 	ifname=$1
 
 	STATUS=`$FCOEADM -i $ifname 2>&1 | \
-		awk '/Interface Name:/{print $3}'`
+		awk '/Symbolic Name:/{print $6}'`
 	if [ -z "$STATUS" ]; then
 		[ "$DEBUG" = "yes" ] && $LOGGER "$FCOEADM -c $ifname"
 		$FCOEADM -c $ifname

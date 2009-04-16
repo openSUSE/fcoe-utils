@@ -227,9 +227,6 @@ show_port_info(int hba_index, int lp_index,
 	printf("        Symbolic Name:     %s\n",
 					lp_info->PortSymbolicName);
 
-	printf("        Interface Name:    %s\n",
-					hba_info->NodeSymbolicName + 5);
-
 	printf("        OS Device Name:    %s\n",
 					lp_info->OSDeviceName);
 

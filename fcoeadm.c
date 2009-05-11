@@ -250,8 +250,8 @@ fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 			}
 			free(namelist[n]);
 		}
+		free(namelist);
 	}
-	free(namelist);
 
 	return found;
 }

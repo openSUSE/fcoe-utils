@@ -38,19 +38,19 @@ Copyright (c) 2009, Intel Corporation.\n\
 #define FCOE_CREATE	SYSFS_FCOE "/create"
 #define FCOE_DESTROY	SYSFS_FCOE "/destroy"
 
-#define FCHOSTBUFLEN    64
+#define FCHOSTBUFLEN		64
 
 static struct option fcoeadm_opts[] = {
-    {"create", 1, 0, 'c'},
-    {"destroy", 1, 0, 'd'},
-    {"reset", 1, 0, 'r'},
-    {"interface", 1, 0, 'a'},
-    {"target", 1, 0, 't'},
-    {"lun", 1, 0, 'l'},
-    {"stats", 1, 0, 's'},
-    {"help", 0, 0, 'h'},
-    {"version", 0, 0, 'v'},
-    {0, 0, 0, 0}
+	{"create", 1, 0, 'c'},
+	{"destroy", 1, 0, 'd'},
+	{"reset", 1, 0, 'r'},
+	{"interface", 1, 0, 'i'},
+	{"target", 1, 0, 't'},
+	{"lun", 1, 0, 'l'},
+	{"stats", 1, 0, 's'},
+	{"help", 0, 0, 'h'},
+	{"version", 0, 0, 'v'},
+	{0, 0, 0, 0}
 };
 
 struct opt_info _opt_info, *opt_info = &_opt_info;
@@ -320,7 +320,7 @@ fcoeadm_reset(char *ifname)
 
 /*
  * Parse a user-entered hex field.
- * Format may be  xx-xx-xx OR xxxxxx OR xx:xx:xx for len bytes (up to 8).
+ * Format may be xx-xx-xx OR xxxxxx OR xx:xx:xx for len bytes (up to 8).
  * Leading zeros may be omitted.
  */
 static int
@@ -449,74 +449,83 @@ int main(int argc, char *argv[])
 		case 'c':
 			if ((argc < 2 || argc > 3) ||
 			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
+			     argv[1][1] != '-'))
 				goto error;
 			rc = fcoeadm_create(optarg);
 			goto done;
 		case 'd':
 			if ((argc < 2 || argc > 3) ||
 			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
+			     argv[1][1] != '-'))
 				goto error;
 			rc = fcoeadm_destroy(optarg);
 			goto done;
 		case 'r':
 			if ((argc < 2 || argc > 3) ||
 			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2))
+			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
+			     argv[1][1] != '-'))
 				goto error;
 			rc = fcoeadm_reset(optarg);
 			goto done;
 		case 'i':
-			if (argc < 2 || argc > 3)
+			if (argc < 2 || argc > 3 ||
+			    (argc == 3 && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
+			     (argv[1][1] != '-' || strchr(argv[1], '=')
+			      != NULL)))
 				goto error;
 			s = NULL;
-			if (argc == 2 && argv[optind]) {
-				if (strnlen(argv[optind], MAX_ARG_LEN) >
-						(IFNAMSIZ - 1))
+			if (argc == 2) {
+				if (argv[1][1] == '-')
+					s = strchr(argv[1], '=')+1;
+				else
+					s = argv[1]+2;
+			} else
+				s = argv[2];
+
+			if (s) {
+				if (strnlen(s, MAX_ARG_LEN) > (IFNAMSIZ - 1))
 					goto error;
-				if (strnlen(argv[optind], MAX_ARG_LEN) > 2)
-					s = argv[optind] + 2;
-			}
-			if (argc == 3) {
-				if ((optind == 1) &&
-				    strnlen(argv[1], MAX_ARG_LEN) > 2)
-					goto error;
-				s = argv[optind];
-			}
-			if (s)
 				strncpy(opt_info->ifname, s,
 					sizeof(opt_info->ifname));
+			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
 				if (fcoeadm_validate_interface(
-					opt_info->ifname,
-					fchost, FCHOSTBUFLEN))
+					    opt_info->ifname,
+					    fchost, FCHOSTBUFLEN))
 				goto error;
 			}
 			opt_info->a_flag = 1;
 			rc = fcoeadm_display_adapter_info(opt_info);
 			goto done;
 		case 't':
-			if ((argc < 2 || argc > 3) ||
-			    (argv[1] &&
-			     strnlen(argv[1], MAX_ARG_LEN) > (IFNAMSIZ - 1)) ||
-			    (argv[2] &&
-			     strnlen(argv[2], MAX_ARG_LEN) > (IFNAMSIZ - 1)))
+			if (argc < 2 || argc > 3 ||
+			    (argc == 3 && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
+			     (argv[1][1] != '-' || strchr(argv[1], '=')
+			      != NULL)))
 				goto error;
-			if (strnlen(argv[1], MAX_ARG_LEN) > 2) {
-				if (argc >= 3)
+			s = NULL;
+			if (argc == 2) {
+				if (argv[1][1] == '-')
+					s = strchr(argv[1], '=')+1;
+				else
+					s = argv[1]+2;
+			} else {
+				s = argv[2];
+			}
+			if (s) {
+				if (strnlen(s, MAX_ARG_LEN) > (IFNAMSIZ - 1))
 					goto error;
-				strncpy(opt_info->ifname, argv[1] + 2,
+				strncpy(opt_info->ifname, s,
 					sizeof(opt_info->ifname));
 			}
-			if (argv[2])
-				strncpy(opt_info->ifname, argv[2],
-					sizeof(opt_info->ifname));
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
 				if (fcoeadm_validate_interface(
-					opt_info->ifname,
-					fchost, FCHOSTBUFLEN))
-				goto error;
+					    opt_info->ifname,
+					    fchost, FCHOSTBUFLEN))
+					goto error;
 			}
 			opt_info->t_flag = 1;
 			rc = fcoeadm_display_target_info(opt_info);
@@ -545,9 +554,9 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
 				if (fcoeadm_validate_interface(
-					opt_info->ifname,
-					fchost, FCHOSTBUFLEN))
-				goto error;
+					    opt_info->ifname,
+					    fchost, FCHOSTBUFLEN))
+					goto error;
 			}
 			opt_info->s_flag = 1;
 			if (argv[optind] && !strncmp(argv[optind], "-n", 2))

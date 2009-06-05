@@ -192,7 +192,7 @@ fcm_remove_quotes(char *buf, int len)
 	char *e = buf + len - 1;
 	char tmp[CONFIG_MAX_VAL_LEN + 1];
 
-	if (strnlen(buf, len) < CONFIG_MIN_VAL_LEN)
+	if (len < CONFIG_MIN_VAL_LEN)
 		return -1;
 	if ((*s >= '0' && *s <= '9') ||
 	    (*s >= 'a' && *s <= 'z') ||
@@ -339,7 +339,7 @@ fcm_read_config_files(void)
 		}
 		strncpy(curr->ifname, dp->d_name + 4, sizeof(curr->ifname));
 		strncpy(file, CONFIG_DIR "/", sizeof(file));
-		strncat(file, dp->d_name, sizeof(file));
+		strncat(file, dp->d_name, sizeof(file) - strlen(file));
 		fp = fopen(file, "r");
 		if (!fp) {
 			SA_LOG_ERR(errno, "Failed reading %s\n", file);
@@ -1072,7 +1072,7 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	int doff;
 	int i;
 	int n;
-	struct feature_info *f_info;
+	struct feature_info *f_info = NULL;
 	char buf[20];
 
 	if (st != cmd_success)	/* log msg already issued */
@@ -1380,7 +1380,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	len = strlen(resp);
 	ver = fcm_get_hex(resp + DCB_VER_OFF, DCB_VER_LEN, &ep);
 	if (ep != NULL) {
-		SA_LOG("parse error: resp %s", resp - 4);
+		SA_LOG("parse error: resp %s", orig_resp);
 		return;
 	} else if (ver != CLIF_RSP_VERSION) {
 		SA_LOG("unexpected version %d resp %s", ver, orig_resp);

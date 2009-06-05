@@ -33,7 +33,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <string.h>
 #include <time.h>
 #include <fcntl.h>
 #include <malloc.h>
@@ -48,6 +47,9 @@
 #include "net_types.h"
 #include "fc_types.h"
 #include "fc_scsi.h"
+
+#define __USE_GNU
+#include <string.h>
 
 #define FCOE_MAX_LUN	255
 

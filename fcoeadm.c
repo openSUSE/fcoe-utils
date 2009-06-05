@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <getopt.h>
 #include <dirent.h>
-#include <string.h>
 #include "fcoeadm.h"
 
 static char *fcoeadm_version = "\

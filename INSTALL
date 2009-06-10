@@ -1,0 +1,24 @@
+This document explains how to build the Open-FCoE
+user space tools. This includes fcoeadm, fcoemon and
+their corresponding manual pages.
+
+##
+# open-fcoe
+############
+
+DEPENDENCIES
+
+* libhbalinux
+* dcbd (optional configure flag to build without)
+
+* autoconf
+* autotools
+* sysconftool
+* automake
+* libtool
+
+1) Bootstrap, configure, make and make install
+   # ./bootstrap.sh
+   # rpm --eval "%configure" | sh
+   # make
+   # make install

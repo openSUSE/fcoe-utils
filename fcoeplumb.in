@@ -32,10 +32,14 @@ usage()
 #
 QOS_DEF=3			# default user priority
 FCOE_ETHERTYPE=35078		# Ethertype (0x8906): tc filter show is base 10
+FIP_ETHERTYPE=35092             # Ethertype (0x8914): tc filter show is base 10
 FCOE_FILTER=0xfc0e		# filter handle (must be lower-case hex)
+
+FCOE_FILTER_KEY=12345
+FIP_FILTER_KEY=67890
+
 qdisc_id=1:
 qos_list=
-FILTER_ID=
 cmd=
 # automake paths
 prefix=@prefix@
@@ -83,18 +87,10 @@ add_multiq_qdisc()
 	tc qdisc add dev $ifname root handle $qdisc_id multiq
 }
 
-delete_qdisc()
-{
-	ifname=$1
-
-	[ "$DEBUG" = "yes" ] && $LOGGER \
-		"tc qdisc del dev $ifname root"
-	tc qdisc del dev $ifname root
-}
-
 get_filter_id()
 {
 	ifname=$1
+	filter_key=$2
 
 	retry_count=0
 	while true
@@ -105,13 +101,15 @@ get_filter_id()
 		retry_count=$(($retry_count-1))
 	done
 
-	FILTER_ID=`echo "$ifname 12345" | \
-		awk '{ printf("0x%x%06x", substr($1,4), $2) }'`
+	echo "`echo "$ifname $filter_key" | \
+	    awk '{ printf("0x%x%06x", substr($1,4), $2) }'`"
 }
 
 find_skbedit_filter()
 {
 	ifname=$1
+	ethertype=$2
+	filter_id=$3
 
 	found=`tc filter show dev $ifname | awk '
 	BEGIN {
@@ -120,11 +118,11 @@ find_skbedit_filter()
 		x3 = 0
 		queue = 8
 	}
-	/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ {
+	/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ {
 		if (x1 == 0 && x2 == 0 && x3 == 0)
 			x1 = 1
 	}
-	/cmp.*u16 at 12 layer 1 mask 0xffff eq '$FCOE_ETHERTYPE'.*\)/ {
+	/cmp.*u16 at 12 layer 1 mask 0xffff eq '$ethertype'.*\)/ {
 		if (x1 == 1 && x2 == 0 && x3 == 0)
 			x2 = 1
 	}
@@ -144,22 +142,24 @@ find_skbedit_filter()
 delete_skbedit_filter()
 {
 	ifname=$1
-	queue=$?
+	queue=$2
+	ethertype=$3
+	filter_id=$4
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter delete dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
 		{ print $3 }'`
 	PRIO=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
 		{ print $7 }'`
 	tc filter delete dev $ifname parent $PARENT \
-		protocol $FCOE_ETHERTYPE pref $PRIO handle $FILTER_ID basic match \
-		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
+		protocol $ethertype pref $PRIO handle $filter_id basic match \
+		'cmp(u16' at 12 layer 1 mask 0xffff eq $ethertype')' \
 		action skbedit queue_mapping $queue
 	tc filter delete dev $ifname parent $PARENT \
-		protocol $FCOE_ETHERTYPE pref $PRIO basic
+		protocol $ethertype pref $PRIO basic
 }
 
 add_skbedit_filter()
@@ -167,12 +167,14 @@ add_skbedit_filter()
 	ifname=$1
 	qdisc_id=$2
 	queue=$3
+	ethertype=$4
+	filter_id=$5
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter add dev $ifname skbedit queue_mapping $queue"
-	tc filter add dev $ifname parent $qdisc_id protocol $FCOE_ETHERTYPE \
-		handle $FILTER_ID basic match 'cmp(u16' at 12 \
-		layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
+	tc filter add dev $ifname parent $qdisc_id protocol $ethertype \
+		handle $filter_id basic match 'cmp(u16' at 12 \
+		layer 1 mask 0xffff eq $ethertype')' \
 		action skbedit queue_mapping $queue
 }
 
@@ -180,18 +182,20 @@ replace_skbedit_filter()
 {
 	ifname=$1
 	queue=$2
+	ethertype=$3
+	filter_id=$4
 
 	[ "$DEBUG" = "yes" ] && $LOGGER \
 		"tc filter replace dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
-		'/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
+		'/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
 		{ print $3 }'`
 	PRIO=`tc filter show dev $ifname | \
-		awk '/^filter.*parent.*protocol '$FCOE_ETHERTYPE'.* handle '$FILTER_ID'/ \
+		awk '/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
 		{ print $7 }'`
 	tc filter replace dev $ifname parent $PARENT protocol \
-		$FCOE_ETHERTYPE pref $PRIO handle $FILTER_ID basic match \
-		'cmp(u16' at 12 layer 1 mask 0xffff eq $FCOE_ETHERTYPE')' \
+		$ethertype pref $PRIO handle $filter_id basic match \
+		'cmp(u16' at 12 layer 1 mask 0xffff eq $ethertype')' \
 		action skbedit queue_mapping $queue
 }
 
@@ -261,15 +265,23 @@ do
 done
 
 # This must be the first to do after parsing the command arguments!
-# Notice that the FILTER_ID is used in find_skbedit_filter(),
+# Notice that the filter ID is used in find_skbedit_filter(),
 # add_skbedit_filter(), replace_skbedit_filter().
-get_filter_id $ifname
+fcoe_filter_id=`get_filter_id $ifname $FCOE_FILTER_KEY`
+fip_filter_id=`get_filter_id $ifname $FIP_FILTER_KEY`
 
 if [ "$cmd" == "disable" ]; then
 	remove_fcoe_interface $ifname
-	find_skbedit_filter $ifname
+	# Remove the FCoE filters
+	find_skbedit_filter $ifname $FCOE_ETHERTYPE $fcoe_filter_id
 	found_filter=$?
-	[ $found_filter -le 7 ] && delete_skbedit_filter $ifname $found_filter
+	[ $found_filter -le 7 ] && delete_skbedit_filter $ifname $found_filter $FCOE_ETHERTYPE $fcoe_filter_id
+
+	# Remove the FIP filters
+	find_skbedit_filter $ifname $FIP_ETHERTYPE $fip_filter_id
+	found_filter=$?
+	[ $found_filter -le 7 ] && delete_skbedit_filter $ifname $found_filter $FIP_ETHERTYPE $fip_filter_id
+
 else
 	#
 	# Choose the best QOS to use for FCoE out of the listed choices.
@@ -317,25 +329,41 @@ else
 	found_qdisc=$?
 
 	if [ $found_qdisc -eq 1 ]; then
+	        # Adjust the FCoE filter
 		[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Qdisc is found"
-		find_skbedit_filter $ifname
+		find_skbedit_filter $ifname $FCOE_ETHERTYPE $fcoe_filter_id
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
-			add_skbedit_filter $ifname $qdisc_id $qos_queue
+			add_skbedit_filter $ifname $qdisc_id $qos_queue \
+			    $FCOE_ETHERTYPE $fcoe_filter_id
 		elif [ $found_filter -ne $qos_queue ]; then
 			[ "$DEBUG" = "yes" ] && $LOGGER \
 				"$ifname: Filter is found and QOS is different"
-			replace_skbedit_filter $ifname $qos_queue
+			replace_skbedit_filter $ifname $qos_queue $FCOE_ETHERTYPE $fcoe_filter_id
+		else
+			[ "$DEBUG" = "yes" ] && $LOGGER \
+				"$ifname: Filter is found and is identical"
+		fi
+
+		# Adjust the FIP filter
+		[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Qdisc is found"
+		find_skbedit_filter $ifname $FIP_ETHERTYPE $fip_filter_id
+		found_filter=$?
+		if [ $found_filter -gt 7 ]; then
+			add_skbedit_filter $ifname $qdisc_id $qos_queue \
+			    $FIP_ETHERTYPE $fip_filter_id
+		elif [ $found_filter -ne $qos_queue ]; then
+			[ "$DEBUG" = "yes" ] && $LOGGER \
+				"$ifname: Filter is found and QOS is different"
+			replace_skbedit_filter $ifname $qos_queue $FIP_ETHERTYPE $fip_filter_id
 		else
 			[ "$DEBUG" = "yes" ] && $LOGGER \
 				"$ifname: Filter is found and is identical"
 		fi
 	else
 		add_multiq_qdisc $ifname $qdisc_id
-		add_skbedit_filter $ifname $qdisc_id $qos_queue
-		delete_qdisc $ifname
-		add_multiq_qdisc $ifname $qdisc_id
-		add_skbedit_filter $ifname $qdisc_id $qos_queue
+		add_skbedit_filter $ifname $qdisc_id $qos_queue $FCOE_ETHERTYPE $fcoe_filter_id
+		add_skbedit_filter $ifname $qdisc_id $qos_queue $FIP_ETHERTYPE $fip_filter_id
 	fi
 
 	if [ "$cmd" = "enable" ]; then

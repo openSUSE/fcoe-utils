@@ -45,7 +45,7 @@ static struct option fcoeadm_opts[] = {
 	{"reset", 1, 0, 'r'},
 	{"interface", 1, 0, 'i'},
 	{"target", 1, 0, 't'},
-	{"lun", 1, 0, 'l'},
+	{"lun", 2, 0, 'l'},
 	{"stats", 1, 0, 's'},
 	{"help", 0, 0, 'h'},
 	{"version", 0, 0, 'v'},
@@ -442,7 +442,7 @@ int main(int argc, char *argv[])
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
 
-	while ((opt = getopt_long(argc, argv, "c:d:r:itl:s:n:hv",
+	while ((opt = getopt_long(argc, argv, "c:d:r:itls:n:hv",
 				  fcoeadm_opts, NULL)) != -1) {
 		switch (opt) {
 		case 'c':

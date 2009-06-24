@@ -60,15 +60,15 @@ fcoeadm_help(void)
 {
 	printf("%s\n", fcoeadm_version);
 	printf("Usage: %s\n"
-		"\t [-c|--create] <ethX>\n"
-		"\t [-d|--destroy] <ethX>\n"
-		"\t [-r|--reset] <ethX>\n"
-		"\t [-i|--interface] [<ethX>]\n"
-		"\t [-t|--target] [<ethX>]\n"
-		"\t [-l|--lun] [<target port_id> [<lun_id>]]\n"
-		"\t [-s|--stats] <ethX> [-n <interval>]\n"
-		"\t [-v|--version]\n"
-		"\t [-h|--help]\n\n", progname);
+	       "\t [-c|--create] <ethX>\n"
+	       "\t [-d|--destroy] <ethX>\n"
+	       "\t [-r|--reset] <ethX>\n"
+	       "\t [-i|--interface] [<ethX>]\n"
+	       "\t [-t|--target] [<ethX>]\n"
+	       "\t [-l|--lun] [<target port_id> [<lun_id>]]\n"
+	       "\t [-s|--stats] <ethX> [-n <interval>]\n"
+	       "\t [-v|--version]\n"
+	       "\t [-h|--help]\n\n", progname);
 }
 
 /*
@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
 				if (fcoeadm_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
-				goto error;
+					goto error;
 			}
 			opt_info->a_flag = 1;
 			rc = fcoeadm_display_adapter_info(opt_info);

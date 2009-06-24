@@ -221,7 +221,7 @@ fcm_remove_quotes(char *buf, int len)
  */
 static size_t
 fcm_read_config_variable(char *file, char *val_buf, size_t len,
-			FILE *fp, const char *var_name)
+			 FILE *fp, const char *var_name)
 {
 	char *s;
 	char *var;
@@ -252,8 +252,8 @@ fcm_read_config_variable(char *file, char *val_buf, size_t len,
 		n = snprintf(val_buf, len, "%s", val);
 		if (fcm_remove_quotes(val_buf, n) < 0) {
 			SA_LOG("Invalid format in config file"
-				" %s: %s=%s\n",
-				file, var_name, val);
+			       " %s: %s=%s\n",
+			       file, var_name, val);
 			/* error */
 			return -1;
 		}
@@ -286,7 +286,7 @@ fcm_read_config_files(void)
 	}
 
 	rc = fcm_read_config_variable(file, val,
-					sizeof(val), fp, "DEBUG");
+				      sizeof(val), fp, "DEBUG");
 	if (rc < 0) {
 		fclose(fp);
 		return -1;
@@ -299,7 +299,7 @@ fcm_read_config_files(void)
 	}
 
 	rc = fcm_read_config_variable(file, val,
-					sizeof(val), fp, "USE_SYSLOG");
+				      sizeof(val), fp, "USE_SYSLOG");
 	if (rc < 0) {
 		fclose(fp);
 		return -1;
@@ -315,21 +315,22 @@ fcm_read_config_files(void)
 	dir = opendir(CONFIG_DIR);
 	if (dir == NULL) {
 		SA_LOG_ERR(errno,
-			"Failed reading directory %s\n", CONFIG_DIR);
+			   "Failed reading directory %s\n", CONFIG_DIR);
 		return -1;
 	}
 	for (;;) {
 		dp = readdir(dir);
 		if (dp == NULL)
 			break;
-		if (dp->d_name[0] == '.' && (dp->d_name[1] == '\0' ||
-		   (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
+		if (dp->d_name[0] == '.' &&
+		    (dp->d_name[1] == '\0' ||
+		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 			continue;
 		rc = strncmp(dp->d_name, "cfg-eth", strlen("cfg-eth"));
 		if (rc)
 			continue;
 		next = (struct fcoe_port_config *)
-				calloc(1, sizeof(struct fcoe_port_config));
+			calloc(1, sizeof(struct fcoe_port_config));
 		if (!fcoe_config.port) {
 			fcoe_config.port = next;
 			curr = next;
@@ -348,7 +349,7 @@ fcm_read_config_files(void)
 
 		/* FCOE_ENABLE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
-					fp, "FCOE_ENABLE");
+					      fp, "FCOE_ENABLE");
 		if (rc < 0) {
 			fclose(fp);
 			return -1;
@@ -359,7 +360,7 @@ fcm_read_config_files(void)
 
 		/* DCB_REQUIRED */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
-					fp, "DCB_REQUIRED");
+					      fp, "DCB_REQUIRED");
 		if (rc < 0) {
 			fclose(fp);
 			return -1;
@@ -373,7 +374,7 @@ fcm_read_config_files(void)
 
 		/* HAS_FIP */
 		rc = fcm_read_config_variable(file, val,
-						sizeof(val), fp, "HAS_FIP");
+					      sizeof(val), fp, "HAS_FIP");
 		if (rc < 0) {
 			fclose(fp);
 			return -1;
@@ -519,7 +520,7 @@ rest:
 					break;
 				case IFLA_OPERSTATE:
 					ff->ff_operstate =
-					    *(uint8_t *) RTA_DATA(ap);
+						*(uint8_t *) RTA_DATA(ap);
 					break;
 				default:
 					break;
@@ -731,7 +732,7 @@ fcm_fcoe_port_ready(struct fcm_fcoe *ff)
 	int rc;
 
 	rc = (ff->ff_flags & (IFF_UP|IFF_RUNNING)) == (IFF_UP|IFF_RUNNING) &&
-	     ff->ff_operstate == IF_OPER_UP;
+		ff->ff_operstate == IF_OPER_UP;
 
 	return rc;
 }
@@ -763,7 +764,7 @@ fcm_dcbd_connect(void)
 	lp = &fcm_clif->cl_local;
 	lp->sun_family = PF_UNIX;
 	snprintf(lp->sun_path, sizeof(lp->sun_path),
-		CLIF_LOCAL_SUN_PATH, getpid());
+		 CLIF_LOCAL_SUN_PATH, getpid());
 	rc = bind(fd, (struct sockaddr *)lp, sizeof(*lp));
 	if (rc < 0) {
 		SA_LOG_ERR(errno, "clif bind failed");
@@ -774,7 +775,7 @@ fcm_dcbd_connect(void)
 	memset(&dest, 0, sizeof(dest));
 	dest.sun_family = PF_UNIX;
 	snprintf(dest.sun_path, sizeof(dest.sun_path),
-		CLIF_NAME_PATH);
+		 CLIF_NAME_PATH);
 	rc = connect(fd, (struct sockaddr *)&dest, sizeof(dest));
 	if (rc < 0) {
 		SA_LOG_ERR(errno, "clif connect failed");
@@ -902,11 +903,11 @@ fcm_dcbd_state_set(struct fcm_fcoe *ff, enum fcm_dcbd_state new_state)
 		char new[32];
 
 		SA_LOG("%s: %s -> %s",
-			ff->ff_name,
-			sa_enum_decode(old, sizeof(old),
-					fcm_dcbd_states, ff->ff_dcbd_state),
-			sa_enum_decode(new, sizeof(new),
-					fcm_dcbd_states, new_state));
+		       ff->ff_name,
+		       sa_enum_decode(old, sizeof(old),
+				      fcm_dcbd_states, ff->ff_dcbd_state),
+		       sa_enum_decode(new, sizeof(new),
+				      fcm_dcbd_states, new_state));
 	}
 	ff->ff_dcbd_state = new_state;
 }
@@ -939,12 +940,12 @@ fcm_dcbd_rx(void *arg)
 					 &ep);
 			if (ep != NULL)
 				SA_LOG("unexpected response code from dcbd: "
-					"len %d buf %s rc %d", len, buf, rc);
+				       "len %d buf %s rc %d", len, buf, rc);
 			else if (st != cmd_success &&
 				 st != cmd_device_not_found) {
 				SA_LOG("error response from dcbd: "
-					"error %d len %d %s",
-					st, len, buf);
+				       "error %d len %d %s",
+				       st, len, buf);
 			}
 			fcm_clif->cl_busy = 0;
 
@@ -964,8 +965,8 @@ fcm_dcbd_rx(void *arg)
 				break;
 			default:
 				SA_LOG("Unexpected cmd in response "
-					"from dcbd: len %d %s",
-					len, buf);
+				       "from dcbd: len %d %s",
+				       len, buf);
 				break;
 			}
 			fcm_dcbd_next();	/* advance ports if possible */
@@ -976,7 +977,7 @@ fcm_dcbd_rx(void *arg)
 			break;
 		default:
 			SA_LOG("Unexpected message from dcbd: len %d buf %s",
-				len, buf);
+			       len, buf);
 			break;
 		}
 	}
@@ -1151,7 +1152,7 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 		if (feature == FEATURE_APP && subtype == APP_FCOE_STYPE) {
 			n = hex2int(rsp+doff+APP_LEN);
 			snprintf(buf, sizeof(buf), "%*.*s\n",
-				n, n, rsp+doff+APP_DATA);
+				 n, n, rsp+doff+APP_DATA);
 			f_info->u.appcfg = hex2int(buf);
 		}
 		break;
@@ -1210,11 +1211,11 @@ validating_dcb_app_pfc(struct fcm_fcoe *ff)
 		error++;
 	}
 	if ((ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) \
-		!= ff->ff_app_info.u.appcfg) {
+	    != ff->ff_app_info.u.appcfg) {
 		SA_LOG("WARNING: APP:0 priority (0x%02x) doesn't "
-			"match PFC priority (0x%02x)\n",
-			ff->ff_app_info.u.appcfg,
-			ff->ff_pfc_info.u.pfcup);
+		       "match PFC priority (0x%02x)\n",
+		       ff->ff_app_info.u.appcfg,
+		       ff->ff_pfc_info.u.pfcup);
 		error++;
 	}
 	if (error) {
@@ -1480,7 +1481,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 		if (ep != NULL) {
 			SA_LOG("invalid get oper response parse error byte %d."
-				"  resp %s", ep - cp, cp);
+			       "  resp %s", ep - cp, cp);
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
@@ -1505,8 +1506,8 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				       ff->ff_name,
 				       cp[OPER_SYNCD] == '1' ? "" : "not ");
 				SA_LOG("%s PFC operating mode is %s",
-					ff->ff_name, cp[OPER_OPER_MODE] == '1'
-					? "on" : "off ");
+				       ff->ff_name, cp[OPER_OPER_MODE] == '1'
+				       ? "on" : "off ");
 			}
 			ff->ff_pfc_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
@@ -1521,8 +1522,8 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				       ff->ff_name,
 				       cp[OPER_SYNCD] == '1' ? "" : "not ");
 				SA_LOG("%s LLINK operating mode is %s",
-					ff->ff_name, cp[OPER_OPER_MODE] == '1'
-					? "on" : "off ");
+				       ff->ff_name, cp[OPER_OPER_MODE] == '1'
+				       ? "on" : "off ");
 			}
 			ff->ff_llink_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
@@ -1534,12 +1535,12 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		case FCD_GET_APP_OPER:
 			if (fcm_dcbd_debug) {
 				SA_LOG("%s FCoE feature is %ssynced",
-					ff->ff_name,
-					cp[OPER_SYNCD] == '1' ? "" : "not ");
+				       ff->ff_name,
+				       cp[OPER_SYNCD] == '1' ? "" : "not ");
 				SA_LOG("%s FCoE operating mode is %s",
-					ff->ff_name,
-					cp[OPER_OPER_MODE] == '1' ?
-					"on" : "off ");
+				       ff->ff_name,
+				       cp[OPER_OPER_MODE] == '1' ?
+				       "on" : "off ");
 			}
 			rc = dcb_rsp_parser(ff, resp, st);
 			if (rc) {
@@ -1567,43 +1568,43 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			if (validating_dcbd_info(ff)) {
 				if (fcm_dcbd_debug)
 					SA_LOG("DCB settings of %s "
-						"qualified for creating "
-						"FCoE interface\n",
-						ff->ff_name);
+					       "qualified for creating "
+					       "FCoE interface\n",
+					       ff->ff_name);
 				rc = is_pfcup_changed(ff);
 				if (rc == 1) {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: Initial "
-							"QOS = 0x%x\n",
-							ff->ff_name,
-							ff->ff_qos_mask);
+						       "QOS = 0x%x\n",
+						       ff->ff_name,
+						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else if (rc == 2) {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: QOS changed"
-							" to 0x%x\n",
-							ff->ff_name,
-							ff->ff_qos_mask);
+						       " to 0x%x\n",
+						       ff->ff_name,
+						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_RESET);
 				} else if (!ff->ff_enabled) {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: Re-create "
-							"QOS = 0x%x\n",
-							ff->ff_name,
-							ff->ff_qos_mask);
+						       "QOS = 0x%x\n",
+						       ff->ff_name,
+						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else {
 					if (fcm_dcbd_debug)
 						SA_LOG("%s: No action will "
-							"be taken\n",
-							ff->ff_name);
+						       "be taken\n",
+						       ff->ff_name);
 				}
 			} else {
 				if (fcm_dcbd_debug)
 					SA_LOG("DCB settings of %s not "
-						"qualified for FCoE "
-						"operations.",
-						ff->ff_name);
+					       "qualified for FCoE "
+					       "operations.",
+					       ff->ff_name);
 				fcm_dcbd_setup(ff, ADM_DESTROY);
 				clear_dcbd_info(ff);
 			}
@@ -1621,7 +1622,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 		if (ep != NULL) {
 			SA_LOG("invalid get oper response parse error byte %d."
-				"  resp %s", ep - cp, cp);
+			       "  resp %s", ep - cp, cp);
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
@@ -1644,9 +1645,9 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			if (!rc) {
 				if (fcm_dcbd_debug) {
 					SA_LOG("%s Peer LLINK link status"
-						" is %s", ff->ff_name,
-						ff->ff_llink_status ?
-						"up" : "down");
+					       " is %s", ff->ff_name,
+					       ff->ff_llink_status ?
+					       "up" : "down");
 				}
 				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
 			} else
@@ -1660,7 +1661,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 
 	default:
 		SA_LOG("Unknown cmd 0x%x in response: resp %s",
-			cmd, orig_resp);
+		       cmd, orig_resp);
 		break;
 	}
 }
@@ -1672,7 +1673,7 @@ fcm_event_timeout(void *arg)
 
 	if (fcm_dcbd_debug)
 		SA_LOG("%s: %d milliseconds timeout!\n",
-			ff->ff_name, FCM_EVENT_TIMEOUT_USEC/1000);
+		       ff->ff_name, FCM_EVENT_TIMEOUT_USEC/1000);
 
 	if (!is_query_in_progress()) {
 		fcm_clif->cl_ping_pending++;
@@ -1707,7 +1708,7 @@ fcm_dcbd_event(char *msg, size_t len)
 	feature = fcm_get_hex(cp + EV_FEATURE_OFF, 2, &ep);
 	if (ep != NULL) {
 		SA_LOG("%s: Invalid feature code in event msg %s",
-			ff->ff_name, msg);
+		       ff->ff_name, msg);
 		return;
 	}
 
@@ -1743,16 +1744,16 @@ handle_event:
 		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
 		if (ep != NULL || subtype != APP_FCOE_STYPE) {
 			SA_LOG("%s: Unknown application subtype in msg %s",
-				ff->ff_name, msg);
+			       ff->ff_name, msg);
 			break;
 		}
 		if (fcm_dcbd_debug) {
 			if (cp[EV_OP_MODE_CHG_OFF] == '1')
 				SA_LOG("%s: operational mode changed",
-					ff->ff_name);
+				       ff->ff_name);
 			if (cp[EV_OP_CFG_CHG_OFF] == '1')
 				SA_LOG("%s: operational config changed",
-					ff->ff_name);
+				       ff->ff_name);
 		}
 		if (ff->ff_dcbd_state == FCD_DONE ||
 		    ff->ff_dcbd_state == FCD_ERROR) {
@@ -1762,7 +1763,7 @@ handle_event:
 				sa_timer_cancel(&ff->ff_event_timer);
 				/* Reset the timer */
 				sa_timer_set(&ff->ff_event_timer,
-						FCM_EVENT_TIMEOUT_USEC);
+					     FCM_EVENT_TIMEOUT_USEC);
 			}
 			if (fcm_clif->cl_busy == 0)
 				fcm_dcbd_port_advance(ff);
@@ -1770,7 +1771,7 @@ handle_event:
 		break;
 	default:
 		SA_LOG("%s: Unknown feature 0x%x in msg %s",
-			ff->ff_name, feature, msg);
+		       ff->ff_name, feature, msg);
 ignore_event:
 		break;
 	}
@@ -1827,9 +1828,10 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 				while (mask != 0 && off < sizeof(qos) - 1) {
 					bit = ffs(mask) - 1;
 					off +=
-					    snprintf(qos + off,
-						     sizeof(qos) - off, "%s%u",
-						     sep, bit);
+						snprintf(qos + off,
+							 sizeof(qos) - off,
+							 "%s%u",
+							 sep, bit);
 					mask &= ~(1 << bit);
 					sep = ",";
 				}
@@ -1839,11 +1841,11 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		if (fcm_dcbd_debug) {
 			if (!action)
 				SA_LOG("%s %s %s\n",
-					fcm_dcbd_cmd, ff->ff_name, op);
+				       fcm_dcbd_cmd, ff->ff_name, op);
 			else
 				SA_LOG("%s %s %s %s %s\n",
-					fcm_dcbd_cmd, ff->ff_name, op,
-					qos_arg, qos);
+				       fcm_dcbd_cmd, ff->ff_name, op,
+				       qos_arg, qos);
 		}
 		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
 		       op, qos_arg, qos, (char *)NULL);
@@ -1887,9 +1889,9 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 	case FCD_GET_DCB_STATE:
 		fcm_fcoe_get_dcb_settings(ff);
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_CONFIG, FEATURE_DCB, 0,
-			(u_int) strlen(ff->ff_name), ff->ff_name);
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_CONFIG, FEATURE_DCB, 0,
+			 (u_int) strlen(ff->ff_name), ff->ff_name);
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_SEND_CONF:
@@ -1898,65 +1900,65 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 			 ff->ff_app_info.willing,
 			 ff->ff_qos_mask);
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, params);
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, params);
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_CONFIG, FEATURE_PFC, 0,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_CONFIG, FEATURE_PFC, 0,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_LLINK_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_CONFIG, FEATURE_LLINK, LLINK_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_CONFIG, FEATURE_LLINK, LLINK_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_OPER, FEATURE_PFC, 0,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_OPER, FEATURE_PFC, 0,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_LLINK_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_OPER, FEATURE_LLINK, LLINK_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_OPER, FEATURE_LLINK, LLINK_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_LLINK_PEER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_PEER, FEATURE_LLINK, LLINK_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_PEER, FEATURE_LLINK, LLINK_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_OPER, FEATURE_APP, APP_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_OPER, FEATURE_APP, APP_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PEER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			DCB_CMD, CLIF_RSP_VERSION,
-			CMD_GET_PEER, FEATURE_APP, APP_FCOE_STYPE,
-			(u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 DCB_CMD, CLIF_RSP_VERSION,
+			 CMD_GET_PEER, FEATURE_APP, APP_FCOE_STYPE,
+			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_DONE:
@@ -2016,8 +2018,8 @@ fcm_pidfile_create(void)
 		rc = kill(pid, 0);
 		if (sp && (pid > 0) && !rc) {
 			SA_LOG("Another instance"
-				" (pid %d) is running - exiting\n",
-				pid);
+			       " (pid %d) is running - exiting\n",
+			       pid);
 			exit(1);
 		}
 		fclose(fp);
@@ -2042,7 +2044,7 @@ int main(int argc, char **argv)
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
 	while ((c = getopt_long(argc, argv, "fde:hv",
-			fcm_options, NULL)) != -1) {
+				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':
 			fcm_fg = 1;

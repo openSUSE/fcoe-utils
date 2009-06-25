@@ -1,9 +1,9 @@
 This document explains how to build the Open-FCoE
-user space tools. This includes fcoeadm, fcoemon and
+user space utilities. This includes fcoeadm, fcoemon and
 their corresponding manual pages.
 
 ##
-# open-fcoe
+# fcoe-utils
 ############
 
 DEPENDENCIES

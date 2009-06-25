@@ -1,7 +1,7 @@
 This document is a quickstart guide for a user connected
 to a Fibre Channel Forwarder (FCF) and not a SW target.
 It covers the installation of Data Center Bridging (DCB),
-the HBA API wrapper library, libhbalinux and open-fcoe.
+the HBA API wrapper library, libhbalinux and fcoe-utils.
 
 ##
 # Dependencies
@@ -9,7 +9,7 @@ the HBA API wrapper library, libhbalinux and open-fcoe.
 
 git://open-fcoe.org/openfc/hbaapi_build.git
 git://open-fcoe.org/openfc/libhbalinux.git
-git://open-fcoe.org/openfc/open-fcoe.git
+git://open-fcoe.org/openfc/fcoe-utils.git
 
 
 ##
@@ -101,7 +101,7 @@ PROCESS
 
 
 ##
-# open-fcoe
+# fcoe-utils
 ############
 
 DEPENDENCIES

@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
 				if (fcoeadm_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
-					goto error;
+					goto done;
 			}
 			opt_info->a_flag = 1;
 			rc = fcoeadm_display_adapter_info(opt_info);
@@ -524,7 +524,7 @@ int main(int argc, char *argv[])
 				if (fcoeadm_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
-					goto error;
+					goto done;
 			}
 			opt_info->t_flag = 1;
 			rc = fcoeadm_display_target_info(opt_info);
@@ -555,7 +555,7 @@ int main(int argc, char *argv[])
 				if (fcoeadm_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
-					goto error;
+					goto done;
 			}
 			opt_info->s_flag = 1;
 			if (argv[optind] && !strncmp(argv[optind], "-n", 2))

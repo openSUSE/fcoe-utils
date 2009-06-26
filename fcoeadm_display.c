@@ -89,7 +89,7 @@ sa_enum_decode(char *buf, size_t len,
 	snprintf(buf, len, "Unknown");
 	for (; tp->nv_name != NULL; tp++) {
 		if (tp->nv_val == val) {
-			strncpy(buf, tp->nv_name, sizeof(buf));
+			strncpy(buf, tp->nv_name, len);
 			break;
 		}
 	}

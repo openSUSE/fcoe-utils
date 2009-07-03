@@ -660,16 +660,6 @@ static void fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
 	ff->ff_vlan = vlan;
 }
 
-static int fcm_fcoe_port_ready(struct fcm_fcoe *ff)
-{
-	int rc;
-
-	rc = (ff->ff_flags & (IFF_UP|IFF_RUNNING)) == (IFF_UP|IFF_RUNNING) &&
-		ff->ff_operstate == IF_OPER_UP;
-
-	return rc;
-}
-
 static void fcm_dcbd_init()
 {
 	fcm_clif->cl_fd = -1;	/* not connected */
@@ -1732,19 +1722,11 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 	if (!p)
 		return;
 
-	if (ff->ff_dcbd_state != FCD_INIT && !fcm_fcoe_port_ready(ff))
-		fcm_dcbd_state_set(ff, FCD_INIT);
 	if (fcm_clif->cl_busy)
 		return;
 
 	switch (ff->ff_dcbd_state) {
 	case FCD_INIT:
-		if (!fcm_fcoe_port_ready(ff)) {
-			if (fcm_debug)
-				SA_LOG("FCoE port %s not ready\n", ff->ff_name);
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
 		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 		/* Fall through */
 	case FCD_GET_DCB_STATE:

@@ -44,23 +44,22 @@
 #include <linux/rtnetlink.h>
 #include <linux/ethtool.h>
 
+#include <dcbd/dcb_types.h>
+#include <dcbd/dcbtool.h>	/* for typedef cmd_status */
+#include <dcbd/clif.h>
+#include <dcbd/clif_cmds.h>
+#include <dcbd/common.h>	/* for event msg level definitions */
+
 #include "net_types.h"
 #include "fc_types.h"
 
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
 
-static char *fcoemon_version = "\
-fcoemon v1.0.7\n\
-Copyright (c) 2009, Intel Corporation.\n\
-";
-
-/*
- * Defines for FCoE config file.
- */
 #ifndef SYSCONFDIR
 #define SYSCONFDIR                  "/etc"
 #endif
+
 #define CONFIG_DIR                  SYSCONFDIR "/fcoe"
 #define CONFIG_MIN_VAL_LEN          (1 + 2)
 #define CONFIG_MAX_VAL_LEN          (20 + 2)
@@ -68,6 +67,17 @@ Copyright (c) 2009, Intel Corporation.\n\
 #define DCB_APP_0_DEFAULT_WILLING   1
 #define FCM_DEFAULT_QOS_MASK        (1 << 3)
 #define FILE_NAME_LEN               (NAME_MAX + 1)
+
+#define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
+#define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
+#define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
+#define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
+#define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
+#define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
+#define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
+
+static char *fcoemon_version =						\
+	"fcoemon v1.0.7\n Copyright (c) 2009, Intel Corporation.\n";
 
 /*
  * fcoe service configuration data
@@ -99,19 +109,6 @@ enum fcoeadm_action {
 static u_int8_t fcm_def_qos_mask = FCM_DEFAULT_QOS_MASK;
 
 struct clif;			/* for dcbtool.h only */
-#include <dcbd/dcb_types.h>
-#include <dcbd/dcbtool.h>	/* for typedef cmd_status */
-#include <dcbd/clif.h>
-#include <dcbd/clif_cmds.h>
-#include <dcbd/common.h>	/* for event msg level definitions */
-
-#define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
-#define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
-#define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
-#define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
-#define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
-#define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
-#define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
 /*
  * Interact with DCB daemon.
@@ -184,8 +181,7 @@ static const size_t fcm_link_buf_fuzz = 300;	/* "almost full" remainder */
  * The minimum length of a value is 1 excluding the quotes.
  * The maximum length of a value is 20 excluding the quotes.
  */
-static int
-fcm_remove_quotes(char *buf, int len)
+static int fcm_remove_quotes(char *buf, int len)
 {
 	char *s = buf;
 	char *e = buf + len - 1;
@@ -218,9 +214,8 @@ fcm_remove_quotes(char *buf, int len)
  *           0    not found
  *           -1   error in format
  */
-static size_t
-fcm_read_config_variable(char *file, char *val_buf, size_t len,
-			 FILE *fp, const char *var_name)
+static size_t fcm_read_config_variable(char *file, char *val_buf, size_t len,
+				       FILE *fp, const char *var_name)
 {
 	char *s;
 	char *var;
@@ -263,8 +258,7 @@ fcm_read_config_variable(char *file, char *val_buf, size_t len,
 	return 0;
 }
 
-static int
-fcm_read_config_files(void)
+static int fcm_read_config_files(void)
 {
 	char file[80];
 	FILE *fp;
@@ -376,8 +370,7 @@ fcm_read_config_files(void)
 	return 0;
 }
 
-static struct fcoe_port_config *
-fcm_find_port_config(char *ifname)
+static struct fcoe_port_config *fcm_find_port_config(char *ifname)
 {
 	struct fcoe_port_config *p;
 
@@ -391,8 +384,7 @@ fcm_find_port_config(char *ifname)
 	return NULL;
 }
 
-static int
-fcm_link_init(void)
+static int fcm_link_init(void)
 {
 	int fd;
 	int rc;
@@ -425,8 +417,7 @@ fcm_link_init(void)
 	return 0;
 }
 
-static void
-fcm_link_recv(void *arg)
+static void fcm_link_recv(void *arg)
 {
 	int rc;
 	char *buf;
@@ -523,14 +514,14 @@ rest:
 /*
  * Send rt_netlink request for all network interfaces.
  */
-static void
-fcm_link_getlink(void)
+static void fcm_link_getlink(void)
 {
 	struct {
 		struct nlmsghdr nl;
 		struct ifinfomsg ifi;	/* link level specific information,
 					   not dependent on network protocol */
 	} msg;
+
 	int rc;
 
 	memset(&msg, 0, sizeof(msg));
@@ -550,8 +541,7 @@ fcm_link_getlink(void)
  * Check for whether buffer needs to grow based on amount read.
  * Free's the old buffer so don't use that after this returns non-zero.
  */
-static int
-fcm_link_buf_check(size_t read_len)
+static int fcm_link_buf_check(size_t read_len)
 {
 	char *buf;
 	size_t len = read_len;
@@ -570,8 +560,7 @@ fcm_link_buf_check(size_t read_len)
 	return 0;
 }
 
-static void
-fcm_fcoe_init(void)
+static void fcm_fcoe_init(void)
 {
 	if (fcm_read_config_files())
 		exit(1);
@@ -580,8 +569,7 @@ fcm_fcoe_init(void)
 /*
  * Allocate an FCoE interface state structure.
  */
-static struct fcm_fcoe *
-fcm_fcoe_alloc(void)
+static struct fcm_fcoe *fcm_fcoe_alloc(void)
 {
 	struct fcm_fcoe *ff;
 
@@ -598,8 +586,7 @@ fcm_fcoe_alloc(void)
 /*
  * Find an FCoE interface by ifindex.
  */
-static struct fcm_fcoe *
-fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex)
+static struct fcm_fcoe *fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex)
 {
 	struct fcm_fcoe *ff;
 
@@ -620,8 +607,7 @@ fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex)
  * Find an FCoE interface by name.
  * What about VLAN instances?  They can't use DCB, perhaps.
  */
-static struct fcm_fcoe *
-fcm_fcoe_lookup_name(char *name)
+static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
 {
 	struct fcm_fcoe *ff;
 
@@ -632,8 +618,7 @@ fcm_fcoe_lookup_name(char *name)
 	return ff;
 }
 
-static void
-fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
+static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 {
 	fc_wwn_t wwpn;
 	int vlan = ff->ff_vlan;
@@ -659,8 +644,7 @@ fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 	}
 }
 
-static void
-fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
+static void fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
 {
 	char *cp;
 	int vlan;
@@ -676,8 +660,7 @@ fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
 	ff->ff_vlan = vlan;
 }
 
-static int
-fcm_fcoe_port_ready(struct fcm_fcoe *ff)
+static int fcm_fcoe_port_ready(struct fcm_fcoe *ff)
 {
 	int rc;
 
@@ -687,8 +670,7 @@ fcm_fcoe_port_ready(struct fcm_fcoe *ff)
 	return rc;
 }
 
-static void
-fcm_dcbd_init()
+static void fcm_dcbd_init()
 {
 	fcm_clif->cl_fd = -1;	/* not connected */
 	fcm_clif->cl_ping_pending = 0;
@@ -696,8 +678,7 @@ fcm_dcbd_init()
 	fcm_dcbd_timeout(NULL);
 }
 
-static int
-fcm_dcbd_connect(void)
+static int fcm_dcbd_connect(void)
 {
 	int rc;
 	int fd;
@@ -740,8 +721,7 @@ fcm_dcbd_connect(void)
 	return 1;
 }
 
-static int
-is_query_in_progress(void)
+static int is_query_in_progress(void)
 {
 	struct fcm_fcoe *ff;
 
@@ -753,8 +733,7 @@ is_query_in_progress(void)
 	return 0;
 }
 
-static void
-fcm_fcoe_config_reset(void)
+static void fcm_fcoe_config_reset(void)
 {
 	struct fcoe_port_config *p;
 	struct fcm_fcoe *ff;
@@ -775,8 +754,7 @@ fcm_fcoe_config_reset(void)
 	}
 }
 
-static void
-fcm_dcbd_timeout(void *arg)
+static void fcm_dcbd_timeout(void *arg)
 {
 	if (fcm_clif->cl_ping_pending > 0) {
 		fcm_dcbd_request("D");	/* DETACH_CMD */
@@ -794,8 +772,7 @@ fcm_dcbd_timeout(void *arg)
 	sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
 }
 
-static void
-fcm_dcbd_disconnect(void)
+static void fcm_dcbd_disconnect(void)
 {
 	if (fcm_clif != NULL && fcm_clif->cl_local.sun_path[0] != '\0') {
 		if (fcm_clif->cl_fd >= 0)
@@ -811,8 +788,7 @@ fcm_dcbd_disconnect(void)
 	}
 }
 
-static void
-fcm_dcbd_shutdown(void)
+static void fcm_dcbd_shutdown(void)
 {
 	if (fcm_debug)
 		SA_LOG("Shut down dcbd connection\n");
@@ -822,8 +798,7 @@ fcm_dcbd_shutdown(void)
 	closelog();
 }
 
-static u_int32_t
-fcm_get_hex(char *cp, u_int32_t len, char **endptr)
+static u_int32_t fcm_get_hex(char *cp, u_int32_t len, char **endptr)
 {
 	u_int32_t hex = 0;
 
@@ -845,8 +820,8 @@ fcm_get_hex(char *cp, u_int32_t len, char **endptr)
 
 static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 
-static void
-fcm_dcbd_state_set(struct fcm_fcoe *ff, enum fcm_dcbd_state new_state)
+static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
+			       enum fcm_dcbd_state new_state)
 {
 	if (fcm_debug) {
 		char old[32];
@@ -862,8 +837,7 @@ fcm_dcbd_state_set(struct fcm_fcoe *ff, enum fcm_dcbd_state new_state)
 	ff->ff_dcbd_state = new_state;
 }
 
-static void
-fcm_dcbd_rx(void *arg)
+static void fcm_dcbd_rx(void *arg)
 {
 	struct fcm_clif *clif = arg;
 	cmd_status st;
@@ -933,15 +907,13 @@ fcm_dcbd_rx(void *arg)
 	}
 }
 
-static void
-fcm_dcbd_ex(void *arg)
+static void fcm_dcbd_ex(void *arg)
 {
 	if (fcm_debug)
 		SA_LOG("called");
 }
 
-static void
-fcm_dcbd_request(char *req)
+static void fcm_dcbd_request(char *req)
 {
 	size_t len;
 	int rc;
@@ -972,8 +944,8 @@ fcm_dcbd_request(char *req)
  * The pointer to the message pointer is passed in, and updated to point
  * past the interface name.
  */
-static struct fcm_fcoe *
-fcm_dcbd_get_port(char **msgp, size_t len_off, size_t len_len, size_t len)
+static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
+					  size_t len_len, size_t len)
 {
 	struct fcm_fcoe *ff;
 	u_int32_t if_len;
@@ -1012,8 +984,7 @@ fcm_dcbd_get_port(char **msgp, size_t len_off, size_t len_len, size_t len)
  * information of the response packet from the DCBD. In the
  * future, it should be merged into fcm_dcbd_cmd_resp().
  */
-static int
-dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
+static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 {
 	int version;
 	int dcb_cmd;
@@ -1131,8 +1102,7 @@ dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
  * Returns:  1 if succeeded
  *           0 if failed
  */
-static int
-validating_dcb_app_pfc(struct fcm_fcoe *ff)
+static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
 {
 	int error = 0;
 
@@ -1238,8 +1208,7 @@ validating_llink_tlv(struct fcm_fcoe *ff)
  * Returns:  1 if succeeded
  *           0 if failed
  */
-static int
-validating_dcbd_info(struct fcm_fcoe *ff)
+static int validating_dcbd_info(struct fcm_fcoe *ff)
 {
 	int rc;
 
@@ -1258,8 +1227,7 @@ validating_dcbd_info(struct fcm_fcoe *ff)
  *           1 if yes, but it is the first time, or was destroyed.
  *           2 if yes
  */
-static int
-is_pfcup_changed(struct fcm_fcoe *ff)
+static int is_pfcup_changed(struct fcm_fcoe *ff)
 {
 	if (ff->ff_pfc_info.u.pfcup != ff->ff_pfc_saved.u.pfcup) {
 		if (ff->ff_pfc_saved.u.pfcup == 0xffff)
@@ -1276,8 +1244,7 @@ is_pfcup_changed(struct fcm_fcoe *ff)
  *
  * Returns:  None
  */
-static void
-update_saved_pfcup(struct fcm_fcoe *ff)
+static void update_saved_pfcup(struct fcm_fcoe *ff)
 {
 	ff->ff_pfc_saved.u.pfcup = ff->ff_pfc_info.u.pfcup;
 }
@@ -1286,8 +1253,7 @@ update_saved_pfcup(struct fcm_fcoe *ff)
  * clear_dcbd_info - lear dcbd info to unknown values
  *
  */
-static void
-clear_dcbd_info(struct fcm_fcoe *ff)
+static void clear_dcbd_info(struct fcm_fcoe *ff)
 {
 	ff->ff_dcb_state = 0;
 	ff->ff_app_info.advertise = 0;
@@ -1308,8 +1274,7 @@ clear_dcbd_info(struct fcm_fcoe *ff)
  * Handle command response.
  * Response buffer points past command code character in response.
  */
-static void
-fcm_dcbd_cmd_resp(char *resp, cmd_status st)
+static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 {
 	struct fcm_fcoe *ff;
 	u_int32_t ver;
@@ -1616,8 +1581,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	}
 }
 
-static void
-fcm_event_timeout(void *arg)
+static void fcm_event_timeout(void *arg)
 {
 	struct fcm_fcoe *ff = (struct fcm_fcoe *)arg;
 
@@ -1636,8 +1600,7 @@ fcm_event_timeout(void *arg)
  * Handle incoming DCB event message.
  * Example message: E5104eth8050001
  */
-static void
-fcm_dcbd_event(char *msg, size_t len)
+static void fcm_dcbd_event(char *msg, size_t len)
 {
 	struct fcm_fcoe *ff;
 	u_int32_t feature;
@@ -1734,8 +1697,7 @@ ignore_event:
  *         enable = 1      Create the FCoE interface
  *         enable = 2      Reset the interface
  */
-static void
-fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
+static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 {
 	char *op, *debug = NULL;
 	char *qos_arg;
@@ -1813,8 +1775,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
  * Called for all ports.  For FCoE ports and candidates,
  * get information and send to dcbd.
  */
-static void
-fcm_dcbd_port_advance(struct fcm_fcoe *ff)
+static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 {
 	char buf[80], params[30];
 	struct fcoe_port_config *p;
@@ -1925,8 +1886,7 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 	}
 }
 
-static void
-fcm_dcbd_next(void)
+static void fcm_dcbd_next(void)
 {
 	struct fcm_fcoe *ff;
 
@@ -1937,8 +1897,7 @@ fcm_dcbd_next(void)
 	}
 }
 
-static void
-fcm_usage(void)
+static void fcm_usage(void)
 {
 	printf("%s\n", fcoemon_version);
 	printf("Usage: %s\n"
@@ -1950,15 +1909,13 @@ fcm_usage(void)
 	exit(1);
 }
 
-static void
-fcm_sig(int sig)
+static void fcm_sig(int sig)
 {
 	fcm_dcbd_shutdown();
 	sa_select_exit();
 }
 
-static void
-fcm_pidfile_create(void)
+static void fcm_pidfile_create(void)
 {
 	FILE *fp;
 	char buf[100];
@@ -2071,8 +2028,7 @@ int main(int argc, char **argv)
  *         The following are debug routines            *
  *******************************************************/
 
-static void
-print_errors(char *buf, int errors)
+static void print_errors(char *buf, int errors)
 {
 	char msg[80];
 	int len, j;
@@ -2129,4 +2085,3 @@ print_errors(char *buf, int errors)
 
 	SA_LOG("%s %s\n", buf, msg);
 }
-

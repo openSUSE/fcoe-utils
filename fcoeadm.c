@@ -25,10 +25,8 @@
 #include <dirent.h>
 #include "fcoeadm.h"
 
-static char *fcoeadm_version = "\
-fcoeadm v1.0.7\n\
-Copyright (c) 2009, Intel Corporation.\n\
-";
+static char *fcoeadm_version =						\
+	"fcoeadm v1.0.7\n Copyright (c) 2009, Intel Corporation.\n";
 
 #define SYSFS_MOUNT	"/sys"
 #define SYSFS_NET	SYSFS_MOUNT "/class/net"
@@ -55,8 +53,7 @@ static struct option fcoeadm_opts[] = {
 struct opt_info _opt_info, *opt_info = &_opt_info;
 char progname[20];
 
-static void
-fcoeadm_help(void)
+static void fcoeadm_help(void)
 {
 	printf("%s\n", fcoeadm_version);
 	printf("Usage: %s\n"
@@ -74,8 +71,7 @@ fcoeadm_help(void)
 /*
  * Open and close to check if directory exists
  */
-static int
-fcoeadm_checkdir(char *dir)
+static int fcoeadm_checkdir(char *dir)
 {
 	DIR *d = NULL;
 
@@ -92,8 +88,7 @@ fcoeadm_checkdir(char *dir)
 /*
  * TODO - check this ifname before performing any action
  */
-static int
-fcoeadm_check(char *ifname)
+static int fcoeadm_check(char *ifname)
 {
 	char path[256];
 
@@ -129,8 +124,7 @@ fcoeadm_check(char *ifname)
 /*
  * TODO - for now, this just writes to path
  */
-static int
-fcoeadm_action(char *path, char *s)
+static int fcoeadm_action(char *path, char *s)
 {
 	FILE *fp = NULL;
 
@@ -155,8 +149,7 @@ fcoeadm_action(char *path, char *s)
 	return 0;
 }
 
-static char *
-fcoeadm_read(const char *path)
+static char *fcoeadm_read(const char *path)
 {
 	FILE *fp;
 	char *buf;
@@ -182,8 +175,7 @@ fcoeadm_read(const char *path)
 	return NULL;
 }
 
-static int
-fcoeadm_check_fchost(const char *ifname, const char *dname)
+static int fcoeadm_check_fchost(const char *ifname, const char *dname)
 {
 	char *buf;
 	char path[512];
@@ -210,8 +202,7 @@ fcoeadm_check_fchost(const char *ifname, const char *dname)
 	return 0;
 }
 
-static int
-fcoeadm_find_fchost(char *ifname, char *fchost, int len)
+static int fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
 	int found = 0;
@@ -259,8 +250,7 @@ fcoeadm_find_fchost(char *ifname, char *fchost, int len)
 /*
  * Create FCoE instance for this ifname
  */
-static int
-fcoeadm_create(char *ifname)
+static int fcoeadm_create(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
 		fprintf(stderr,
@@ -274,8 +264,7 @@ fcoeadm_create(char *ifname)
 /*
  * Remove FCoE instance for this ifname
  */
-static int
-fcoeadm_destroy(char *ifname)
+static int fcoeadm_destroy(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
 		fprintf(stderr,
@@ -289,8 +278,7 @@ fcoeadm_destroy(char *ifname)
 /*
  * Validate an existing instance for an FC interface
  */
-static int
-fcoeadm_validate_interface(char *ifname, char *fchost, int len)
+static int fcoeadm_validate_interface(char *ifname, char *fchost, int len)
 {
 	if (!fcoeadm_find_fchost(ifname, fchost, len)) {
 		fprintf(stderr, "%s: No fc_host found for %s\n",
@@ -304,8 +292,7 @@ fcoeadm_validate_interface(char *ifname, char *fchost, int len)
 /*
  * Reset the fc_host that is associated w/ this ifname
  */
-static int
-fcoeadm_reset(char *ifname)
+static int fcoeadm_reset(char *ifname)
 {
 	char fchost[FCHOSTBUFLEN];
 	char path[256];
@@ -322,8 +309,7 @@ fcoeadm_reset(char *ifname)
  * Format may be xx-xx-xx OR xxxxxx OR xx:xx:xx for len bytes (up to 8).
  * Leading zeros may be omitted.
  */
-static int
-parse_hex_ll(unsigned long long *hexp, const char *input, u_int len)
+static int parse_hex_ll(unsigned long long *hexp, const char *input, u_int len)
 {
 	int i;
 	unsigned long long hex = 0;
@@ -355,8 +341,7 @@ parse_hex_ll(unsigned long long *hexp, const char *input, u_int len)
 	return error;
 }
 
-static int
-parse_fcid(HBA_UINT32 *fcid, const char *input)
+static int parse_fcid(HBA_UINT32 *fcid, const char *input)
 {
 	int rc;
 	unsigned long long hex;
@@ -389,8 +374,7 @@ static int fcoeadm_display_adapter_info(struct opt_info *opt_info)
 /*
  * Display target information
  */
-static int
-fcoeadm_display_target_info(struct opt_info *opt_info)
+static int fcoeadm_display_target_info(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
 
@@ -409,8 +393,7 @@ fcoeadm_display_target_info(struct opt_info *opt_info)
 /*
  * Display port statistics
  */
-static int
-fcoeadm_display_port_stats(struct opt_info *opt_info)
+static int fcoeadm_display_port_stats(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
 

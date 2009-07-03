@@ -47,6 +47,7 @@ FCOEMON=/usr/sbin/fcoemon
 FCOEADM=/usr/sbin/fcoeadm
 DCBD=dcbd
 LOGGER="logger -t fcoe -s"
+FCOEMON_OPTS=
 
 . /etc/rc.status
 rc_reset
@@ -113,7 +114,7 @@ if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
 	LOGGER="echo"
 fi
 if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
-	DEBUG="yes"
+	FCOEMON_OPTS+=" --debug"
 fi
 
 test -x $CONFIG_SCRIPT || {
@@ -219,7 +220,7 @@ service_start()
 	# daemon to create the FCoE interfaces for these ports.
 	#
 	if [ "$HAS_DCB_IF" = "true" ]; then
-		startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON}
+		startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 	fi
 
 	rc_status -v

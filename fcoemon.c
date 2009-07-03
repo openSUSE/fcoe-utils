@@ -405,18 +405,61 @@ static int fcm_link_init(void)
 	return 0;
 }
 
+void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
+{
+	struct fcm_fcoe *ff;
+	struct rtattr *ap;
+	char ifname[IFNAMSIZ];
+
+	if (ip->ifi_type != ARPHRD_ETHER)
+		return;
+
+	ff = fcm_fcoe_lookup_create_ifindex(ip->ifi_index);
+	if (!ff)
+		return;
+
+	ff->ff_flags = ip->ifi_flags;
+
+	len -= sizeof(*ip);
+	for (ap = (struct rtattr *)(ip + 1); RTA_OK(ap, len);
+	     ap = RTA_NEXT(ap, len)) {
+		switch (ap->rta_type) {
+		case IFLA_ADDRESS:
+			if (RTA_PAYLOAD(ap) == 6)
+				ff->ff_mac =
+					net48_get(RTA_DATA(ap));
+			break;
+
+		case IFLA_IFNAME:
+			sa_strncpy_safe(ifname, sizeof(ifname),
+					RTA_DATA(ap),
+					RTA_PAYLOAD(ap));
+			if (fcm_debug)
+				SA_LOG("ifname %s", ifname);
+			fcm_fcoe_set_name(ff, ifname);
+			break;
+
+		case IFLA_OPERSTATE:
+			ff->ff_operstate =
+				*(uint8_t *) RTA_DATA(ap);
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
 static void fcm_link_recv(void *arg)
 {
 	int rc;
 	char *buf;
 	struct nlmsghdr *hp;
 	struct ifinfomsg *ip;
-	struct rtattr *ap;
 	struct fcm_fcoe *ff;
 	unsigned type;
 	int plen;
 	int rlen;
-	char ifname[IFNAMSIZ];
 
 	buf = fcm_link_buf;
 	rc = read(fcm_link_socket, buf, fcm_link_buf_size);
@@ -425,74 +468,44 @@ static void fcm_link_recv(void *arg)
 			SA_LOG_ERR(errno, "read error");
 		return;
 	}
+
+	if (fcm_link_buf_check(rc)) {
+		fcm_link_getlink();
+		return;
+	}
+
 	hp = (struct nlmsghdr *)buf;
 	rlen = rc;
 	for (hp = (struct nlmsghdr *)buf; NLMSG_OK(hp, rlen);
 	     hp = NLMSG_NEXT(hp, rlen)) {
+
 		type = hp->nlmsg_type;
 		if (hp->nlmsg_type == NLMSG_DONE)
 			break;
+
 		if (hp->nlmsg_type == NLMSG_ERROR) {
 			SA_LOG("nlmsg error");
 			break;
 		}
+
 		plen = NLMSG_PAYLOAD(hp, 0);
 		ip = (struct ifinfomsg *)NLMSG_DATA(hp);
 		if (plen < sizeof(*ip)) {
 			SA_LOG("too short (%d) to be a LINK message", rc);
 			break;
 		}
+
 		switch (type) {
 		case RTM_NEWLINK:
-			if (fcm_debug)
-				SA_LOG("newlink %d", ip->ifi_index);
-			goto rest;
 		case RTM_DELLINK:
-			if (fcm_debug)
-				SA_LOG("dellink %d", ip->ifi_index);
-			goto rest;
 		case RTM_GETLINK:
 			if (fcm_debug)
-				SA_LOG("getlink %d", ip->ifi_index);
-rest:
-			if (fcm_link_buf_check(rc)) {
-				fcm_link_getlink();
-				return;
-			}
-			if (ip->ifi_type != ARPHRD_ETHER)
-				break;
+				SA_LOG("Link event %d for index %d", type,
+				       ip->ifi_index);
 
-			ff = fcm_fcoe_lookup_create_ifindex(ip->ifi_index);
-			if (ff == NULL)
-				break;
-			ff->ff_flags = ip->ifi_flags;
-
-			plen -= sizeof(*ip);
-			for (ap = (struct rtattr *)(ip + 1); RTA_OK(ap, plen);
-			     ap = RTA_NEXT(ap, plen)) {
-				switch (ap->rta_type) {
-				case IFLA_ADDRESS:
-					if (RTA_PAYLOAD(ap) == 6)
-						ff->ff_mac =
-							net48_get(RTA_DATA(ap));
-					break;
-				case IFLA_IFNAME:
-					sa_strncpy_safe(ifname, sizeof(ifname),
-							RTA_DATA(ap),
-							RTA_PAYLOAD(ap));
-					if (fcm_debug)
-						SA_LOG("ifname %s", ifname);
-					fcm_fcoe_set_name(ff, ifname);
-					break;
-				case IFLA_OPERSTATE:
-					ff->ff_operstate =
-						*(uint8_t *) RTA_DATA(ap);
-					break;
-				default:
-					break;
-				}
-			}
+			fcm_parse_link_msg(ip, plen);
 			break;
+
 		default:
 			break;
 		}

@@ -88,7 +88,6 @@ struct fcoe_port_config {
 	struct fcoe_port_config *next;
 	char ifname[IFNAMSIZ];
 	int fcoe_enable;
-	int has_fip;
 	int dcb_required;
 	int dcb_app_0_enable;
 	int dcb_app_0_willing;
@@ -352,17 +351,6 @@ static int fcm_read_config_files(void)
 			curr->dcb_app_0_enable = DCB_APP_0_DEFAULT_ENABLE;
 			curr->dcb_app_0_willing = DCB_APP_0_DEFAULT_WILLING;
 		}
-
-		/* HAS_FIP */
-		rc = fcm_read_config_variable(file, val,
-					      sizeof(val), fp, "HAS_FIP");
-		if (rc < 0) {
-			fclose(fp);
-			return -1;
-		}
-		/* if not found, default to "no" */
-		if (!strncasecmp(val, "yes", 3) && rc == 1)
-			curr->has_fip = 1;
 
 		fclose(fp);
 	}
@@ -637,7 +625,6 @@ static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 		if (!strncmp(ff->ff_name, p->ifname, IFNAMSIZ)) {
 			ff->ff_app_info.enable = p->dcb_app_0_enable;
 			ff->ff_app_info.willing = p->dcb_app_0_willing;
-			ff->ff_has_fip = p->has_fip;
 			break;
 		}
 		p = p->next;

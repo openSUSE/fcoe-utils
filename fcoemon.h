@@ -87,7 +87,6 @@ struct fcm_fcoe {
    struct feature_info   ff_app_info;      /* App feature info */
    struct feature_info   ff_llink_info;    /* LLink feature info */
    u_int32_t             ff_llink_status;  /* LLink status */
-   u_int32_t             ff_has_fip;       /* FIP is implemented */
    u_int64_t             ff_mac;           /* MAC address */
    int                   ff_vlan;          /* VLAN ID or -1 if none */
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */

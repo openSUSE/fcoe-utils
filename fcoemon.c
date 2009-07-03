@@ -1270,150 +1270,129 @@ static void clear_dcbd_info(struct fcm_fcoe *ff)
 	ff->ff_pfc_info.u.pfcup = 0xffff;
 }
 
-/*
- * Handle command response.
- * Response buffer points past command code character in response.
+
+/**
+ * fcm_dcbd_set_config() - Response handler for set config command
+ * @ff: fcoe port structure
+ * @st: status
  */
-static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
+static void fcm_dcbd_set_config(struct fcm_fcoe *ff, cmd_status st)
 {
-	struct fcm_fcoe *ff;
-	u_int32_t ver;
-	u_int32_t cmd;
-	u_int32_t val;
-	u_int32_t feature;
-	u_int32_t subtype;
-	char *ep;
-	char *cp;
-	size_t len;
-	char *orig_resp;
-	u_int32_t enable;
-	u_int32_t parm_len;
-	u_int32_t parm;
+	if (ff->ff_dcbd_state == FCD_SEND_CONF) {
+		if (st != cmd_success)
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+		else
+			fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+	}
+}
+
+/**
+ * fcm_dcbd_get_config() - Response handler for get config command
+ * @ff:   fcoe port structure
+ * @resp: response buffer
+ * @st:   status
+ */
+static void fcm_dcbd_get_config(struct fcm_fcoe *ff, char *resp,
+				const cmd_status st)
+{
 	int rc;
 
-	orig_resp = resp;
-	resp += CLIF_RSP_OFF;
-	len = strlen(resp);
-	ver = fcm_get_hex(resp + DCB_VER_OFF, DCB_VER_LEN, &ep);
-	if (ep != NULL) {
-		SA_LOG("parse error: resp %s", orig_resp);
-		return;
-	} else if (ver != CLIF_RSP_VERSION) {
-		SA_LOG("unexpected version %d resp %s", ver, orig_resp);
-		return;
-	}
-	cmd = fcm_get_hex(resp + DCB_CMD_OFF, DCB_CMD_LEN, &ep);
-	if (ep != NULL) {
-		SA_LOG("parse error on resp cmd: resp %s", orig_resp);
-		return;
-	}
-	feature = fcm_get_hex(resp + DCB_FEATURE_OFF, DCB_FEATURE_LEN, &ep);
-	if (ep != NULL) {
-		SA_LOG("parse error on resp feature: resp %s", orig_resp);
-		return;
-	}
-	subtype = fcm_get_hex(resp + DCB_SUBTYPE_OFF, DCB_SUBTYPE_LEN, &ep);
-	if (ep != NULL) {
-		SA_LOG("parse error on resp subtype: resp %s", orig_resp);
-		return;
-	}
-	cp = resp;
-	ff = fcm_dcbd_get_port(&cp, DCB_PORTLEN_OFF, DCB_PORTLEN_LEN, len);
-	if (ff == NULL) {
-		SA_LOG("port not found. resp %s", orig_resp);
-		return;
-	}
-
-	switch (cmd) {
-	case CMD_SET_CONFIG:
-		if (ff->ff_dcbd_state == FCD_SEND_CONF) {
-			if (st != cmd_success) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
-		}
-		break;
-
-	case CMD_GET_CONFIG:
-		switch (ff->ff_dcbd_state) {
-		case FCD_GET_DCB_STATE:
-			if (st != cmd_success) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_SEND_CONF);
-			else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		case FCD_GET_PFC_CONFIG:
-			if (st != cmd_success) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_LLINK_CONFIG);
-			else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		case FCD_GET_LLINK_CONFIG:
-			if (st != cmd_success) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_APP_CONFIG);
-			else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		case FCD_GET_APP_CONFIG:
-			if (st != cmd_success) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_PFC_OPER);
-			else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		default:
+	switch (ff->ff_dcbd_state) {
+	case FCD_GET_DCB_STATE:
+		if (st != cmd_success) {
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
+		rc = dcb_rsp_parser(ff, resp, st);
+		if (!rc)
+			fcm_dcbd_state_set(ff, FCD_SEND_CONF);
+		else
+			fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
-
-	case CMD_GET_OPER:
-		/*
-		 * Sample msg: R00C103050004eth8010100100208
-		 *                  opppssll    vvmmeemsllpp
-		 * cp points past the interface name.
-		 */
-		val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
-		if (ep != NULL) {
-			SA_LOG("invalid get oper response parse error byte %d."
-			       "  resp %s", ep - cp, cp);
+	case FCD_GET_PFC_CONFIG:
+		if (st != cmd_success) {
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
+		rc = dcb_rsp_parser(ff, resp, st);
+		if (!rc)
+			fcm_dcbd_state_set(ff, FCD_GET_LLINK_CONFIG);
+		else
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	case FCD_GET_LLINK_CONFIG:
+		if (st != cmd_success) {
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+			break;
+		}
+		rc = dcb_rsp_parser(ff, resp, st);
+		if (!rc)
+			fcm_dcbd_state_set(ff, FCD_GET_APP_CONFIG);
+		else
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	case FCD_GET_APP_CONFIG:
+		if (st != cmd_success) {
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+			break;
+		}
+		rc = dcb_rsp_parser(ff, resp, st);
+		if (!rc)
+			fcm_dcbd_state_set(ff, FCD_GET_PFC_OPER);
+		else
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	default:
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	}
+}
+
+
+/**
+ * fcm_dcbd_get_oper() - Response handler for get operational state command
+ * @ff:   fcoe port structure
+ * @resp: response buffer
+ * @cp:   response buffer pointer, points past the interface name
+ * @st:   status
+ *
+ * Sample msg: R00C103050004eth8010100100208
+ *                  opppssll    vvmmeemsllpp
+ */
+static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
+			      char *cp, const cmd_status st)
+{
+	u_int32_t enable;
+	u_int32_t val;
+	u_int32_t parm_len;
+	u_int32_t parm;
+	char *ep = NULL;
+	int rc;
+
+	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
+
+	if (ep) {
+		SA_LOG("invalid get oper response parse error byte %d."
+		       "  resp %s", ep - cp, cp);
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+	} else {
 		if (val != 0) {
 			if (fcm_debug) {
-				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
+				SA_LOG("val=0x%x resp:%s\n", val, resp);
 				print_errors("", val);
 			}
 			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
 		}
+
 		if (st != cmd_success) {
 			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
+			return;
 		}
+
 		enable = (cp[OPER_OPER_MODE] == '1');
+
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_PFC_OPER:
 			if (fcm_debug) {
@@ -1431,6 +1410,7 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			else
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
+
 		case FCD_GET_LLINK_OPER:
 			if (fcm_debug) {
 				SA_LOG("%s LLINK feature is %ssynced",
@@ -1447,6 +1427,7 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			else
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
+
 		case FCD_GET_APP_OPER:
 			if (fcm_debug) {
 				SA_LOG("%s FCoE feature is %ssynced",
@@ -1527,56 +1508,141 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			update_saved_pfcup(ff);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
+
 		default:
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
+	}
+}
+
+/**
+ * fcm_dcbd_get_peer() - Response handler for get peer command
+ * @ff:   fcoe port structure
+ * @resp: response buffer
+ * @cp:   response buffer pointer, points past the interface name
+ * @st:   status
+ */
+static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
+			      char *cp, const cmd_status st)
+{
+	char *ep = NULL;
+	u_int32_t val;
+	int rc;
+
+	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
+	if (ep) {
+		SA_LOG("invalid get oper response parse error byte %d."
+		       "  resp %s", ep - cp, cp);
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+		return;
+	}
+
+	if (val != 0) {
+		if (fcm_debug) {
+			SA_LOG("val=0x%x resp:%s\n", val, resp);
+			print_errors("", val);
+		}
+		fcm_dcbd_setup(ff, ADM_DESTROY);
+		fcm_dcbd_state_set(ff, FCD_DONE);
+		return;
+	}
+
+	if (st != cmd_success) {
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+		return;
+	}
+
+	switch (ff->ff_dcbd_state) {
+	case FCD_GET_LLINK_PEER:
+		rc = dcb_rsp_parser(ff, resp, st);
+		if (!rc) {
+			if (fcm_debug) {
+				SA_LOG("%s Peer LLINK link status"
+				       " is %s", ff->ff_name,
+				       ff->ff_llink_status ?
+				       "up" : "down");
+			}
+			fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
+		} else
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	default:
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+		break;
+	}
+}
+
+/*
+ * Handle command response.
+ * Response buffer points past command code character in response.
+ */
+static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
+{
+	struct fcm_fcoe *ff;
+	u_int32_t ver;
+	u_int32_t cmd;
+	u_int32_t val;
+	u_int32_t feature;
+	u_int32_t subtype;
+	char *ep;
+	char *cp;
+	size_t len;
+	u_int32_t enable;
+	int rc;
+
+	resp += CLIF_RSP_OFF;
+	len = strlen(resp);
+	ver = fcm_get_hex(resp + DCB_VER_OFF, DCB_VER_LEN, &ep);
+	if (ep != NULL) {
+		SA_LOG("parse error: resp %s", resp);
+		return;
+	} else	if (ver != CLIF_RSP_VERSION) {
+		SA_LOG("unexpected version %d resp %s", ver, resp);
+		return;
+	}
+	cmd = fcm_get_hex(resp + DCB_CMD_OFF, DCB_CMD_LEN, &ep);
+	if (ep != NULL) {
+		SA_LOG("parse error on resp cmd: resp %s", resp);
+		return;
+	}
+	feature = fcm_get_hex(resp + DCB_FEATURE_OFF, DCB_FEATURE_LEN, &ep);
+	if (ep != NULL) {
+		SA_LOG("parse error on resp feature: resp %s", resp);
+		return;
+	}
+	subtype = fcm_get_hex(resp + DCB_SUBTYPE_OFF, DCB_SUBTYPE_LEN, &ep);
+	if (ep != NULL) {
+		SA_LOG("parse error on resp subtype: resp %s", resp);
+		return;
+	}
+	cp = resp;
+	ff = fcm_dcbd_get_port(&cp, DCB_PORTLEN_OFF, DCB_PORTLEN_LEN, len);
+	if (ff == NULL) {
+		SA_LOG("port not found. resp %s", resp);
+		return;
+	}
+
+	switch (cmd) {
+	case CMD_SET_CONFIG:
+		fcm_dcbd_set_config(ff, st);
+		break;
+
+	case CMD_GET_CONFIG:
+		fcm_dcbd_get_config(ff, resp, st);
+		break;
+
+	case CMD_GET_OPER:
+		fcm_dcbd_get_oper(ff, resp, cp, st);
 		break;
 
 	case CMD_GET_PEER:
-		val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
-		if (ep != NULL) {
-			SA_LOG("invalid get oper response parse error byte %d."
-			       "  resp %s", ep - cp, cp);
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		if (val != 0) {
-			if (fcm_debug) {
-				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
-				print_errors("", val);
-			}
-			fcm_dcbd_setup(ff, ADM_DESTROY);
-			fcm_dcbd_state_set(ff, FCD_DONE);
-			return;
-		}
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		switch (ff->ff_dcbd_state) {
-		case FCD_GET_LLINK_PEER:
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc) {
-				if (fcm_debug) {
-					SA_LOG("%s Peer LLINK link status"
-					       " is %s", ff->ff_name,
-					       ff->ff_llink_status ?
-					       "up" : "down");
-				}
-				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
-			} else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		default:
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
+		fcm_dcbd_get_peer(ff, resp, cp, st);
 		break;
 
 	default:
 		SA_LOG("Unknown cmd 0x%x in response: resp %s",
-		       cmd, orig_resp);
+		       cmd, resp);
 		break;
 	}
 }

@@ -632,43 +632,6 @@ fcm_fcoe_lookup_name(char *name)
 	return ff;
 }
 
-#ifdef NOT_YET
-/*
- * Find an FCoE interface by MAC address.
- */
-static struct fcm_fcoe *
-fcm_fcoe_lookup_mac(u_int64_t mac, int vlan)
-{
-	struct fcm_fcoe *ff;
-
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (ff->ff_mac == mac && ff->ff_vlan == vlan)
-			break;
-	}
-	return ff;
-}
-
-/*
- * Find or create an FCoE interface by MAC address and VLAN ID.
- * If vlan is -1, find the base interface.
- */
-static struct fcm_fcoe *
-fcm_fcoe_lookup_create_mac(u_int64_t mac, int vlan)
-{
-	struct fcm_fcoe *ff;
-
-	ff = fcm_fcoe_lookup_mac(mac, vlan);
-	if (ff == NULL) {
-		ff = fcm_fcoe_alloc();
-		if (ff != NULL) {
-			ff->ff_mac = mac;
-			ff->ff_vlan = vlan;
-		}
-	}
-	return ff;
-}
-#endif
-
 static void
 fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 {

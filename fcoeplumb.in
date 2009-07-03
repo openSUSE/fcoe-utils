@@ -22,7 +22,7 @@ cmdname=`basename $0`
 usage()
 {
 	echo usage: $cmdname \
-		'<ethX> [--reset | --enable | --disable]' \
+		'<ethX> [--reset | --enable | --disable] [--debug]' \
 		'[--qos <pri>[,<pri>]...]]' >&2
 	exit 1
 }
@@ -52,6 +52,7 @@ PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin
 FCOEADM=${sbindir}/fcoeadm	# command to create/destroy FCoE instances
 LOGGER="logger -s -t fcoeplumb"
 CONFIG_DIR=${sysconfdir}/fcoe
+DEBUG_LOGGING=
 
 . $CONFIG_DIR/config
 if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
@@ -59,7 +60,6 @@ if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
 else
 	USE_SYSLOG="yes"
 fi
-[ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ] && DEBUG="yes"
 
 find_multiq_qdisc()
 {
@@ -82,7 +82,7 @@ add_multiq_qdisc()
 	ifname=$1
 	qdisc_id=$2
 
-	[ "$DEBUG" = "yes" ] && $LOGGER \
+	[ ${DEBUG_LOGGING} ] && $LOGGER \
 		"tc qdisc add dev $ifname root handle $qdisc_id multiq"
 	tc qdisc add dev $ifname root handle $qdisc_id multiq
 }
@@ -146,7 +146,7 @@ delete_skbedit_filter()
 	ethertype=$3
 	filter_id=$4
 
-	[ "$DEBUG" = "yes" ] && $LOGGER \
+	[ ${DEBUG_LOGGING} ] && $LOGGER \
 		"tc filter delete dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
 		'/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
@@ -170,7 +170,7 @@ add_skbedit_filter()
 	ethertype=$4
 	filter_id=$5
 
-	[ "$DEBUG" = "yes" ] && $LOGGER \
+	[ ${DEBUG_LOGGING} ] && $LOGGER \
 		"tc filter add dev $ifname skbedit queue_mapping $queue"
 	tc filter add dev $ifname parent $qdisc_id protocol $ethertype \
 		handle $filter_id basic match 'cmp(u16' at 12 \
@@ -185,7 +185,7 @@ replace_skbedit_filter()
 	ethertype=$3
 	filter_id=$4
 
-	[ "$DEBUG" = "yes" ] && $LOGGER \
+	[ ${DEBUG_LOGGING} ] && $LOGGER \
 		"tc filter replace dev $ifname skbedit queue_mapping $queue"
 	PARENT=`tc filter show dev $ifname | awk \
 		'/^filter.*parent.*protocol \['$ethertype'\].* handle '$filter_id'/ \
@@ -206,10 +206,10 @@ remove_fcoe_interface()
 	STATUS=`$FCOEADM -i $ifname 2>&1 | \
 		awk '/Symbolic Name:/{print $6}'`
 	if [ "$STATUS" = "$ifname" ]; then
-		[ "$DEBUG" = "yes" ] && $LOGGER "$FCOEADM -d $ifname"
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$FCOEADM -d $ifname"
 		$FCOEADM -d $ifname
 	else
-		[ "$DEBUG" = "yes" ] && $LOGGER \
+		[ ${DEBUG_LOGGING} ] && $LOGGER \
 			"FCoE interface $ifname doesn't exist"
 	fi
 }
@@ -221,17 +221,17 @@ create_fcoe_interface()
 	STATUS=`$FCOEADM -i $ifname 2>&1 | \
 		awk '/Symbolic Name:/{print $6}'`
 	if [ -z "$STATUS" ]; then
-		[ "$DEBUG" = "yes" ] && $LOGGER "$FCOEADM -c $ifname"
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$FCOEADM -c $ifname"
 		$FCOEADM -c $ifname
 	else
-		[ "$DEBUG" = "yes" ] && $LOGGER \
+		[ ${DEBUG_LOGGING} ] && $LOGGER \
 			"FCoE interface $ifname already created"
 	fi
 }
 
 [ "$#" -lt 1 ] && usage
 
-[ "$DEBUG" = "yes" ] && $LOGGER "fcoeplumb arguments: ($*)"
+[ ${DEBUG_LOGGING} ] && $LOGGER "fcoeplumb arguments: ($*)"
 
 ifname=$1
 shift
@@ -250,6 +250,7 @@ do
 		;;
 	--debug)
 		LOGGER="logger -t fcoeplumb -s"
+		DEBUG_LOGGING=1
 		;;
 	--qos | -q)
 		[ "$#" -lt 2 ] && usage
@@ -314,7 +315,7 @@ else
 		done
 	fi
 
-	[ "$DEBUG" = "yes" ] && $LOGGER "$ifname - Choosing QOS '$QOS_BEST'"
+	[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname - Choosing QOS '$QOS_BEST'"
 
 	# If the best QOS is not found, do nothing.
 	[ -z "$QOS_BEST" ] && exit 0
@@ -330,34 +331,34 @@ else
 
 	if [ $found_qdisc -eq 1 ]; then
 	        # Adjust the FCoE filter
-		[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Qdisc is found"
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname: Qdisc is found"
 		find_skbedit_filter $ifname $FCOE_ETHERTYPE $fcoe_filter_id
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
 			add_skbedit_filter $ifname $qdisc_id $qos_queue \
 			    $FCOE_ETHERTYPE $fcoe_filter_id
 		elif [ $found_filter -ne $qos_queue ]; then
-			[ "$DEBUG" = "yes" ] && $LOGGER \
+			[ ${DEBUG_LOGGING} ] && $LOGGER \
 				"$ifname: Filter is found and QOS is different"
 			replace_skbedit_filter $ifname $qos_queue $FCOE_ETHERTYPE $fcoe_filter_id
 		else
-			[ "$DEBUG" = "yes" ] && $LOGGER \
+			[ ${DEBUG_LOGGING} ] && $LOGGER \
 				"$ifname: Filter is found and is identical"
 		fi
 
 		# Adjust the FIP filter
-		[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Qdisc is found"
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname: Qdisc is found"
 		find_skbedit_filter $ifname $FIP_ETHERTYPE $fip_filter_id
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
 			add_skbedit_filter $ifname $qdisc_id $qos_queue \
 			    $FIP_ETHERTYPE $fip_filter_id
 		elif [ $found_filter -ne $qos_queue ]; then
-			[ "$DEBUG" = "yes" ] && $LOGGER \
+			[ ${DEBUG_LOGGING} ] && $LOGGER \
 				"$ifname: Filter is found and QOS is different"
 			replace_skbedit_filter $ifname $qos_queue $FIP_ETHERTYPE $fip_filter_id
 		else
-			[ "$DEBUG" = "yes" ] && $LOGGER \
+			[ ${DEBUG_LOGGING} ] && $LOGGER \
 				"$ifname: Filter is found and is identical"
 		fi
 	else
@@ -371,6 +372,5 @@ else
 	fi
 fi
 
-[ "$DEBUG" = "yes" ] && $LOGGER "$ifname: Leaving"
 exit 0
 

@@ -1003,8 +1003,7 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	feature = hex2int(rsp+DCB_FEATURE_OFF);
 	if (feature != FEATURE_DCB &&
 	    feature != FEATURE_PFC &&
-	    feature != FEATURE_APP &&
-	    feature != FEATURE_LLINK) {
+	    feature != FEATURE_APP) {
 		SA_LOG("WARNING: Unexpected DCB feature %d\n", feature);
 		return -1;
 	}
@@ -1042,11 +1041,6 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 		f_info = &ff->ff_app_info;
 		f_info->subtype = subtype;
 		break;
-
-	case FEATURE_LLINK:
-		f_info = &ff->ff_llink_info;
-		f_info->subtype = subtype;
-		break;
 	}
 
 	switch (dcb_cmd) {
@@ -1076,11 +1070,6 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 				 n, n, rsp+doff+APP_DATA);
 			f_info->u.appcfg = hex2int(buf);
 		}
-		break;
-	case CMD_GET_PEER:
-		doff += PEER_LEN;
-		if (feature == FEATURE_LLINK && subtype == LLINK_FCOE_STYPE)
-			ff->ff_llink_status = (*(rsp+doff+LLINK_STATUS) == '1');
 		break;
 	}
 
@@ -1149,60 +1138,6 @@ static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
 }
 
 /*
- * validating_llink_tlv - Validating Logical Link TLV requirements
- *
- * Logical Link TLV feature is configured correctly when
- * 1) The local configuration of the Logical Link TLV feature is
- *    configured to Enable=TRUE, Advertise=TRUE, Willing=TRUE.
- * 2) The Opertional Mode of the Logical Link TLV feature must be TRUE,
- * 3) The Link Status of the Logical Link TLV feature must be TRUE (UP).
- *
- * Returns:  1 if succeeded
- *           0 if failed
- */
-static int
-validating_llink_tlv(struct fcm_fcoe *ff)
-{
-	int error = 0;
-
-	if (!ff->ff_llink_info.enable) {
-		SA_LOG("WARNING: LLINK:0 enable mode is false\n");
-		error++;
-	}
-	if (!ff->ff_llink_info.advertise) {
-		SA_LOG("WARNING: LLINK:0 advertise mode is false\n");
-		error++;
-	}
-	if (!ff->ff_llink_info.willing) {
-		SA_LOG("WARNING: LLINK:0 willing mode is false\n");
-		error++;
-	}
-	if (!ff->ff_llink_info.op_mode) {
-		SA_LOG("WARNING: LLINK:0 operational mode is false\n");
-		error++;
-	}
-	if (error) {
-		SA_LOG("WARNING: FCoE LLINK is configured incorrectly\n");
-		return 0;
-	}
-	if (fcm_debug)
-		SA_LOG("FCoE LLINK is configured correctly\n");
-
-	/*
-	 * At this point, this should be the link status
-	 * reported by the switch.
-	 */
-	if (!ff->ff_llink_status) {
-		SA_LOG("WARNING: Switch reports FCoE LLINK is DOWN\n");
-		return 0;
-	}
-	if (fcm_debug)
-		SA_LOG("Switch reports FCoE LLINK is UP\n");
-
-	return 1;
-}
-
-/*
  * validating_dcbd_info - Validating DCBD configuration and status
  *
  * Returns:  1 if succeeded
@@ -1213,10 +1148,6 @@ static int validating_dcbd_info(struct fcm_fcoe *ff)
 	int rc;
 
 	rc = validating_dcb_app_pfc(ff);
-	if (!rc)
-		return rc;
-	rc = validating_llink_tlv(ff);
-
 	return rc;
 }
 
@@ -1261,11 +1192,6 @@ static void clear_dcbd_info(struct fcm_fcoe *ff)
 	ff->ff_app_info.op_mode = 0;
 	ff->ff_app_info.u.appcfg = 0;
 	ff->ff_app_info.willing = 0;
-	ff->ff_llink_info.advertise = 0;
-	ff->ff_llink_info.enable = 0;
-	ff->ff_llink_info.op_mode = 0;
-	ff->ff_llink_info.willing = 0;
-	ff->ff_llink_status = 0;
 	ff->ff_pfc_info.op_mode = 0;
 	ff->ff_pfc_info.u.pfcup = 0xffff;
 }
@@ -1310,17 +1236,6 @@ static void fcm_dcbd_get_config(struct fcm_fcoe *ff, char *resp,
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
 	case FCD_GET_PFC_CONFIG:
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		rc = dcb_rsp_parser(ff, resp, st);
-		if (!rc)
-			fcm_dcbd_state_set(ff, FCD_GET_LLINK_CONFIG);
-		else
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-		break;
-	case FCD_GET_LLINK_CONFIG:
 		if (st != cmd_success) {
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
@@ -1406,24 +1321,7 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 			ff->ff_pfc_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
 			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_LLINK_OPER);
-			else
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-
-		case FCD_GET_LLINK_OPER:
-			if (fcm_debug) {
-				SA_LOG("%s LLINK feature is %ssynced",
-				       ff->ff_name,
-				       cp[OPER_SYNCD] == '1' ? "" : "not ");
-				SA_LOG("%s LLINK operating mode is %s",
-				       ff->ff_name, cp[OPER_OPER_MODE] == '1'
-				       ? "on" : "off ");
-			}
-			ff->ff_llink_info.enable = enable;
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_LLINK_PEER);
+				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
 			else
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
@@ -1553,24 +1451,7 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
 		return;
 	}
 
-	switch (ff->ff_dcbd_state) {
-	case FCD_GET_LLINK_PEER:
-		rc = dcb_rsp_parser(ff, resp, st);
-		if (!rc) {
-			if (fcm_debug) {
-				SA_LOG("%s Peer LLINK link status"
-				       " is %s", ff->ff_name,
-				       ff->ff_llink_status ?
-				       "up" : "down");
-			}
-			fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
-		} else
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-		break;
-	default:
-		fcm_dcbd_state_set(ff, FCD_ERROR);
-		break;
-	}
+	fcm_dcbd_state_set(ff, FCD_ERROR);
 }
 
 /*
@@ -1716,9 +1597,10 @@ static void fcm_dcbd_event(char *msg, size_t len)
 		if (fcm_debug)
 			SA_LOG("<%s: Got APP Event>\n", ff->ff_name);
 		goto handle_event;
-	case FEATURE_LLINK:
-		if (fcm_debug)
-			SA_LOG("<%s: Got LLINK Event>\n", ff->ff_name);
+	default:
+		SA_LOG("%s: Unknown feature 0x%x in msg %s",
+		       ff->ff_name, feature, msg);
+
 handle_event:
 		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
 		if (ep != NULL || subtype != APP_FCOE_STYPE) {
@@ -1747,10 +1629,7 @@ handle_event:
 			if (fcm_clif->cl_busy == 0)
 				fcm_dcbd_port_advance(ff);
 		}
-		break;
-	default:
-		SA_LOG("%s: Unknown feature 0x%x in msg %s",
-		       ff->ff_name, feature, msg);
+
 ignore_event:
 		break;
 	}
@@ -1894,13 +1773,6 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;
-	case FCD_GET_LLINK_CONFIG:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			 DCB_CMD, CLIF_RSP_VERSION,
-			 CMD_GET_CONFIG, FEATURE_LLINK, LLINK_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
-		fcm_dcbd_request(buf);
-		break;
 	case FCD_GET_APP_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
@@ -1912,20 +1784,6 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_PFC, 0,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
-		fcm_dcbd_request(buf);
-		break;
-	case FCD_GET_LLINK_OPER:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			 DCB_CMD, CLIF_RSP_VERSION,
-			 CMD_GET_OPER, FEATURE_LLINK, LLINK_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
-		fcm_dcbd_request(buf);
-		break;
-	case FCD_GET_LLINK_PEER:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
-			 DCB_CMD, CLIF_RSP_VERSION,
-			 CMD_GET_PEER, FEATURE_LLINK, LLINK_FCOE_STYPE,
 			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
 		fcm_dcbd_request(buf);
 		break;

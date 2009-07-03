@@ -1774,7 +1774,7 @@ ignore_event:
 static void
 fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 {
-	char *op;
+	char *op, *debug = NULL;
 	char *qos_arg;
 	char qos[64];
 	u_int32_t mask;
@@ -1825,7 +1825,10 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 				qos_arg = "--qos";
 			}
 		}
+
 		if (fcm_debug) {
+			debug = "--debug";
+
 			if (!action)
 				SA_LOG("%s %s %s\n",
 				       fcm_dcbd_cmd, ff->ff_name, op);
@@ -1834,8 +1837,10 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 				       fcm_dcbd_cmd, ff->ff_name, op,
 				       qos_arg, qos);
 		}
+
 		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
-		       op, qos_arg, qos, (char *)NULL);
+		       op, qos_arg, qos, debug, (char *)NULL);
+
 		SA_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
 		exit(1);
 	}

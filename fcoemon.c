@@ -140,8 +140,7 @@ static struct fcm_clif *fcm_clif = &fcm_clif_st;
 static struct sa_timer fcm_dcbd_timer;
 
 char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
-int fcm_dcbd_debug;
-int fcm_link_debug;
+int fcm_debug;
 int fcm_use_syslog;
 
 /* Debugging routine */
@@ -286,24 +285,12 @@ fcm_read_config_files(void)
 	}
 
 	rc = fcm_read_config_variable(file, val,
-				      sizeof(val), fp, "DEBUG");
-	if (rc < 0) {
-		fclose(fp);
-		return -1;
-	}
-	/* if not found, default to "yes" */
-	if (!strncasecmp(val, "yes", 3) || !rc) {
-		fcoe_config.debug = 1;
-		fcm_dcbd_debug = 1;
-		fcm_link_debug = 1;
-	}
-
-	rc = fcm_read_config_variable(file, val,
 				      sizeof(val), fp, "USE_SYSLOG");
 	if (rc < 0) {
 		fclose(fp);
 		return -1;
 	}
+
 	/* if not found, default to "yes" */
 	if (!strncasecmp(val, "yes", 3) || !rc) {
 		fcoe_config.use_syslog = 1;
@@ -478,15 +465,15 @@ fcm_link_recv(void *arg)
 		}
 		switch (type) {
 		case RTM_NEWLINK:
-			if (fcm_link_debug)
+			if (fcm_debug)
 				SA_LOG("newlink %d", ip->ifi_index);
 			goto rest;
 		case RTM_DELLINK:
-			if (fcm_link_debug)
+			if (fcm_debug)
 				SA_LOG("dellink %d", ip->ifi_index);
 			goto rest;
 		case RTM_GETLINK:
-			if (fcm_link_debug)
+			if (fcm_debug)
 				SA_LOG("getlink %d", ip->ifi_index);
 rest:
 			if (fcm_link_buf_check(rc)) {
@@ -514,7 +501,7 @@ rest:
 					sa_strncpy_safe(ifname, sizeof(ifname),
 							RTA_DATA(ap),
 							RTA_PAYLOAD(ap));
-					if (fcm_link_debug)
+					if (fcm_debug)
 						SA_LOG("ifname %s", ifname);
 					fcm_fcoe_set_name(ff, ifname);
 					break;
@@ -785,7 +772,7 @@ fcm_dcbd_connect(void)
 	}
 	fcm_clif->cl_fd = fd;
 	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, fcm_dcbd_ex, fcm_clif);
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("connected to dcbd");
 	return 1;
 }
@@ -818,7 +805,7 @@ fcm_fcoe_config_reset(void)
 				ff->ff_qos_mask = fcm_def_qos_mask;
 				ff->ff_pfc_saved.u.pfcup = 0xffff;
 			}
-			if (fcm_dcbd_debug)
+			if (fcm_debug)
 				SA_LOG("Port %s config reset\n", p->ifname);
 		}
 		p = p->next;
@@ -856,7 +843,7 @@ fcm_dcbd_disconnect(void)
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;
 		fcm_fcoe_config_reset();
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("disconnected from dcbd");
 	}
 }
@@ -864,7 +851,7 @@ fcm_dcbd_disconnect(void)
 static void
 fcm_dcbd_shutdown(void)
 {
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("Shut down dcbd connection\n");
 	fcm_dcbd_request("D");	/* DETACH_CMD */
 	fcm_dcbd_disconnect();
@@ -898,7 +885,7 @@ static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 static void
 fcm_dcbd_state_set(struct fcm_fcoe *ff, enum fcm_dcbd_state new_state)
 {
-	if (fcm_dcbd_debug) {
+	if (fcm_debug) {
 		char old[32];
 		char new[32];
 
@@ -931,7 +918,7 @@ fcm_dcbd_rx(void *arg)
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
-		if (fcm_dcbd_debug && len > FCM_PING_RSP_LEN)
+		if (fcm_debug && len > FCM_PING_RSP_LEN)
 			SA_LOG("received len %d buf '%s'", len, buf);
 
 		switch (buf[CLIF_RSP_MSG_OFF]) {
@@ -986,7 +973,7 @@ fcm_dcbd_rx(void *arg)
 static void
 fcm_dcbd_ex(void *arg)
 {
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("called");
 }
 
@@ -1010,7 +997,7 @@ fcm_dcbd_request(char *req)
 		return;
 	}
 
-	if (fcm_dcbd_debug && rc > FCM_PING_REQ_LEN)
+	if (fcm_debug && rc > FCM_PING_REQ_LEN)
 		SA_LOG("sent '%s', rc=%d bytes succeeded", req, rc);
 	return;
 }
@@ -1222,7 +1209,7 @@ validating_dcb_app_pfc(struct fcm_fcoe *ff)
 		SA_LOG("WARNING: DCB is configured incorrectly\n");
 		return 0;
 	}
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("DCB is configured correctly\n");
 
 	return 1;
@@ -1265,7 +1252,7 @@ validating_llink_tlv(struct fcm_fcoe *ff)
 		SA_LOG("WARNING: FCoE LLINK is configured incorrectly\n");
 		return 0;
 	}
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("FCoE LLINK is configured correctly\n");
 
 	/*
@@ -1276,7 +1263,7 @@ validating_llink_tlv(struct fcm_fcoe *ff)
 		SA_LOG("WARNING: Switch reports FCoE LLINK is DOWN\n");
 		return 0;
 	}
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("Switch reports FCoE LLINK is UP\n");
 
 	return 1;
@@ -1486,7 +1473,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			break;
 		}
 		if (val != 0) {
-			if (fcm_dcbd_debug) {
+			if (fcm_debug) {
 				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
 				print_errors("", val);
 			}
@@ -1501,7 +1488,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		enable = (cp[OPER_OPER_MODE] == '1');
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_PFC_OPER:
-			if (fcm_dcbd_debug) {
+			if (fcm_debug) {
 				SA_LOG("%s PFC feature is %ssynced",
 				       ff->ff_name,
 				       cp[OPER_SYNCD] == '1' ? "" : "not ");
@@ -1517,7 +1504,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_LLINK_OPER:
-			if (fcm_dcbd_debug) {
+			if (fcm_debug) {
 				SA_LOG("%s LLINK feature is %ssynced",
 				       ff->ff_name,
 				       cp[OPER_SYNCD] == '1' ? "" : "not ");
@@ -1533,7 +1520,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		case FCD_GET_APP_OPER:
-			if (fcm_dcbd_debug) {
+			if (fcm_debug) {
 				SA_LOG("%s FCoE feature is %ssynced",
 				       ff->ff_name,
 				       cp[OPER_SYNCD] == '1' ? "" : "not ");
@@ -1566,41 +1553,41 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			}
 			ff->ff_qos_mask = parm;
 			if (validating_dcbd_info(ff)) {
-				if (fcm_dcbd_debug)
+				if (fcm_debug)
 					SA_LOG("DCB settings of %s "
 					       "qualified for creating "
 					       "FCoE interface\n",
 					       ff->ff_name);
 				rc = is_pfcup_changed(ff);
 				if (rc == 1) {
-					if (fcm_dcbd_debug)
+					if (fcm_debug)
 						SA_LOG("%s: Initial "
 						       "QOS = 0x%x\n",
 						       ff->ff_name,
 						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else if (rc == 2) {
-					if (fcm_dcbd_debug)
+					if (fcm_debug)
 						SA_LOG("%s: QOS changed"
 						       " to 0x%x\n",
 						       ff->ff_name,
 						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_RESET);
 				} else if (!ff->ff_enabled) {
-					if (fcm_dcbd_debug)
+					if (fcm_debug)
 						SA_LOG("%s: Re-create "
 						       "QOS = 0x%x\n",
 						       ff->ff_name,
 						       ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else {
-					if (fcm_dcbd_debug)
+					if (fcm_debug)
 						SA_LOG("%s: No action will "
 						       "be taken\n",
 						       ff->ff_name);
 				}
 			} else {
-				if (fcm_dcbd_debug)
+				if (fcm_debug)
 					SA_LOG("DCB settings of %s not "
 					       "qualified for FCoE "
 					       "operations.",
@@ -1627,7 +1614,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 			break;
 		}
 		if (val != 0) {
-			if (fcm_dcbd_debug) {
+			if (fcm_debug) {
 				SA_LOG("val=0x%x resp:%s\n", val, orig_resp);
 				print_errors("", val);
 			}
@@ -1643,7 +1630,7 @@ fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		case FCD_GET_LLINK_PEER:
 			rc = dcb_rsp_parser(ff, resp, st);
 			if (!rc) {
-				if (fcm_dcbd_debug) {
+				if (fcm_debug) {
 					SA_LOG("%s Peer LLINK link status"
 					       " is %s", ff->ff_name,
 					       ff->ff_llink_status ?
@@ -1671,7 +1658,7 @@ fcm_event_timeout(void *arg)
 {
 	struct fcm_fcoe *ff = (struct fcm_fcoe *)arg;
 
-	if (fcm_dcbd_debug)
+	if (fcm_debug)
 		SA_LOG("%s: %d milliseconds timeout!\n",
 		       ff->ff_name, FCM_EVENT_TIMEOUT_USEC/1000);
 
@@ -1714,31 +1701,31 @@ fcm_dcbd_event(char *msg, size_t len)
 
 	switch (feature) {
 	case FEATURE_DCB:
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got DCB Event>\n", ff->ff_name);
 		goto ignore_event;
 	case FEATURE_PG:     /* 'E5204eth2020001' */
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got PG Event>\n", ff->ff_name);
 		goto ignore_event;
 	case FEATURE_BCN:    /* 'E5204eth2040001' */
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got BCN Event>\n", ff->ff_name);
 		goto ignore_event;
 	case FEATURE_PG_DESC:
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got PG_DESC Event>\n", ff->ff_name);
 		goto ignore_event;
 	case FEATURE_PFC:    /* 'E5204eth2030011' */
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got PFC Event>\n", ff->ff_name);
 		goto handle_event;
 	case FEATURE_APP:    /* 'E5204eth2050011' */
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got APP Event>\n", ff->ff_name);
 		goto handle_event;
 	case FEATURE_LLINK:
-		if (fcm_dcbd_debug)
+		if (fcm_debug)
 			SA_LOG("<%s: Got LLINK Event>\n", ff->ff_name);
 handle_event:
 		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
@@ -1747,7 +1734,7 @@ handle_event:
 			       ff->ff_name, msg);
 			break;
 		}
-		if (fcm_dcbd_debug) {
+		if (fcm_debug) {
 			if (cp[EV_OP_MODE_CHG_OFF] == '1')
 				SA_LOG("%s: operational mode changed",
 				       ff->ff_name);
@@ -1838,7 +1825,7 @@ fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 				qos_arg = "--qos";
 			}
 		}
-		if (fcm_dcbd_debug) {
+		if (fcm_debug) {
 			if (!action)
 				SA_LOG("%s %s %s\n",
 				       fcm_dcbd_cmd, ff->ff_name, op);
@@ -1879,7 +1866,7 @@ fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 	switch (ff->ff_dcbd_state) {
 	case FCD_INIT:
 		if (!fcm_fcoe_port_ready(ff)) {
-			if (fcm_dcbd_debug)
+			if (fcm_debug)
 				SA_LOG("FCoE port %s not ready\n", ff->ff_name);
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
@@ -2049,7 +2036,7 @@ int main(int argc, char **argv)
 		case 'f':
 			fcm_fg = 1;
 		case 'd':
-			fcm_dcbd_debug = 1;
+			fcm_debug = 1;
 			break;
 		case 'e':
 			fcm_dcbd_cmd = optarg;

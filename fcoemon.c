@@ -306,7 +306,7 @@ static int fcm_read_config_files(void)
 		    (dp->d_name[1] == '\0' ||
 		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 			continue;
-		rc = strncmp(dp->d_name, "cfg-eth", strlen("cfg-eth"));
+		rc = strncmp(dp->d_name, "cfg-", strlen("cfg-"));
 		if (rc)
 			continue;
 		next = (struct fcoe_port_config *)

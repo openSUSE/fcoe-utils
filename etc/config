@@ -1,7 +1,7 @@
 ## Type:       yes/no
-## Default:    yes
+## Default:    no
 # Switch on/off debug messages (script & C code)
-DEBUG="yes"
+DEBUG="no"
 
 ## Type:       yes/no
 ## Default:    yes

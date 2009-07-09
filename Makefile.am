@@ -1,5 +1,5 @@
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm fcping
+sbin_PROGRAMS = fcoeadm fcping fipvlan
 if WITH_DCB
 sbin_PROGRAMS += fcoemon
 endif
@@ -35,6 +35,10 @@ include/fc_scsi.h include/fc_types.h include/net_types.h
 ## fcoemon needs headers from dcbd, get the right include path for them
 fcoemon_CFLAGS = $(DCBD_CFLAGS)
 fcoemon_LDFLAGS = -lrt
+
+## rules for building fipvlan
+## only listed sources get packaged, so must list all headers too
+fipvlan_SOURCES = fipvlan.c include/fip.h log.c include/log.h include/list.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

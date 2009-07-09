@@ -20,6 +20,7 @@ fcoeplumb
 *.o
 fcoeadm
 fcoemon
+fipvlan
 etc/initd/fcoe
 
 # build.sh generated files

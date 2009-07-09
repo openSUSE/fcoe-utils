@@ -1,5 +1,5 @@
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm
+sbin_PROGRAMS = fcoeadm fcping
 if WITH_DCB
 sbin_PROGRAMS += fcoemon
 endif
@@ -18,6 +18,14 @@ include/fc_scsi.h include/fc_types.h include/net_types.h
 ## fcoeadm uses HBAAPI, so get the right flags for compiling and linking
 fcoeadm_CFLAGS = $(HBAAPI_CFLAGS)
 fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
+
+## rules for building fcping
+## only listed sources get packaged, so must list all headers too
+fcping_SOURCES = fcping.c
+
+## fcping uses HBAAPI, so get the right flags for compiling and linking
+fcping_CFLAGS = $(HBAAPI_CFLAGS)
+fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
 
 ## rules for building fcoemon
 ## only listed sources get packaged, so must list all headers too

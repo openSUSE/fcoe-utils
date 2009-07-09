@@ -117,7 +117,23 @@ DEPENDENCIES
 
 PROCESS
 
-1) Bootstrap, configure, make and make install
+1) Ensure correct header files
+   - fcping requires certain kernel header files to be exported
+     or it cannot be compiled. These header files were included
+     in the 2.6.31 Linux kernel. If you are using a distribution
+     kernel that is >= 2.6.31 then you shouldn't have to take
+     this step. If you are building your own kernel or are using
+     a pre-2.6.31 kernel you will need to take this step to
+     export the appropriate header files.
+
+   # pushd <kernel-src>
+   # make headers_install
+   # PWD=`pwd`
+   # ln -s $PWD/usr/include/scsi/scsi_bsg_fc.h /usr/include/scsi/
+   # ln -s $PWD/usr/include/scsi/fc /usr/include/scsi/fc
+   # popd
+
+2) Bootstrap, configure, make and make install
    # ./bootstrap.sh
    # rpm --eval "%configure" | sh
    # make

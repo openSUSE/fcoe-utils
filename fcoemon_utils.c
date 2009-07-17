@@ -498,8 +498,7 @@ sa_select_call_deferred_funcs(void)
 	}
 }
 
-void
-sa_select_loop(void)
+int sa_select_loop(void)
 {
 	struct sa_sel_state *ss = &sa_sel_state;
 	struct sa_sel_fd *fp;
@@ -533,7 +532,7 @@ sa_select_loop(void)
 		if (rv == -1) {
 			if (errno == EINTR)
 				continue;
-			SA_LOG_ERR_EXIT(errno, "select error");
+			return errno;
 		}
 
 		fp = ss->ts_fd;
@@ -568,6 +567,7 @@ sa_select_loop(void)
 		if (ss->ts_defer_list.tqh_first != NULL)
 			sa_select_call_deferred_funcs();
 	}
+	return 0;
 }
 
 void

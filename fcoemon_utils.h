@@ -256,7 +256,7 @@ u_int sa_timer_get_secs(void);
 /*
  * Enter the polling loop which never exits.
  */
-void sa_select_loop(void);
+int sa_select_loop(void);
 
 /*
  * Set callback for every time through the select loop.

@@ -1925,7 +1925,11 @@ int main(int argc, char **argv)
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
 
-	sa_select_loop();
+	rc = sa_select_loop();
+	if (rc < 0) {
+		SA_LOG_ERR(rc, "select error\n");
+		exit(EXIT_FAILURE);
+	}
 	fcm_dcbd_shutdown();
 	return 0;
 }

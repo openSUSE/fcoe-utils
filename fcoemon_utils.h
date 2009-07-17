@@ -68,14 +68,6 @@ void sa_log_abort(const char *);	/* log message and abort */
 /*
  * Logging exits.
  */
-#define SA_LOG_EXIT(...) \
-	do {								\
-		sa_log_func(__func__, __VA_ARGS__);			\
-		sa_log_func(__func__, "exiting at %s:%d",		\
-			__FILE__, __LINE__);				\
-		exit(1);						\
-	} while (0)
-
 #define SA_LOG_ERR_EXIT(error, ...) \
 	do {								\
 		sa_log_func(__func__, __VA_ARGS__);			\

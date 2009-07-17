@@ -53,19 +53,6 @@ void sa_log_abort(const char *);	/* log message and abort */
 #define __SA_STRING(x)  #x
 
 /*
- * Log message.
- */
-#define SA_LOG(...) \
-	do {								\
-		sa_log_func(__func__, __VA_ARGS__);			\
-	} while (0)
-
-#define SA_LOG_ERR(error, ...) \
-	do {								\
-		sa_log_err(error, NULL, __VA_ARGS__);			\
-	} while (0)
-
-/*
  * Logging options.
  */
 #define SA_LOGF_TIME    0x0001      /* include timestamp in message */

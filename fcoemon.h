@@ -22,6 +22,19 @@
 
 int fcm_debug;
 
+/*
+ * Log message.
+ */
+#define FCM_LOG(...)							\
+	do {								\
+		sa_log_func(__func__, __VA_ARGS__);			\
+	} while (0)
+
+#define FCM_LOG_ERR(error, ...) \
+	do {								\
+		sa_log_err(error, NULL, __VA_ARGS__);			\
+	} while (0)
+
 #define FCM_LOG_DBG(fmt, args...)					\
 	do {								\
 		if (fcm_debug)						\

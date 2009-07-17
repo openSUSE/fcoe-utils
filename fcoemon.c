@@ -243,9 +243,9 @@ static size_t fcm_read_config_variable(char *file, char *val_buf, size_t len,
 		*s = '\0';
 		n = snprintf(val_buf, len, "%s", val);
 		if (fcm_remove_quotes(val_buf, n) < 0) {
-			SA_LOG("Invalid format in config file"
-			       " %s: %s=%s\n",
-			       file, var_name, val);
+			FCM_LOG("Invalid format in config file"
+				" %s: %s=%s\n",
+				file, var_name, val);
 			/* error */
 			return -1;
 		}
@@ -272,7 +272,7 @@ static int fcm_read_config_files(void)
 	strncpy(file, CONFIG_DIR "/" "config", sizeof(file));
 	fp = fopen(file, "r");
 	if (!fp) {
-		SA_LOG_ERR(errno, "Failed reading %s\n", file);
+		FCM_LOG_ERR(errno, "Failed reading %s\n", file);
 		exit(1);
 	}
 
@@ -293,8 +293,7 @@ static int fcm_read_config_files(void)
 
 	dir = opendir(CONFIG_DIR);
 	if (dir == NULL) {
-		SA_LOG_ERR(errno,
-			   "Failed reading directory %s\n", CONFIG_DIR);
+		FCM_LOG_ERR(errno, "Failed reading directory %s\n", CONFIG_DIR);
 		return -1;
 	}
 	for (;;) {
@@ -322,7 +321,7 @@ static int fcm_read_config_files(void)
 		strncat(file, dp->d_name, sizeof(file) - strlen(file));
 		fp = fopen(file, "r");
 		if (!fp) {
-			SA_LOG_ERR(errno, "Failed reading %s\n", file);
+			FCM_LOG_ERR(errno, "Failed reading %s\n", file);
 			exit(1);
 		}
 
@@ -382,7 +381,7 @@ static int fcm_link_init(void)
 
 	fd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 	if (fd < 0) {
-		SA_LOG_ERR(errno, "socket error");
+		FCM_LOG_ERR(errno, "socket error");
 		return fd;
 	}
 	memset(&l_local, 0, sizeof(l_local));
@@ -391,7 +390,7 @@ static int fcm_link_init(void)
 	l_local.nl_pid = 0;
 	rc = bind(fd, (struct sockaddr *)&l_local, sizeof(l_local));
 	if (rc == -1) {
-		SA_LOG_ERR(errno, "bind error");
+		FCM_LOG_ERR(errno, "bind error");
 		return rc;
 	}
 	fcm_link_socket = fd;
@@ -463,7 +462,7 @@ static void fcm_link_recv(void *arg)
 	rc = read(fcm_link_socket, buf, fcm_link_buf_size);
 	if (rc <= 0) {
 		if (rc < 0)
-			SA_LOG_ERR(errno, "read error");
+			FCM_LOG_ERR(errno, "read error");
 		return;
 	}
 
@@ -482,14 +481,14 @@ static void fcm_link_recv(void *arg)
 			break;
 
 		if (hp->nlmsg_type == NLMSG_ERROR) {
-			SA_LOG("nlmsg error");
+			FCM_LOG("nlmsg error");
 			break;
 		}
 
 		plen = NLMSG_PAYLOAD(hp, 0);
 		ip = (struct ifinfomsg *)NLMSG_DATA(hp);
 		if (plen < sizeof(*ip)) {
-			SA_LOG("too short (%d) to be a LINK message", rc);
+			FCM_LOG("too short (%d) to be a LINK message", rc);
 			break;
 		}
 
@@ -532,7 +531,7 @@ static void fcm_link_getlink(void)
 	msg.ifi.ifi_type = ARPHRD_ETHER;
 	rc = write(fcm_link_socket, &msg, sizeof(msg));
 	if (rc < 0)
-		SA_LOG_ERR(errno, "write error");
+		FCM_LOG_ERR(errno, "write error");
 }
 
 /*
@@ -675,7 +674,7 @@ static int fcm_dcbd_connect(void)
 	ASSERT(fcm_clif->cl_fd < 0);
 	fd = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (fd < 0) {
-		SA_LOG_ERR(errno, "clif socket open failed");	/* XXX */
+		FCM_LOG_ERR(errno, "clif socket open failed");	/* XXX */
 		return 0;
 	}
 
@@ -685,7 +684,7 @@ static int fcm_dcbd_connect(void)
 		 CLIF_LOCAL_SUN_PATH, getpid());
 	rc = bind(fd, (struct sockaddr *)lp, sizeof(*lp));
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "clif bind failed");
+		FCM_LOG_ERR(errno, "clif bind failed");
 		close(fd);
 		return 0;
 	}
@@ -696,7 +695,7 @@ static int fcm_dcbd_connect(void)
 		 CLIF_NAME_PATH);
 	rc = connect(fd, (struct sockaddr *)&dest, sizeof(dest));
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "clif connect failed");
+		FCM_LOG_ERR(errno, "clif connect failed");
 		unlink(lp->sun_path);
 		close(fd);
 		return 0;
@@ -832,7 +831,7 @@ static void fcm_dcbd_rx(void *arg)
 	len = sizeof(buf);
 	rc = read(clif->cl_fd, buf, sizeof(buf) - 1);
 	if (rc < 0)
-		SA_LOG_ERR(errno, "read");
+		FCM_LOG_ERR(errno, "read");
 	else if ((rc > 0) && (rc < sizeof(buf))) {
 		ASSERT(rc < sizeof(buf));
 		buf[rc] = '\0';
@@ -846,13 +845,13 @@ static void fcm_dcbd_rx(void *arg)
 			st = fcm_get_hex(buf + CLIF_STAT_OFF, CLIF_STAT_LEN,
 					 &ep);
 			if (ep != NULL)
-				SA_LOG("unexpected response code from dcbd: "
-				       "len %d buf %s rc %d", len, buf, rc);
+				FCM_LOG("unexpected response code from dcbd: "
+					"len %d buf %s rc %d", len, buf, rc);
 			else if (st != cmd_success &&
 				 st != cmd_device_not_found) {
-				SA_LOG("error response from dcbd: "
-				       "error %d len %d %s",
-				       st, len, buf);
+				FCM_LOG("error response from dcbd: "
+					"error %d len %d %s",
+					st, len, buf);
 			}
 			fcm_clif->cl_busy = 0;
 
@@ -871,9 +870,9 @@ static void fcm_dcbd_rx(void *arg)
 			case LEVEL_CMD:
 				break;
 			default:
-				SA_LOG("Unexpected cmd in response "
-				       "from dcbd: len %d %s",
-				       len, buf);
+				FCM_LOG("Unexpected cmd in response "
+					"from dcbd: len %d %s",
+					len, buf);
 				break;
 			}
 			fcm_dcbd_next();	/* advance ports if possible */
@@ -883,8 +882,8 @@ static void fcm_dcbd_rx(void *arg)
 			fcm_dcbd_event(buf, len);
 			break;
 		default:
-			SA_LOG("Unexpected message from dcbd: len %d buf %s",
-			       len, buf);
+			FCM_LOG("Unexpected message from dcbd: len %d buf %s",
+				len, buf);
 			break;
 		}
 	}
@@ -907,7 +906,7 @@ static void fcm_dcbd_request(char *req)
 	fcm_clif->cl_busy = 1;
 	rc = write(fcm_clif->cl_fd, req, len);
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "Failed write req %s len %d", req, len);
+		FCM_LOG_ERR(errno, "Failed write req %s len %d", req, len);
 		fcm_clif->cl_busy = 0;
 		fcm_dcbd_disconnect();
 		fcm_dcbd_connect();
@@ -941,12 +940,12 @@ static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
 
 	if_len = fcm_get_hex(msg + len_off, len_len, &ep);
 	if (ep != NULL) {
-		SA_LOG("Parse error on port len: msg %s", msg);
+		FCM_LOG("Parse error on port len: msg %s", msg);
 		return NULL;
 	}
 
 	if (len_off + len_len + if_len > len) {
-		SA_LOG("Invalid port len %d msg %s", if_len, msg);
+		FCM_LOG("Invalid port len %d msg %s", if_len, msg);
 		return NULL;
 	}
 	msg += len_off + len_len;
@@ -954,7 +953,7 @@ static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
 	*msgp = msg + if_len;
 	ff = fcm_fcoe_lookup_name(ifname);
 	if (ff == NULL) {
-		SA_LOG("ifname '%s' not found", ifname);
+		FCM_LOG("ifname '%s' not found", ifname);
 		exit(1);	/* XXX */
 	}
 	return ff;
@@ -1440,31 +1439,31 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	len = strlen(resp);
 	ver = fcm_get_hex(resp + DCB_VER_OFF, DCB_VER_LEN, &ep);
 	if (ep != NULL) {
-		SA_LOG("parse error: resp %s", resp);
+		FCM_LOG("parse error: resp %s", resp);
 		return;
 	} else	if (ver != CLIF_RSP_VERSION) {
-		SA_LOG("unexpected version %d resp %s", ver, resp);
+		FCM_LOG("unexpected version %d resp %s", ver, resp);
 		return;
 	}
 	cmd = fcm_get_hex(resp + DCB_CMD_OFF, DCB_CMD_LEN, &ep);
 	if (ep != NULL) {
-		SA_LOG("parse error on resp cmd: resp %s", resp);
+		FCM_LOG("parse error on resp cmd: resp %s", resp);
 		return;
 	}
 	feature = fcm_get_hex(resp + DCB_FEATURE_OFF, DCB_FEATURE_LEN, &ep);
 	if (ep != NULL) {
-		SA_LOG("parse error on resp feature: resp %s", resp);
+		FCM_LOG("parse error on resp feature: resp %s", resp);
 		return;
 	}
 	subtype = fcm_get_hex(resp + DCB_SUBTYPE_OFF, DCB_SUBTYPE_LEN, &ep);
 	if (ep != NULL) {
-		SA_LOG("parse error on resp subtype: resp %s", resp);
+		FCM_LOG("parse error on resp subtype: resp %s", resp);
 		return;
 	}
 	cp = resp;
 	ff = fcm_dcbd_get_port(&cp, DCB_PORTLEN_OFF, DCB_PORTLEN_LEN, len);
 	if (ff == NULL) {
-		SA_LOG("port not found. resp %s", resp);
+		FCM_LOG("port not found. resp %s", resp);
 		return;
 	}
 
@@ -1521,7 +1520,7 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	if (msg[EV_LEVEL_OFF] != MSG_DCB + '0' || len <= EV_PORT_ID_OFF)
 		return;
 	if (msg[EV_VERSION_OFF] != CLIF_EV_VERSION + '0') {
-		SA_LOG("Unexpected version in event msg %s", msg);
+		FCM_LOG("Unexpected version in event msg %s", msg);
 		return;
 	}
 	cp = msg;
@@ -1627,7 +1626,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 
 	rc = fork();
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "fork error");
+		FCM_LOG_ERR(errno, "fork error");
 	} else if (rc == 0) {	/* child process */
 		for (fd = ulimit(4 /* __UL_GETOPENMAX */ , 0); fd > 2; fd--)
 			close(fd);
@@ -1667,7 +1666,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
 		       op, qos_arg, qos, debug, (char *)NULL);
 
-		SA_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
+		FCM_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
 		exit(1);
 	}
 }
@@ -1801,9 +1800,9 @@ static void fcm_pidfile_create(void)
 		pid = atoi(sp);
 		rc = kill(pid, 0);
 		if (sp && (pid > 0) && !rc) {
-			SA_LOG("Another instance"
-			       " (pid %d) is running - exiting\n",
-			       pid);
+			FCM_LOG("Another instance"
+				" (pid %d) is running - exiting\n",
+				pid);
 			exit(1);
 		}
 		fclose(fp);
@@ -1855,7 +1854,7 @@ int main(int argc, char **argv)
 
 		pid = fork();
 		if (pid < 0) {
-			SA_LOG("Starting daemon failed");
+			FCM_LOG("Starting daemon failed");
 			exit(EXIT_FAILURE);
 		} else if (pid)
 			exit(EXIT_SUCCESS);
@@ -1879,17 +1878,17 @@ int main(int argc, char **argv)
 	sig.sa_handler = fcm_sig;
 	rc = sigaction(SIGINT, &sig, NULL);
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "sigaction failed");
 		exit(1);
 	}
 	rc = sigaction(SIGTERM, &sig, NULL);
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "sigaction failed");
 		exit(1);
 	}
 	rc = sigaction(SIGHUP, &sig, NULL);
 	if (rc < 0) {
-		SA_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "sigaction failed");
 		exit(1);
 	}
 	fcm_pidfile_create();
@@ -1899,7 +1898,7 @@ int main(int argc, char **argv)
 
 	rc = sa_select_loop();
 	if (rc < 0) {
-		SA_LOG_ERR(rc, "select error\n");
+		FCM_LOG_ERR(rc, "select error\n");
 		exit(EXIT_FAILURE);
 	}
 	fcm_dcbd_shutdown();
@@ -1921,7 +1920,7 @@ static void print_errors(char *buf, int errors)
 
 	if (!errors) {
 		j = sprintf(msg + len, "none\n");
-		SA_LOG("%s %s", buf, msg);
+		FCM_LOG("%s %s", buf, msg);
 		return;
 	}
 
@@ -1965,5 +1964,5 @@ static void print_errors(char *buf, int errors)
 		sprintf(msg + j, "peer feature not present");
 	}
 
-	SA_LOG("%s %s\n", buf, msg);
+	FCM_LOG("%s %s\n", buf, msg);
 }

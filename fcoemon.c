@@ -1601,7 +1601,7 @@ ignore_event:
  */
 static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 {
-	char *op, *debug = NULL;
+	char *op, *debug, *syslog = NULL;
 	char *qos_arg;
 	char qos[64];
 	u_int32_t mask;
@@ -1653,19 +1653,23 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 			}
 		}
 
+		if (fcoe_config.use_syslog)
+			syslog = "--syslog";
+
 		if (fcm_debug) {
 			debug = "--debug";
 
 			if (!action)
-				FCM_LOG_DEV_DBG(ff, "%s %s\n", fcm_dcbd_cmd,
-						op);
+				FCM_LOG_DEV_DBG(ff, "%s %s %s\n", fcm_dcbd_cmd,
+						op, syslog);
 			else
-				FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n",
-						fcm_dcbd_cmd, op, qos_arg, qos);
+				FCM_LOG_DEV_DBG(ff, "%s %s %s %s %s\n",
+						fcm_dcbd_cmd, op, qos_arg, qos,
+						syslog);
 		}
 
 		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
-		       op, qos_arg, qos, debug, (char *)NULL);
+		       op, qos_arg, qos, debug, syslog, (char *)NULL);
 
 		FCM_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
 		exit(1);

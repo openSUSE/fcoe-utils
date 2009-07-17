@@ -22,7 +22,7 @@ cmdname=`basename $0`
 usage()
 {
 	echo usage: $cmdname \
-		'<ethX> [--reset | --enable | --disable] [--debug]' \
+		'<ethX> [--reset | --enable | --disable] [--debug] [--syslog]' \
 		'[--qos <pri>[,<pri>]...]]' >&2
 	exit 1
 }
@@ -50,16 +50,9 @@ sysconfdir=@sysconfdir@
 # make sure there's a sane path to find basic commands and system tools (tc)
 PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin
 FCOEADM=${sbindir}/fcoeadm	# command to create/destroy FCoE instances
-LOGGER="logger -s -t fcoeplumb"
 CONFIG_DIR=${sysconfdir}/fcoe
+LOGGER=
 DEBUG_LOGGING=
-
-. $CONFIG_DIR/config
-if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
-	LOGGER="echo"
-else
-	USE_SYSLOG="yes"
-fi
 
 find_multiq_qdisc()
 {
@@ -229,6 +222,19 @@ create_fcoe_interface()
 	fi
 }
 
+config_logging()
+{
+    if [ $DEBUG_LOGGING ] ; then
+	if [ $USE_SYSLOG ] ; then
+	    LOGGER="logger -s -t fcoeplumb"
+	else
+	    LOGGER="echo"
+	fi
+    else
+	LOGGER=
+    fi
+}
+
 [ "$#" -lt 1 ] && usage
 
 [ ${DEBUG_LOGGING} ] && $LOGGER "fcoeplumb arguments: ($*)"
@@ -249,8 +255,12 @@ do
 		cmd=disable
 		;;
 	    --debug)
-		LOGGER="logger -t fcoeplumb -s"
 		DEBUG_LOGGING=1
+		config_logging
+		;;
+            --syslog)
+		USE_SYSLOG=1
+		config_logging
 		;;
 	    --qos | -q)
 		[ "$#" -lt 2 ] && usage

@@ -276,6 +276,8 @@ extern fc_wwn_t
 fc_wwn_from_mac(u_int64_t, u_int32_t scheme, u_int32_t port);
 
 extern int hex2int(char *b);
-extern int fcm_use_syslog;
+
+int use_syslog;
+void enable_syslog(int);
 
 #endif /* _FCOEMON_UTILS_H_ */

@@ -286,6 +286,7 @@ static int fcm_read_config_files(void)
 	/* if not found, default to "yes" */
 	if (!strncasecmp(val, "yes", 3) || !rc) {
 		fcoe_config.use_syslog = 1;
+		enable_syslog(1);
 		fcm_use_syslog = 1;
 	}
 

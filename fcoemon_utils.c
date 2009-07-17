@@ -23,11 +23,18 @@
 
 u_char libsa_lock_hier;		/* for lock debugging non-log related */
 
+int use_syslog;
+
 /*
  * Size of on-stack line buffers.
  * These shouldn't be to large for a kernel stack frame.
  */
 #define SA_LOG_BUF_LEN  200	/* on-stack line buffer size */
+
+void enable_syslog(int enable)
+{
+	use_syslog = enable;
+}
 
 /*
  * log with a variable argument list.
@@ -169,7 +176,7 @@ sa_log_timestamp(void)
 void
 sa_log_output(const char *buf)
 {
-	if (fcm_use_syslog) {
+	if (use_syslog) {
 		syslog(LOG_INFO, "%s", buf);
 		return;
 	}

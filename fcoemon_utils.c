@@ -198,12 +198,6 @@ sa_log_abort(const char *buf)
 	abort();
 }
 
-void
-sa_log_output_exit(const char *buf)
-{
-	exit(1);
-}
-
 /*
  * Make a printable NUL-terminated copy of the string.
  * The source buffer might not be NUL-terminated.

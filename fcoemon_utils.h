@@ -49,7 +49,6 @@ void sa_log_err(int, const char *func, const char *format, ...);
  */
 void sa_log_output(const char *);	/* log message */
 void sa_log_abort(const char *);	/* log message and abort */
-void sa_log_output_exit(const char *);	/* log message and exit */
 
 #define __SA_STRING(x)  #x
 
@@ -74,7 +73,7 @@ void sa_log_output_exit(const char *);	/* log message and exit */
 		sa_log_func(__func__, __VA_ARGS__);			\
 		sa_log_func(__func__, "exiting at %s:%d",		\
 			__FILE__, __LINE__);				\
-		sa_log_output_exit(__func__);				\
+		exit(1);						\
 	} while (0)
 
 #define SA_LOG_ERR_EXIT(error, ...) \
@@ -82,7 +81,7 @@ void sa_log_output_exit(const char *);	/* log message and exit */
 		sa_log_func(__func__, __VA_ARGS__);			\
 		sa_log_err(error, __func__, "exiting at %s:%d",		\
 			__FILE__, __LINE__);				\
-		sa_log_output_exit(__func__);           		\
+		exit(1);						\
 	} while (0)
 
 /*

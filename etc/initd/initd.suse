@@ -46,7 +46,7 @@ LOG_FILE="/var/log/fcoemon.log"
 FCOEMON=/usr/sbin/fcoemon
 FCOEADM=/usr/sbin/fcoeadm
 DCBD=dcbd
-LOGGER="logger -t fcoe -s"
+LOGGER="echo"
 FCOEMON_OPTS=
 
 . /etc/rc.status
@@ -110,9 +110,12 @@ if [ $? -ne 0 ]; then
 	rc_status -v
 	rc_exit
 fi
-if [ "$USE_SYSLOG" != "yes" ] && [ "$USE_SYSLOG" != "YES" ]; then
-	LOGGER="echo"
+
+if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
+    LOGGER="logger -t fcoe -s"
+    FCOEMON_OPTS+=" --syslog"
 fi
+
 if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
 	FCOEMON_OPTS+=" --debug"
 fi

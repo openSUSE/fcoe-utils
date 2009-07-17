@@ -11,6 +11,8 @@
 .P
 \fBfcoemon\fR [\fB\-d\fR | \fB\-\-debug\fR]
 .P
+\fBfcoemon\fR [\fB\-s\fR | \fB\-\-syslog\fR]
+.P
 \fBfcoemon\fR [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
 .SH "DESCRIPTION"
 The \fBfcoemon\fR command is a FCoE management tool provided by the Open\-FCoE package.
@@ -37,6 +39,9 @@ Run \fBfcoemon\fR in the foreground.
 .TP
 \fB\-d | \-\-debug\fR
 Enable debugging messages.
+.TP
+\fB\-s | \-\-syslog\fR
+Use syslogd for logging. The default behavior is to log to stdout and stderr.
 .TP
 \fB\-e | \-\-exec\fR \fI<path\-of\-fcoeplumb\-script>\fR
 Specify the location of the \fBfcoeplumb\fR script.
@@ -142,10 +147,7 @@ Changing the DCB configuration, qdisc, and filter should be avoided while I/O tr
 The Installation of the Open-FCoE management tools include the following files:
 .TP
 \fB/etc/fcoe/config\fR
-This is the common configuration file for the \fBfcoe\fR system service. This file will
-be read by the \fI/etc/init.d/fcoe\fR" script, the \fI/etc/fcoe/scripts/fcoeplumb\fR script,
-and the \fIfcoemon\fR daemon. The default options in this file are:
-\fBDEBUG="yes"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable (select yes) or disable (select no)
+This is the primary configuration file for the \fBfcoe\fR system service. The default options in this file are: \fBDEBUG="yes"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable (select yes) or disable (select no)
 debugging messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script. The latter is
 to indicate if the log messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script are
 to be output to the system log.  Use editor to set the desired \fByes/no\fR values.

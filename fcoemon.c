@@ -147,6 +147,7 @@ static int fcm_link_buf_check(size_t);
  */
 static struct option fcm_options[] = {
 	{"debug", 0, NULL, 'd'},
+	{"syslog", 0, NULL, 's'},
 	{"exec", 1, NULL, 'e'},
 	{"foreground", 0, NULL, 'f'},
 	{"version", 0, NULL, 'v'},
@@ -259,30 +260,6 @@ static int fcm_read_config_files(void)
 	struct fcoe_port_config *curr;
 	struct fcoe_port_config *next;
 	int rc;
-
-	memset(&fcoe_config, 0, sizeof(fcoe_config));
-
-	strncpy(file, CONFIG_DIR "/" "config", sizeof(file));
-	fp = fopen(file, "r");
-	if (!fp) {
-		FCM_LOG_ERR(errno, "Failed reading %s\n", file);
-		exit(1);
-	}
-
-	rc = fcm_read_config_variable(file, val,
-				      sizeof(val), fp, "USE_SYSLOG");
-	if (rc < 0) {
-		fclose(fp);
-		return -1;
-	}
-
-	/* if not found, default to "yes" */
-	if (!strncasecmp(val, "yes", 3) || !rc) {
-		fcoe_config.use_syslog = 1;
-		enable_syslog(1);
-	}
-
-	fclose(fp);
 
 	dir = opendir(CONFIG_DIR);
 	if (dir == NULL) {
@@ -1779,6 +1756,7 @@ static void fcm_usage(void)
 	       "\t [-e|--exec <exec>]\n"
 	       "\t [-f|--foreground]\n"
 	       "\t [-d|--debug]\n"
+	       "\t [-s|--syslog]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
 	exit(1);
@@ -1825,6 +1803,8 @@ int main(int argc, char **argv)
 	int rc;
 	int c;
 
+	memset(&fcoe_config, 0, sizeof(fcoe_config));
+
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	sa_log_prefix = progname;
 	sa_log_flags = 0;
@@ -1837,6 +1817,10 @@ int main(int argc, char **argv)
 			fcm_fg = 1;
 		case 'd':
 			fcoe_config.debug = 1;
+			break;
+		case 's':
+			fcoe_config.use_syslog = 1;
+			enable_syslog(1);
 			break;
 		case 'e':
 			fcm_dcbd_cmd = optarg;

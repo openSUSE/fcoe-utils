@@ -20,6 +20,25 @@
 #ifndef _FCOEMON_H_
 #define _FCOEMON_H_
 
+int fcm_debug;
+
+#define FCM_LOG_DBG(fmt, args...)					\
+	do {								\
+		if (fcm_debug)						\
+			sa_log(fmt, ##args);				\
+	} while (0)
+
+#define FCM_LOG_DEV_DBG(fcm, fmt, args...)				\
+	do {								\
+		if (fcm_debug)						\
+			sa_log("%s, " fmt, fcm->ff_name, ##args);	\
+	} while (0)
+
+#define FCM_LOG_DEV(fcm, fmt, args...)				\
+	do {							\
+		sa_log("%s, " fmt, fcm->ff_name, ##args);	\
+	} while (0)
+
 /*
  * States for HBAs relative to the DCB daemon.
  * States advance sequentially if conditions are right.

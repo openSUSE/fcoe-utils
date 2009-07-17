@@ -136,7 +136,6 @@ static struct fcm_clif *fcm_clif = &fcm_clif_st;
 static struct sa_timer fcm_dcbd_timer;
 
 char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
-int fcm_debug;
 int fcm_use_syslog;
 
 /* Debugging routine */
@@ -434,8 +433,7 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 			sa_strncpy_safe(ifname, sizeof(ifname),
 					RTA_DATA(ap),
 					RTA_PAYLOAD(ap));
-			if (fcm_debug)
-				SA_LOG("ifname %s", ifname);
+			FCM_LOG_DBG("ifname %s", ifname);
 			fcm_fcoe_set_name(ff, ifname);
 			break;
 
@@ -499,9 +497,8 @@ static void fcm_link_recv(void *arg)
 		case RTM_NEWLINK:
 		case RTM_DELLINK:
 		case RTM_GETLINK:
-			if (fcm_debug)
-				SA_LOG("Link event %d for index %d", type,
-				       ip->ifi_index);
+			FCM_LOG_DBG("Link event %d for index %d", type,
+				    ip->ifi_index);
 
 			fcm_parse_link_msg(ip, plen);
 			break;
@@ -706,8 +703,7 @@ static int fcm_dcbd_connect(void)
 	}
 	fcm_clif->cl_fd = fd;
 	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, fcm_dcbd_ex, fcm_clif);
-	if (fcm_debug)
-		SA_LOG("connected to dcbd");
+	FCM_LOG_DBG("connected to dcbd");
 	return 1;
 }
 
@@ -737,8 +733,7 @@ static void fcm_fcoe_config_reset(void)
 				ff->ff_qos_mask = fcm_def_qos_mask;
 				ff->ff_pfc_saved.u.pfcup = 0xffff;
 			}
-			if (fcm_debug)
-				SA_LOG("Port %s config reset\n", p->ifname);
+			FCM_LOG_DEV_DBG(ff, "Port config reset\n");
 		}
 		p = p->next;
 	}
@@ -773,15 +768,13 @@ static void fcm_dcbd_disconnect(void)
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;
 		fcm_fcoe_config_reset();
-		if (fcm_debug)
-			SA_LOG("disconnected from dcbd");
+		FCM_LOG_DBG("Disconnected from dcbd");
 	}
 }
 
 static void fcm_dcbd_shutdown(void)
 {
-	if (fcm_debug)
-		SA_LOG("Shut down dcbd connection\n");
+	FCM_LOG_DBG("Shutdown dcbd connection\n");
 	fcm_dcbd_request("D");	/* DETACH_CMD */
 	fcm_dcbd_disconnect();
 	unlink(fcm_pidfile);
@@ -817,12 +810,12 @@ static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
 		char old[32];
 		char new[32];
 
-		SA_LOG("%s: %s -> %s",
-		       ff->ff_name,
-		       sa_enum_decode(old, sizeof(old),
-				      fcm_dcbd_states, ff->ff_dcbd_state),
-		       sa_enum_decode(new, sizeof(new),
-				      fcm_dcbd_states, new_state));
+		FCM_LOG_DEV_DBG(ff, "%s -> %s",
+				sa_enum_decode(old, sizeof(old),
+					       fcm_dcbd_states,
+					       ff->ff_dcbd_state),
+				sa_enum_decode(new, sizeof(new),
+					       fcm_dcbd_states, new_state));
 	}
 	ff->ff_dcbd_state = new_state;
 }
@@ -845,8 +838,8 @@ static void fcm_dcbd_rx(void *arg)
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
-		if (fcm_debug && len > FCM_PING_RSP_LEN)
-			SA_LOG("received len %d buf '%s'", len, buf);
+		if (len > FCM_PING_RSP_LEN)
+			FCM_LOG_DBG("received len %d buf '%s'", len, buf);
 
 		switch (buf[CLIF_RSP_MSG_OFF]) {
 		case CMD_RESPONSE:
@@ -899,8 +892,7 @@ static void fcm_dcbd_rx(void *arg)
 
 static void fcm_dcbd_ex(void *arg)
 {
-	if (fcm_debug)
-		SA_LOG("called");
+	FCM_LOG_DBG("called");
 }
 
 static void fcm_dcbd_request(char *req)
@@ -922,8 +914,8 @@ static void fcm_dcbd_request(char *req)
 		return;
 	}
 
-	if (fcm_debug && rc > FCM_PING_REQ_LEN)
-		SA_LOG("sent '%s', rc=%d bytes succeeded", req, rc);
+	if (rc > FCM_PING_REQ_LEN)
+		FCM_LOG_DBG("sent '%s', rc=%d bytes succeeded", req, rc);
 	return;
 }
 
@@ -994,7 +986,8 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	if (feature != FEATURE_DCB &&
 	    feature != FEATURE_PFC &&
 	    feature != FEATURE_APP) {
-		SA_LOG("WARNING: Unexpected DCB feature %d\n", feature);
+		FCM_LOG_DEV(ff, "WARNING: Unexpected DCB feature %d\n",
+			    feature);
 		return -1;
 	}
 
@@ -1002,13 +995,14 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	if (dcb_cmd != CMD_GET_CONFIG &&
 	    dcb_cmd != CMD_GET_OPER &&
 	    dcb_cmd != CMD_GET_PEER) {
-		SA_LOG("WARNING: Unexpected DCB cmd %d\n", dcb_cmd);
+		FCM_LOG_DEV(ff, "WARNING: Unexpected DCB cmd %d\n", dcb_cmd);
 		return -1;
 	}
 
 	version = rsp[DCB_VER_OFF] & 0x0f;
 	if (version != CLIF_MSG_VERSION) {
-		SA_LOG("WARNING: Unexpected rsp version %d\n", version);
+		FCM_LOG_DEV(ff, "WARNING: Unexpected rsp version %d\n",
+			    version);
 		return -1;
 	}
 
@@ -1020,7 +1014,7 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
 	case FEATURE_DCB:
 		ff->ff_dcb_state = (*(rsp+doff+CFG_ENABLE) == '1');
 		if (!ff->ff_dcb_state) {
-			SA_LOG("WARNING: DCB state is off\n");
+			FCM_LOG_DEV(ff, "WARNING: DCB state is off\n");
 			return -1;
 		}
 		return 0;
@@ -1086,43 +1080,42 @@ static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
 	int error = 0;
 
 	if (!ff->ff_dcb_state) {
-		SA_LOG("WARNING: DCB state is off\n");
+		FCM_LOG_DEV(ff, "WARNING: DCB state is off\n");
 		error++;
 	}
 	if (!ff->ff_app_info.willing) {
-		SA_LOG("WARNING: APP:0 willing mode is false\n");
+		FCM_LOG_DEV(ff, "WARNING: APP:0 willing mode is false\n");
 		error++;
 	}
 	if (!ff->ff_app_info.advertise) {
-		SA_LOG("WARNING: APP:0 advertise mode is false\n");
+		FCM_LOG_DEV(ff, "WARNING: APP:0 advertise mode is false\n");
 		error++;
 	}
 	if (!ff->ff_app_info.enable) {
-		SA_LOG("WARNING: APP:0 enable mode is false\n");
+		FCM_LOG_DEV(ff, "WARNING: APP:0 enable mode is false\n");
 		error++;
 	}
 	if (!ff->ff_app_info.op_mode) {
-		SA_LOG("WARNING: APP:0 operational mode is false\n");
+		FCM_LOG_DEV(ff, "WARNING: APP:0 operational mode is false\n");
 		error++;
 	}
 	if (!ff->ff_pfc_info.op_mode) {
-		SA_LOG("WARNING: PFC operational mode is false\n");
+		FCM_LOG_DEV(ff, "WARNING: PFC operational mode is false\n");
 		error++;
 	}
 	if ((ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) \
 	    != ff->ff_app_info.u.appcfg) {
-		SA_LOG("WARNING: APP:0 priority (0x%02x) doesn't "
-		       "match PFC priority (0x%02x)\n",
-		       ff->ff_app_info.u.appcfg,
-		       ff->ff_pfc_info.u.pfcup);
+		FCM_LOG_DEV(ff, "WARNING: APP:0 priority (0x%02x) doesn't "
+			    "match PFC priority (0x%02x)\n",
+			    ff->ff_app_info.u.appcfg,
+			    ff->ff_pfc_info.u.pfcup);
 		error++;
 	}
 	if (error) {
-		SA_LOG("WARNING: DCB is configured incorrectly\n");
+		FCM_LOG_DEV(ff, "WARNING: DCB is configured incorrectly\n");
 		return 0;
 	}
-	if (fcm_debug)
-		SA_LOG("DCB is configured correctly\n");
+	FCM_LOG_DEV_DBG(ff, "DCB is configured correctly\n");
 
 	return 1;
 }
@@ -1277,15 +1270,14 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 
 	if (ep) {
-		SA_LOG("invalid get oper response parse error byte %d."
-		       "  resp %s", ep - cp, cp);
+		FCM_LOG_DEV(ff, "Invalid get oper response "
+			    "parse error byte %d, resp %s",
+			    ep - cp, cp);
 		fcm_dcbd_state_set(ff, FCD_ERROR);
 	} else {
 		if (val != 0) {
-			if (fcm_debug) {
-				SA_LOG("val=0x%x resp:%s\n", val, resp);
-				print_errors("", val);
-			}
+			FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val,
+					resp);
 			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
@@ -1300,14 +1292,12 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_PFC_OPER:
-			if (fcm_debug) {
-				SA_LOG("%s PFC feature is %ssynced",
-				       ff->ff_name,
-				       cp[OPER_SYNCD] == '1' ? "" : "not ");
-				SA_LOG("%s PFC operating mode is %s",
-				       ff->ff_name, cp[OPER_OPER_MODE] == '1'
-				       ? "on" : "off ");
-			}
+			FCM_LOG_DEV_DBG(ff, "PFC feature is %ssynced",
+					cp[OPER_SYNCD] == '1' ? "" : "not ");
+
+			FCM_LOG_DEV_DBG(ff, "PFC operating mode is %s",
+					cp[OPER_OPER_MODE] == '1'
+					? "on" : "off ");
 			ff->ff_pfc_info.enable = enable;
 			rc = dcb_rsp_parser(ff, resp, st);
 			if (!rc)
@@ -1317,15 +1307,11 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 			break;
 
 		case FCD_GET_APP_OPER:
-			if (fcm_debug) {
-				SA_LOG("%s FCoE feature is %ssynced",
-				       ff->ff_name,
-				       cp[OPER_SYNCD] == '1' ? "" : "not ");
-				SA_LOG("%s FCoE operating mode is %s",
-				       ff->ff_name,
-				       cp[OPER_OPER_MODE] == '1' ?
-				       "on" : "off ");
-			}
+			FCM_LOG_DEV_DBG(ff, "FCoE feature is %ssynced",
+					cp[OPER_SYNCD] == '1' ? "" : "not ");
+			FCM_LOG_DEV_DBG(ff, "FCoE operating mode is %s",
+					cp[OPER_OPER_MODE] == '1'
+					? "on" : "off ");
 			rc = dcb_rsp_parser(ff, resp, st);
 			if (rc) {
 				fcm_dcbd_state_set(ff, FCD_ERROR);
@@ -1335,7 +1321,8 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 			parm_len = fcm_get_hex(cp + OPER_LEN, 2, &ep);
 			cp += OPER_LEN + 2;
 			if (ep != NULL || parm_len > strlen(cp)) {
-				SA_LOG("invalid peer parm_len %d", parm_len);
+				FCM_LOG_DEV_DBG(ff, "Invalid peer parm_len %d",
+						parm_len);
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 				break;
 			}
@@ -1343,52 +1330,41 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 			if (parm_len > 0) {
 				parm = fcm_get_hex(cp, parm_len, &ep);
 				if (ep != NULL) {
-					SA_LOG("invalid parameter %s", cp);
+					FCM_LOG_DEV_DBG(ff, "Invalid parameter "
+							"%s", cp);
 					fcm_dcbd_state_set(ff, FCD_ERROR);
 					break;
 				}
 			}
 			ff->ff_qos_mask = parm;
 			if (validating_dcbd_info(ff)) {
-				if (fcm_debug)
-					SA_LOG("DCB settings of %s "
-					       "qualified for creating "
-					       "FCoE interface\n",
-					       ff->ff_name);
+				FCM_LOG_DEV_DBG(ff, "DCB settings "
+						"qualified for creating "
+						"FCoE interface\n");
 				rc = is_pfcup_changed(ff);
 				if (rc == 1) {
-					if (fcm_debug)
-						SA_LOG("%s: Initial "
-						       "QOS = 0x%x\n",
-						       ff->ff_name,
-						       ff->ff_qos_mask);
+					FCM_LOG_DEV_DBG(ff, "Initial "
+							"QOS = 0x%x\n",
+							ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else if (rc == 2) {
-					if (fcm_debug)
-						SA_LOG("%s: QOS changed"
-						       " to 0x%x\n",
-						       ff->ff_name,
-						       ff->ff_qos_mask);
+					FCM_LOG_DEV_DBG(ff, "QOS changed"
+							" to 0x%x\n",
+							ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_RESET);
 				} else if (!ff->ff_enabled) {
-					if (fcm_debug)
-						SA_LOG("%s: Re-create "
-						       "QOS = 0x%x\n",
-						       ff->ff_name,
-						       ff->ff_qos_mask);
+					FCM_LOG_DEV_DBG(ff, "Re-create "
+							"QOS = 0x%x\n",
+							ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
 				} else {
-					if (fcm_debug)
-						SA_LOG("%s: No action will "
-						       "be taken\n",
-						       ff->ff_name);
+					FCM_LOG_DEV_DBG(ff, "No action will "
+							"be taken\n");
 				}
 			} else {
-				if (fcm_debug)
-					SA_LOG("DCB settings of %s not "
-					       "qualified for FCoE "
-					       "operations.",
-					       ff->ff_name);
+				FCM_LOG_DEV_DBG(ff, "DCB settings of %s not "
+						"qualified for FCoE "
+						"operations.");
 				fcm_dcbd_setup(ff, ADM_DESTROY);
 				clear_dcbd_info(ff);
 			}
@@ -1420,17 +1396,15 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
 
 	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 	if (ep) {
-		SA_LOG("invalid get oper response parse error byte %d."
-		       "  resp %s", ep - cp, cp);
+		FCM_LOG_DEV_DBG(ff, "Invalid get oper response "
+				"parse error byte %d. resp %s",
+				ep - cp, cp);
 		fcm_dcbd_state_set(ff, FCD_ERROR);
 		return;
 	}
 
 	if (val != 0) {
-		if (fcm_debug) {
-			SA_LOG("val=0x%x resp:%s\n", val, resp);
-			print_errors("", val);
-		}
+		FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val, resp);
 		fcm_dcbd_setup(ff, ADM_DESTROY);
 		fcm_dcbd_state_set(ff, FCD_DONE);
 		return;
@@ -1512,8 +1486,8 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		break;
 
 	default:
-		SA_LOG("Unknown cmd 0x%x in response: resp %s",
-		       cmd, resp);
+		FCM_LOG_DEV_DBG(ff, "Unknown cmd 0x%x in response: resp %s",
+				cmd, resp);
 		break;
 	}
 }
@@ -1522,9 +1496,8 @@ static void fcm_event_timeout(void *arg)
 {
 	struct fcm_fcoe *ff = (struct fcm_fcoe *)arg;
 
-	if (fcm_debug)
-		SA_LOG("%s: %d milliseconds timeout!\n",
-		       ff->ff_name, FCM_EVENT_TIMEOUT_USEC/1000);
+	FCM_LOG_DEV_DBG(ff, "%d milliseconds timeout!\n",
+			FCM_EVENT_TIMEOUT_USEC/1000);
 
 	if (!is_query_in_progress()) {
 		fcm_clif->cl_ping_pending++;
@@ -1557,54 +1530,48 @@ static void fcm_dcbd_event(char *msg, size_t len)
 		return;
 	feature = fcm_get_hex(cp + EV_FEATURE_OFF, 2, &ep);
 	if (ep != NULL) {
-		SA_LOG("%s: Invalid feature code in event msg %s",
-		       ff->ff_name, msg);
+		FCM_LOG_DEV_DBG(ff, "Invalid feature code in event msg %s",
+				msg);
 		return;
 	}
 
 	switch (feature) {
 	case FEATURE_DCB:
-		if (fcm_debug)
-			SA_LOG("<%s: Got DCB Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got DCB Event>\n");
 		goto ignore_event;
 	case FEATURE_PG:     /* 'E5204eth2020001' */
-		if (fcm_debug)
-			SA_LOG("<%s: Got PG Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got PG Event>\n");
 		goto ignore_event;
 	case FEATURE_BCN:    /* 'E5204eth2040001' */
-		if (fcm_debug)
-			SA_LOG("<%s: Got BCN Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got BCN Event>\n");
 		goto ignore_event;
 	case FEATURE_PG_DESC:
-		if (fcm_debug)
-			SA_LOG("<%s: Got PG_DESC Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got PG_DESC Event>\n");
 		goto ignore_event;
 	case FEATURE_PFC:    /* 'E5204eth2030011' */
-		if (fcm_debug)
-			SA_LOG("<%s: Got PFC Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got PFC Event>\n");
 		goto handle_event;
 	case FEATURE_APP:    /* 'E5204eth2050011' */
-		if (fcm_debug)
-			SA_LOG("<%s: Got APP Event>\n", ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "<%s: Got APP Event>\n");
 		goto handle_event;
 	default:
-		SA_LOG("%s: Unknown feature 0x%x in msg %s",
-		       ff->ff_name, feature, msg);
+		FCM_LOG_DEV_DBG(ff, "Unknown feature 0x%x in msg %s",
+				feature, msg);
 
 handle_event:
 		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
 		if (ep != NULL || subtype != APP_FCOE_STYPE) {
-			SA_LOG("%s: Unknown application subtype in msg %s",
-			       ff->ff_name, msg);
+			FCM_LOG_DEV_DBG(ff, "Unknown application subtype "
+					"in msg %s", msg);
 			break;
 		}
 		if (fcm_debug) {
 			if (cp[EV_OP_MODE_CHG_OFF] == '1')
-				SA_LOG("%s: operational mode changed",
-				       ff->ff_name);
+				FCM_LOG_DEV_DBG(ff,
+						"Operational mode changed");
 			if (cp[EV_OP_CFG_CHG_OFF] == '1')
-				SA_LOG("%s: operational config changed",
-				       ff->ff_name);
+				FCM_LOG_DEV_DBG(ff,
+						"Operational config changed");
 		}
 		if (ff->ff_dcbd_state == FCD_DONE ||
 		    ff->ff_dcbd_state == FCD_ERROR) {
@@ -1650,7 +1617,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 	if (action && !ff->ff_qos_mask)
 		return;
 	if (fcm_dcbd_cmd == NULL) {
-		SA_LOG("Should %s %s per op state", op, ff->ff_name);
+		FCM_LOG_DEV_DBG(ff, "Should %s per op state", op);
 		return;
 	}
 	/*
@@ -1690,12 +1657,11 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 			debug = "--debug";
 
 			if (!action)
-				SA_LOG("%s %s %s\n",
-				       fcm_dcbd_cmd, ff->ff_name, op);
+				FCM_LOG_DEV_DBG(ff, "%s %s\n", fcm_dcbd_cmd,
+						op);
 			else
-				SA_LOG("%s %s %s %s %s\n",
-				       fcm_dcbd_cmd, ff->ff_name, op,
-				       qos_arg, qos);
+				FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n",
+						fcm_dcbd_cmd, op, qos_arg, qos);
 		}
 
 		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,

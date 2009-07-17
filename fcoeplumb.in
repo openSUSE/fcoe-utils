@@ -239,25 +239,25 @@ shift
 while [ "$#" -ge 1 ]
 do
 	case "$1" in
-	--reset | -r)
+	    --reset | -r)
 		cmd=reset
 		;;
-	--enable | -e)
+	    --enable | -e)
 		cmd=enable
 		;;
-	--disable | -d)
+	    --disable | -d)
 		cmd=disable
 		;;
-	--debug)
+	    --debug)
 		LOGGER="logger -t fcoeplumb -s"
 		DEBUG_LOGGING=1
 		;;
-	--qos | -q)
+	    --qos | -q)
 		[ "$#" -lt 2 ] && usage
 		qos_list=$2
 		shift
 		;;
-	*)
+	    *)
 		echo "$cmdname: unknown parameter '$1'" >&2
 		usage
 		;;

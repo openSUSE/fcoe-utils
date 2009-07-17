@@ -93,12 +93,6 @@ struct fcoe_port_config {
 	int dcb_app_0_willing;
 };
 
-struct fcoe_config {
-	int debug;
-	int use_syslog;
-	struct fcoe_port_config *port;
-} fcoe_config;
-
 enum fcoeadm_action {
 	ADM_DESTROY = 0,
 	ADM_CREATE,
@@ -136,7 +130,6 @@ static struct fcm_clif *fcm_clif = &fcm_clif_st;
 static struct sa_timer fcm_dcbd_timer;
 
 char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
-int fcm_use_syslog;
 
 /* Debugging routine */
 static void print_errors(char *buf, int errors);
@@ -287,7 +280,6 @@ static int fcm_read_config_files(void)
 	if (!strncasecmp(val, "yes", 3) || !rc) {
 		fcoe_config.use_syslog = 1;
 		enable_syslog(1);
-		fcm_use_syslog = 1;
 	}
 
 	fclose(fp);
@@ -433,6 +425,7 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 			sa_strncpy_safe(ifname, sizeof(ifname),
 					RTA_DATA(ap),
 					RTA_PAYLOAD(ap));
+
 			FCM_LOG_DBG("ifname %s", ifname);
 			fcm_fcoe_set_name(ff, ifname);
 			break;
@@ -806,7 +799,7 @@ static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
 			       enum fcm_dcbd_state new_state)
 {
-	if (fcm_debug) {
+	if (fcoe_config.debug) {
 		char old[32];
 		char new[32];
 
@@ -1278,6 +1271,9 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 		if (val != 0) {
 			FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val,
 					resp);
+			if (fcoe_config.debug)
+				print_errors("", val);
+
 			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
@@ -1341,6 +1337,7 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 				FCM_LOG_DEV_DBG(ff, "DCB settings "
 						"qualified for creating "
 						"FCoE interface\n");
+
 				rc = is_pfcup_changed(ff);
 				if (rc == 1) {
 					FCM_LOG_DEV_DBG(ff, "Initial "
@@ -1405,6 +1402,8 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
 
 	if (val != 0) {
 		FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val, resp);
+		if (fcoe_config.debug)
+			print_errors("", val);
 		fcm_dcbd_setup(ff, ADM_DESTROY);
 		fcm_dcbd_state_set(ff, FCD_DONE);
 		return;
@@ -1565,7 +1564,7 @@ handle_event:
 					"in msg %s", msg);
 			break;
 		}
-		if (fcm_debug) {
+		if (fcoe_config.debug) {
 			if (cp[EV_OP_MODE_CHG_OFF] == '1')
 				FCM_LOG_DEV_DBG(ff,
 						"Operational mode changed");
@@ -1656,7 +1655,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		if (fcoe_config.use_syslog)
 			syslog = "--syslog";
 
-		if (fcm_debug) {
+		if (fcoe_config.debug) {
 			debug = "--debug";
 
 			if (!action)
@@ -1837,7 +1836,7 @@ int main(int argc, char **argv)
 		case 'f':
 			fcm_fg = 1;
 		case 'd':
-			fcm_debug = 1;
+			fcoe_config.debug = 1;
 			break;
 		case 'e':
 			fcm_dcbd_cmd = optarg;

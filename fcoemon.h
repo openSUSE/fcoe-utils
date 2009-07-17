@@ -20,7 +20,11 @@
 #ifndef _FCOEMON_H_
 #define _FCOEMON_H_
 
-int fcm_debug;
+struct fcoe_config {
+	int debug;
+	int use_syslog;
+	struct fcoe_port_config *port;
+} fcoe_config;
 
 /*
  * Log message.
@@ -37,13 +41,13 @@ int fcm_debug;
 
 #define FCM_LOG_DBG(fmt, args...)					\
 	do {								\
-		if (fcm_debug)						\
+		if (fcoe_config.debug)					\
 			sa_log(fmt, ##args);				\
 	} while (0)
 
 #define FCM_LOG_DEV_DBG(fcm, fmt, args...)				\
 	do {								\
-		if (fcm_debug)						\
+		if (fcoe_config.debug)					\
 			sa_log("%s, " fmt, fcm->ff_name, ##args);	\
 	} while (0)
 

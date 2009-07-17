@@ -78,19 +78,6 @@ sa_log(const char *format, ...)
 }
 
 /*
- * log with function name.
- */
-void
-sa_log_func(const char *func, const char *format, ...)
-{
-	va_list arg;
-
-	va_start(arg, format);
-	sa_log_va(func, format, arg);
-	va_end(arg);
-}
-
-/*
  * log with error number.
  */
 void

@@ -27,7 +27,7 @@ int fcm_debug;
  */
 #define FCM_LOG(...)							\
 	do {								\
-		sa_log_func(__func__, __VA_ARGS__);			\
+		sa_log(__VA_ARGS__);					\
 	} while (0)
 
 #define FCM_LOG_ERR(error, ...) \

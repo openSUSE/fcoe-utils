@@ -40,7 +40,6 @@
 #include "fc_types.h"
 
 void sa_log(const char *format, ...);
-void sa_log_func(const char *func, const char *format, ...);
 void sa_log_err(int, const char *func, const char *format, ...);
 
 /*

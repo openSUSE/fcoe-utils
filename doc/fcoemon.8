@@ -1,7 +1,7 @@
 .TH "FCOEMON" "8" "December 22, 2008" "Open-FCoE Applications" "Open-FCoE Tools"
 .SH "NAME"
 \fBfcoemon\fR \- The Fibre Channel over Ethernet (FCoE) administration tool
-          for monitoring and processing events from DCB daemon.
+          for monitoring and processing events from the DCB daemon (\fBdcbd\fR).
 .SH "SYNOPSIS"
 \fBfcoemon\fR [\fB\-h\fR | \fB\-\-help\fR]
 .P
@@ -15,19 +15,15 @@
 .P
 \fBfcoemon\fR [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
 .SH "DESCRIPTION"
-The \fBfcoemon\fR command is a FCoE management tool provided by the Open\-FCoE package.
+The \fBfcoemon\fR command is a FCoE management tool provided by the \fBfcoe-utils\fR package.
 \fBfcoemon\fR is the daemon of the \fBfcoe\fR system service.  When \fBfcoemon\fR starts, it establishes a socket
-connection with the \fBDCB\fR daemon. It then sends commands to, and receives responses
-and event from the \fBDCB\fR daemon. The \fBfcoemon\fR  will process the received responses
-and events and invoke the \fBfcoeplumb\fR script to create and destroy the FCoE interfaces.
-Since \fBfcoemon\fR depends on the existence of \fBDCB service\fR, there
-are settings required for \fBDCB\fR before \fBfcoemon\fR can be started. See
-the \fIDCB Settings\fR section below.
+connection with the DCB daemon (\fBdcbd\fR). It then sends commands to, and receives responses
+and events from \fBdcbd\fR.  \fBfcoemon\fR  will process the responses
+and events and will invoke the \fBfcoeplumb\fR script to create and destroy the FCoE interfaces as needed.
+Since \fBfcoemon\fR can depend on \fBdcbd\fR, there may be settings required for \fBdcbd\fR before \fBfcoemon\fR can be started. See the \fIDCB Settings\fR section below.
 
-Notice that the fcoe system service does not depend on dcbd service. However, the fcoemon daemon will be
-started by the fcoe service only if any one of the Ethernet port requires DCB service. In this case, fcoe
-service depends on dcbd service.  If none of the Ethernet ports requires DCB service, the fcoemon will not
-be started and, in this case, the fcoe service does not depend on dcbd service.
+The \fBfcoe\fR system may or may not depend on the DCB service. \fBfcoemon\fR will be
+started by the \fBfcoe\fR service only if one of the Ethernet ports requires DCB, as specified by the \fBfcoe\fR per-interface configuration files. If no Ethernet ports require DCB then \fBfcoemon\fR will not be started and the \fBfcoe\fR service will not depend on \fBdcbd\fR.
 
 .SH "OPTIONS"
 .TP
@@ -53,33 +49,32 @@ Specify the location of the \fBfcoeplumb\fR script.
 .TP
 \fBLLINK\fR \- The DCB Logical Link TLV (or Logical Link) feature.
 .TP
-\fBmultiq\fR \- See Documentation/networking/multiqueue.txt of linux kernel 2.6.28 or higher.
+\fBmultiq\fR \- See Documentation/networking/multiqueue.txt of linux kernel source, v2.6.28 or higher.
 .TP
-\fBskbedit\fR \- See Documentation/networking/multiqueue.txt of linux kernel 2.6.28 or higher.
+\fBskbedit\fR \- See Documentation/networking/multiqueue.txt of linux kernel source v2.6.28 or higher.
 .SH "INSTALLATION REQUIREMENTS"
-The DCB and FCoE kernel configuration options must be enabled, these were introduced in v2.6.29. Both the linux kernel and iproute2 must support multiq and skbedit.  The DCB must be installed with version 0.9.4 and higher.
+The DCB and FCoE kernel configuration options must be enabled, these were introduced in the kernel version v2.6.29. Both the linux kernel and iproute2 must support multiq and skbedit.  The DCB package must be installed with version 0.9.4 and higher.
 .SH "SUPPORTED DCB EVENTS"
-In response to each supported event from the DCB daemon, the fcoemon collects the current
-settings from the DCB daemon and decide whether to delete and re-add the multiq queue discipline
-and skbedit filter. The \fBfcoemon\fR does not destroy, reset, or create FCoE interfaces during
-the DCB event processing.
+In response to each supported event from \fBdcbd\fR, \fBfcoemon\fR collects the current
+settings from \fBdcbd\fR to decide whether to delete and/or re-add the multiq queue discipline
+and skbedit filter.
 .TP
 \fBFEATURE_APP\fR
 If an event message is received from dcbd and if the feature code in the event message
 is FEATURE_APP (5), and if the subtype field is APP_FCOE_STYPE (0), we got a mode or
-configuration change event of the FCoE application.  The fcoemon will then issue queries
+configuration change event of the FCoE application.  \fBfcoemon\fR will then issue queries
 to the DCB daemon to collect the current mode and configuration information.
 .TP
 \fBFEATURE_PFC\fR
 If an event message is received from dcbd and if the feature code in the event message
 is FEATURE_PFC (3), we got a mode or configuration change event of the Priority Flow
-Control (PFC) feature.  The fcoemon will then issue queries to the DCB daemon to collect
+Control (PFC) feature.  The \fBfcoemon\fR will then issue queries to the DCB daemon to collect
 the current mode and configuration information.
 .TP
 \fBFEATURE_LLINK\fR
 If an event message is received from dcbd and if the feature code in the event message
 is FEATURE_LLINK (6), and if the subtype field is LLINK_FCOE_STYPE (0), we got a mode
-or configuration change event of the Logical Link TLV feature.  The fcoemon will then
+or configuration change event of the Logical Link TLV feature.  The \fBfcoemon\fR will then
 issue queries to the DCB daemon to collect the current mode and configuration information.
 .SH "CRITERIA OF CREATING, RESETTING  AND DESTROYING FCOE INTERFACE"
 In this section the \fBdcbtool\fR is used to describe the conditions of the DCB feture status
@@ -125,58 +120,50 @@ The Logical Link TLV feature is configured correctly if
 .RE
 .TP
 \fBCriteria to create FCoE interface\fR
-If DCB is required at the Ethernet port, a FCoE interface may be created only if
-the DCB and the Logical Link TLV feature are configured correctly. If DCB is not
-required at the Ethernet port, the FCoE interface may be created. FCoE interfaces
-are normally created by the \fBfcoe\fR system service.
+If DCB is required at the Ethernet port, an FCoE interface may be created only if
+the DCB is configured correctly. If DCB is not
+required at the Ethernet port, the FCoE interface may be created.
 .TP
 \fBCriteria to Destroy FCoE Interface\fR
 An FCoE interface will only be destroyed when the \fBfcoe\fR system service is stopped.
-.TP
-\fBCriteria to reset a FCoE interface\fR
-The \fBfcoe\fR system service does not reset any FCoE interfaces.
 .TP
 \fBChanging DCB Configuration, Qdisc and Filters\fR
 Changing the DCB configuration, qdisc, and filter are considered to be administrative actions.
 When the \fBfcoe\fR system service starts up, it sets up the default DCB configuration, qdisc, and filter
 for reliable FCoE operations. Administrators may alter the configuration while the service is running.
-Changing the DCB parameters may cause the fcoemon daemon to delete the existing multiq queue discipline,
-skbedit filter and re-add; but the fcoe service will not touch (e.g. destroy or reset) the FCoE interface.
+Changing the DCB parameters may cause the \fBfcoemon\fR daemon to delete the existing multiq queue discipline,
+skbedit filter and re-add; but the \fBfcoe\fR service will not touch (e.g. destroy or reset) the FCoE interface.
 Changing the DCB configuration, qdisc, and filter should be avoided while I/O traffic are in progress.
 .SH "FILES"
-The Installation of the Open-FCoE management tools include the following files:
+Installation of the fcoe-utils management tools include the following files:
 .TP
-\fB/etc/fcoe/config\fR
-This is the primary configuration file for the \fBfcoe\fR system service. The default options in this file are: \fBDEBUG="yes"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable (select yes) or disable (select no)
-debugging messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script. The latter is
-to indicate if the log messages of fcoemon, the \fIfcoe\fR service script, and the fcoeplumb script are
-to be output to the system log.  Use editor to set the desired \fByes/no\fR values.
+\fI/etc/fcoe/config\fR
+This is the primary configuration file for the \fBfcoe\fR system service. The default options in this file are: \fBDEBUG="no"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable
+debugging messages from the \fBfcoe\fR service script, \fBfcoemon\fR, and the \fBfcoeplumb\fR script. The latter is
+to indicate if the log messages are to be output to the system log.  Any changes to this file will require a restart of the \fBfcoe\fR service.
 .TP
-\fB/etc/fcoe/cfg-ethX\fR
-There is one of this file for each Ethernet interface \fBethX\fR found in the output of
-\fBcat /proc/net/dev\fR at the time of installation. This file will be read by the
-\fI/etc/init.d/fcoe\fR script and the \fIfcoemon\fR daemon.  The default options in this file are:
-\fBFCOE_ENABLE="no"\fR and \fBDCB_REQUIRED="yes"\fR.  The former is used to enable (select yes) or
-disable (select no) the FCoE service at the ethX port. The latter is to indicate if the DCB service
+\fI/etc/fcoe/cfg-<ifname>\fR
+This file will be read by the \fI/etc/init.d/fcoe\fR script and the \fBfcoemon\fR daemon.  The default options in this file are:
+\fBFCOE_ENABLE="no"\fR and \fBDCB_REQUIRED="yes"\fR.  The former is used to enable/disable the FCoE service at the ethX port. The latter is to indicate if the DCB service
 is required (select yes) or not required (select no) at the ethX port. If the former is set to no, the
 latter is ignored. The selection of the settings should match the settings of the FCoE switch port connected
-to the local Ethernet ethX port. Use editor to set the desired \fByes/no\fR
+to the local Ethernet ethX port. Use an editor to set the desired \fByes/no\fR
 values for the \fBethX\fR interfaces.
 .TP
-\fB/etc/init.d/fcoe\fR
-This is the \fIfcoe\fR system service shell script. This script is invoked by the \fBinit\fR process
+\fI/etc/init.d/fcoe\fR
+This is the \fBfcoe\fR system service shell script. This script is invoked by the \fBinit\fR process
 or by the \fBservice\fR command.
 .TP
-\fB/sbin/fcoemon\fR
-This is the \fIfcoemon\fR daemon only invoked by the \fIfcoe\fR system service script.
+\fI/sbin/fcoemon\fR
+This is the \fBfcoemon\fR daemon only invoked by the \fBfcoe\fR system service script.
 .TP
-\fB/sbin/fcoeadm\fR
-This is the program used by the \fIfcoe\fR system service to create or destroy FCoE interfaces.
+\fI/sbin/fcoeadm\fR
+This is the program used by the \fBfcoe\fR system service to create or destroy FCoE interfaces.
 .TP
-\fB/etc/fcoe/scripts/fcoeplumb\fR
+\fI/etc/fcoe/scripts/fcoeplumb\fR
 This is a script only used by the \fBfcoemon\fR daemon.
 .SH "REPORTING BUGS"
-If you have identified a defect please either file a bug or engage the
+If you have identified a defect please file a bug with your distribution or engage the
 development mailing list at <http://www.Open\-FCoE.org>.
 .SH "SUPPORT"
 Open\-FCoE is maintained at <http://www.Open\-FCoE.org>. There are resources

@@ -66,17 +66,6 @@ void sa_log_abort(const char *);	/* log message and abort */
 	} while (0)
 
 /*
- * Logging exits.
- */
-#define SA_LOG_ERR_EXIT(error, ...) \
-	do {								\
-		sa_log_func(__func__, __VA_ARGS__);			\
-		sa_log_err(error, __func__, "exiting at %s:%d",		\
-			__FILE__, __LINE__);				\
-		exit(1);						\
-	} while (0)
-
-/*
  * Logging options.
  */
 #define SA_LOGF_TIME    0x0001      /* include timestamp in message */

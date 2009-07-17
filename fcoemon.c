@@ -1912,14 +1912,20 @@ int main(int argc, char **argv)
 	memset(&sig, 0, sizeof(sig));
 	sig.sa_handler = fcm_sig;
 	rc = sigaction(SIGINT, &sig, NULL);
-	if (rc < 0)
-		SA_LOG_ERR_EXIT(errno, "sigaction failed");
+	if (rc < 0) {
+		SA_LOG_ERR(errno, "sigaction failed");
+		exit(1);
+	}
 	rc = sigaction(SIGTERM, &sig, NULL);
-	if (rc < 0)
-		SA_LOG_ERR_EXIT(errno, "sigaction failed");
+	if (rc < 0) {
+		SA_LOG_ERR(errno, "sigaction failed");
+		exit(1);
+	}
 	rc = sigaction(SIGHUP, &sig, NULL);
-	if (rc < 0)
-		SA_LOG_ERR_EXIT(errno, "sigaction failed");
+	if (rc < 0) {
+		SA_LOG_ERR(errno, "sigaction failed");
+		exit(1);
+	}
 	fcm_pidfile_create();
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */

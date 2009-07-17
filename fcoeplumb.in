@@ -226,7 +226,7 @@ config_logging()
 {
     if [ $DEBUG_LOGGING ] ; then
 	if [ $USE_SYSLOG ] ; then
-	    LOGGER="logger -s -t fcoeplumb"
+	    LOGGER="logger -t fcoeplumb"
 	else
 	    LOGGER="echo"
 	fi

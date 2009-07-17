@@ -112,7 +112,7 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
-    LOGGER="logger -t fcoe -s"
+    LOGGER="logger -t fcoe"
     FCOEMON_OPTS+=" --syslog"
 fi
 

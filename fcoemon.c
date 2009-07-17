@@ -1649,7 +1649,8 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 
 		FCM_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
 		exit(1);
-	}
+	} else
+		wait();
 }
 
 /*

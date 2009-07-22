@@ -46,7 +46,7 @@ dcb_info () {
 	echo -e "\n###DCB INFO"
 	echo -e "#tc config"
 	tc qdisc
-	tc filter show dev $1 | grep -v filter
+	tc filter show dev $1
 	echo -e "#service dcbd status:"
 	service dcbd status
 	echo -e "\n########## Showing dcb for $1"
@@ -102,6 +102,15 @@ sysfs_dump () {
 	find /sys/class/fc_vports/*/ -type f -print -exec cat '{}' \;
 }
 
+logfile_dump() {
+	echo "###LOGFILES"
+	echo "#/var/log/messages"
+	cat /var/log/messages
+	echo
+	echo "#dmesg"
+	dmesg
+}
+
 fcoe_debug () {
 	kernel_info $1
 	system_info $1
@@ -109,6 +118,7 @@ fcoe_debug () {
 	dcb_info $1
 	fcoe_info $1
 	sysfs_dump $1
+	logfile_dump
 }
 
 fcoe_debug $1

@@ -9,6 +9,14 @@ if [ -z $1 ]; then
     exit 1;
 fi
 
+DEVICE=$1
+
+if [ -r /proc/net/vlan/$DEVICE ] ; then
+	PHYSDEV=$(grep '^Device:' /proc/net/vlan/$DEVICE | awk '{print $2}')
+else
+	PHYSDEV=$DEVICE
+fi
+
 kernel_info () {
 	echo -e "\n###KERNEL INFO###"
 	uname -a
@@ -27,55 +35,68 @@ system_info () {
 }
 
 adapter_info () {
-	echo -e "\n###Adapter INFO"
+	if [ $DEVICE != $PHYSDEV ]
+	then
+		echo -e "\n###Adapter INFO VLAN $DEVICE"
+		echo -e "#ethtool:"
+		ethtool $DEVICE
+		echo -e "#ethtool interface:"
+		ethtool -i $DEVICE
+		echo -e "#ethtool offloads:"
+		ethtool -k $DEVICE
+		echo -e "#ifconfig:"
+		ifconfig $DEVICE
+	fi
+
+	echo -e "\n###Adapter INFO $PHYSDEV"
 	echo -e "#ethtool:"
-	ethtool $1
+	ethtool $PHYSDEV
 	echo -e "#ethtool interface:"
-	ethtool -i $1
+	ethtool -i $PHYSDEV
 	echo -e "#ethtool pause:"
-	ethtool -a $1
+	ethtool -a $PHYSDEV
 	echo -e "#ethtool offloads:"
-	ethtool -k $1
+	ethtool -k $PHYSDEV
 	echo -e "#ethtool stats:"
-	ethtool -S $1
+	ethtool -S $PHYSDEV
 	echo -e "#ifconfig:"
-	ifconfig $1
+	ifconfig $PHYSDEV
 }
 
 dcb_info () {
 	echo -e "\n###DCB INFO"
 	echo -e "#tc config"
 	tc qdisc
-	tc filter show dev $1
+	tc filter show dev $PHYSDEV | grep -v filter
 	echo -e "#service dcbd status:"
 	service dcbd status
-	echo -e "\n########## Showing dcb for $1"
+	echo -e "\n########## Showing dcb for $PHYSDEV"
 	dcbtool -v
-	dcbtool gc $1 dcb
-	echo -e "\n########## Getting dcb config for $1"
-	dcbtool gc $1 pg
+	dcbtool gc $PHYSDEV dcb
+	echo -e "\n########## Getting dcb config for $PHYSDEV"
+	dcbtool gc $PHYSDEV pg
 	echo
-	dcbtool gc $1 pfc
+	dcbtool gc $PHYSDEV pfc
 	echo
-	dcbtool gc $1 app:0
+	dcbtool gc $PHYSDEV app:0
 	echo
-	dcbtool gc $1 ll:0
-	echo -e "\n########## Getting dcb oper for $1"
-	dcbtool go $1 pg
+	dcbtool gc $PHYSDEV ll:0
+	echo -e "\n########## Getting dcb oper for $PHYSDEV"
+	dcbtool go $PHYSDEV pg
 	echo
-	dcbtool go $1 pfc
+	dcbtool go $PHYSDEV pfc
 	echo
-	dcbtool go $1 app:0
+	dcbtool go $PHYSDEV app:0
 	echo
-	dcbtool go $1 ll:0
-	echo -e "\n########## Getting dcb peer for $1"
-	dcbtool gp $1 pg
+	dcbtool go $PHYSDEV ll:0
+	echo -e "\n########## Getting dcb peer for $PHYSDEV"
+	dcbtool gp $PHYSDEV pg
 	echo
-	dcbtool gp $1 pfc
+	dcbtool gp $PHYSDEV pfc
 	echo
-	dcbtool gp $1 app:0
+	dcbtool gp $PHYSDEV app:0
 	echo
-	dcbtool gp $1 ll:0
+	dcbtool gp $PHYSDEV ll:0
 }
 
 fcoe_info () {
@@ -112,15 +133,15 @@ logfile_dump() {
 }
 
 fcoe_debug () {
-	kernel_info $1
-	system_info $1
-	adapter_info $1
-	dcb_info $1
-	fcoe_info $1
-	sysfs_dump $1
+	kernel_info
+	system_info
+	adapter_info
+	dcb_info
+	fcoe_info
+	sysfs_dump
 	logfile_dump
 }
 
-fcoe_debug $1
+fcoe_debug
 
 

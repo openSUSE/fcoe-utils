@@ -1606,9 +1606,9 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 	int fd;
 
 	if (action == 0)
-		op = "--disable";
+		op = "--destroy";
 	else if (action == 1)
-		op = "--enable";
+		op = "--create";
 	else
 		op = "--reset";
 	if (action && !ff->ff_qos_mask)
@@ -1617,6 +1617,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		FCM_LOG_DEV_DBG(ff, "Should %s per op state", op);
 		return;
 	}
+
 	/*
 	 * XXX should wait for child status
 	 */
@@ -1628,7 +1629,8 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 	} else if (rc == 0) {	/* child process */
 		for (fd = ulimit(4 /* __UL_GETOPENMAX */ , 0); fd > 2; fd--)
 			close(fd);
-		qos_arg = NULL;
+		qos_arg = "--qos-disable";
+		snprintf(qos, sizeof(qos), "%s", "0");
 		if (action) {
 			mask = ff->ff_qos_mask;
 			if (mask) {
@@ -1646,7 +1648,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 					mask &= ~(1 << bit);
 					sep = ",";
 				}
-				qos_arg = "--qos";
+				qos_arg = "--qos-enable";
 			}
 		}
 

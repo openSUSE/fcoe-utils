@@ -145,7 +145,7 @@ static struct fcm_fcoe *fcm_fcoe_lookup_mac(u_int64_t ff_mac, int vlan);
 static struct fcm_fcoe *fcm_fcoe_lookup_create_mac(u_int64_t ff_mac, int vlan);
 #endif
 static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name);
-static struct fcm_fcoe *fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex);
+static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *);
 static void fcm_fcoe_set_name(struct fcm_fcoe *, char *);
 static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *);
 static int fcm_link_init(void);

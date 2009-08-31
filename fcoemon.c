@@ -379,15 +379,14 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 	struct fcm_fcoe *ff;
 	struct rtattr *ap;
 	char ifname[IFNAMSIZ];
+	u_int8_t operstate;
+	u_int64_t mac;
+
+	mac = 0;
+	operstate = IF_OPER_UNKNOWN;
 
 	if (ip->ifi_type != ARPHRD_ETHER)
 		return;
-
-	ff = fcm_fcoe_lookup_create_ifindex(ip->ifi_index);
-	if (!ff)
-		return;
-
-	ff->ff_flags = ip->ifi_flags;
 
 	len -= sizeof(*ip);
 	for (ap = (struct rtattr *)(ip + 1); RTA_OK(ap, len);
@@ -395,28 +394,32 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 		switch (ap->rta_type) {
 		case IFLA_ADDRESS:
 			if (RTA_PAYLOAD(ap) == 6)
-				ff->ff_mac =
-					net48_get(RTA_DATA(ap));
+				mac = net48_get(RTA_DATA(ap));
 			break;
 
 		case IFLA_IFNAME:
 			sa_strncpy_safe(ifname, sizeof(ifname),
 					RTA_DATA(ap),
 					RTA_PAYLOAD(ap));
-
 			FCM_LOG_DBG("ifname %s", ifname);
-			fcm_fcoe_set_name(ff, ifname);
 			break;
 
 		case IFLA_OPERSTATE:
-			ff->ff_operstate =
-				*(uint8_t *) RTA_DATA(ap);
+			operstate = *(uint8_t *) RTA_DATA(ap);
 			break;
 
 		default:
 			break;
 		}
 	}
+
+	ff = fcm_fcoe_lookup_create_ifname(ifname);
+	if (!ff)
+		return;
+
+	ff->ff_flags = ip->ifi_flags;
+	ff->ff_mac = mac;
+	ff->ff_operstate = operstate;
 }
 
 static void fcm_link_recv(void *arg)
@@ -552,22 +555,30 @@ static struct fcm_fcoe *fcm_fcoe_alloc(void)
 }
 
 /*
- * Find an FCoE interface by ifindex.
+ * Find an FCoE interface by ifname.
  */
-static struct fcm_fcoe *fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex)
+static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *ifname)
 {
 	struct fcm_fcoe *ff;
+	struct fcoe_port_config *p;
+
+	p = fcm_find_port_config(ifname);
+	if (!p)
+		return NULL;
 
 	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (ff->ff_ifindex == ifindex)
+		if (!strncmp(ifname, ff->ff_name, IFNAMSIZ))
 			return ff;
 	}
+
 	ff = fcm_fcoe_alloc();
 	if (ff != NULL) {
-		ff->ff_ifindex = ifindex;
+		fcm_fcoe_set_name(ff, ifname);
 		ff->ff_pfc_saved.u.pfcup = 0xffff;
 		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
 	}
+
+	FCM_LOG_DEV_DBG(ff, "Monitoring port %s\n", ifname);
 	return ff;
 }
 
@@ -696,22 +707,13 @@ static int is_query_in_progress(void)
 
 static void fcm_fcoe_config_reset(void)
 {
-	struct fcoe_port_config *p;
 	struct fcm_fcoe *ff;
 
-	p = fcoe_config.port;
-	while (p) {
-		if (p->fcoe_enable && p->dcb_required) {
-			ff = fcm_fcoe_lookup_name(p->ifname);
-			if (ff) {
-				fcm_dcbd_setup(ff, ADM_DESTROY);
-				ff->ff_qos_mask = fcm_def_qos_mask;
-				ff->ff_pfc_saved.u.pfcup = 0xffff;
-				FCM_LOG_DEV_DBG(ff, "Port config reset\n");
-			}
-
-		}
-		p = p->next;
+	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
+		fcm_dcbd_setup(ff, ADM_DESTROY);
+		ff->ff_qos_mask = fcm_def_qos_mask;
+		ff->ff_pfc_saved.u.pfcup = 0xffff;
+		FCM_LOG_DEV_DBG(ff, "Port config reset\n");
 	}
 }
 
@@ -1683,14 +1685,9 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 {
 	char buf[80], params[30];
-	struct fcoe_port_config *p;
 
 	ASSERT(ff);
 	ASSERT(fcm_clif);
-
-	p = fcm_find_port_config(ff->ff_name);
-	if (!p)
-		return;
 
 	if (fcm_clif->cl_busy)
 		return;

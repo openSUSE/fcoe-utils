@@ -37,6 +37,7 @@
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <linux/sockios.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
@@ -424,7 +425,6 @@ static void fcm_link_recv(void *arg)
 	char *buf;
 	struct nlmsghdr *hp;
 	struct ifinfomsg *ip;
-	struct fcm_fcoe *ff;
 	unsigned type;
 	int plen;
 	int rlen;
@@ -1386,7 +1386,6 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
 {
 	char *ep = NULL;
 	u_int32_t val;
-	int rc;
 
 	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 	if (ep) {
@@ -1423,14 +1422,11 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	struct fcm_fcoe *ff;
 	u_int32_t ver;
 	u_int32_t cmd;
-	u_int32_t val;
 	u_int32_t feature;
 	u_int32_t subtype;
 	char *ep;
 	char *cp;
 	size_t len;
-	u_int32_t enable;
-	int rc;
 
 	resp += CLIF_RSP_OFF;
 	len = strlen(resp);
@@ -1670,7 +1666,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		FCM_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
 		exit(1);
 	} else
-		wait();
+		wait(NULL);
 }
 
 /*

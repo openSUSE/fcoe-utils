@@ -5,7 +5,7 @@ sbin_PROGRAMS += fcoemon
 endif
 
 ## all targets should look for headers in the include directory
-AM_CPPFLAGS = -I${srcdir}/include
+AM_CPPFLAGS = -Wall -I${srcdir}/include
 
 ## pass the sysconfdir into the C proprocessor
 AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""

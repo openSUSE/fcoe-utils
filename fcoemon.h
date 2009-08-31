@@ -148,7 +148,6 @@ static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name);
 static struct fcm_fcoe *fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex);
 static void fcm_fcoe_set_name(struct fcm_fcoe *, char *);
 static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *);
-static int fcm_fcoe_port_ready(struct fcm_fcoe *);
 static int fcm_link_init(void);
 
 #endif /* _FCOEMON_H_ */

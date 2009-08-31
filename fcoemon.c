@@ -475,6 +475,7 @@ int fcm_is_linkinfo_vlan(struct rtattr *ap)
 void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 {
 	struct fcm_fcoe *ff;
+	struct fcm_vfcoe *fv;
 	struct rtattr *ap;
 	char ifname[IFNAMSIZ];
 	char real_dev[IFNAMSIZ];
@@ -521,13 +522,18 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 		}
 	}
 
-	/* Do not monitor interfaces on VLAN */
-	if (is_vlan)
-		return;
-
-	ff = fcm_fcoe_lookup_create_ifname(ifname);
-	if (!ff)
-		return;
+	if (is_vlan) {
+		fv = fcm_vfcoe_lookup_create_ifname(ifname, real_dev);
+		if (!fv)
+			return;
+		ff = fcm_fcoe_lookup_name(real_dev);
+		fv->fv_active = 1;
+	} else {
+		ff = fcm_fcoe_lookup_create_ifname(ifname);
+		if (!ff)
+			return;
+		ff->ff_active = 1;
+	}
 
 	ff->ff_flags = ip->ifi_flags;
 	ff->ff_mac = mac;
@@ -650,6 +656,18 @@ static void fcm_fcoe_init(void)
 }
 
 /*
+ * Allocate a virtual FCoE interface state structure.
+ */
+static struct fcm_vfcoe *fcm_vfcoe_alloc(struct fcm_fcoe *ff)
+{
+	struct fcm_vfcoe *fv;
+
+	fv = calloc(1, sizeof(*fv));
+	if (fv)
+		TAILQ_INSERT_TAIL(&ff->ff_vfcoe_head, fv, fv_list);
+	return fv;
+}
+/*
  * Allocate an FCoE interface state structure.
  */
 static struct fcm_fcoe *fcm_fcoe_alloc(void)
@@ -662,12 +680,61 @@ static struct fcm_fcoe *fcm_fcoe_alloc(void)
 		ff->ff_ifindex = ~0;
 		ff->ff_operstate = IF_OPER_UNKNOWN;
 		TAILQ_INSERT_TAIL(&fcm_fcoe_head, ff, ff_list);
+		TAILQ_INIT(&(ff->ff_vfcoe_head));
 	}
 	return ff;
 }
 
 /*
- * Find an FCoE interface by ifname.
+ * Find a virtual FCoE interface by ifname
+ */
+static struct fcm_vfcoe *fcm_vfcoe_lookup_create_ifname(char *ifname,
+							char *real_name)
+{
+	struct fcm_fcoe *ff;
+	struct fcm_vfcoe *fv;
+	struct fcoe_port_config *p;
+
+	p = fcm_find_port_config(ifname);
+	if (!p)
+		return NULL;
+
+	ff = fcm_fcoe_lookup_name(real_name);
+	if (!ff) {
+		ff = fcm_fcoe_alloc();
+		if (!ff)
+			return NULL;
+		fcm_fcoe_set_name(ff, real_name);
+		ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
+		ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
+		ff->ff_pfc_saved.u.pfcup = 0xffff;
+		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
+	}
+
+	fv = fcm_vfcoe_lookup_name(ff, ifname);
+	if (fv)
+		return fv;
+
+	fv = fcm_vfcoe_alloc(ff);
+	if (!fv) {
+		TAILQ_REMOVE(&fcm_fcoe_head, ff, ff_list);
+		free(ff);
+		return NULL;
+	}
+
+	snprintf(fv->fv_name, sizeof(fv->fv_name), "%s", ifname);
+	return fv;
+}
+
+/*
+ * Find an FCoE interface by ifindex.
+ * @ifname - interface name to create
+ * @check - check for port config file before creating
+ *
+ * This create a fcoe interface structure with interface name,
+ * or if one already exists returns the existing one.  If check
+ * is set it verifies the ifname has a valid config file before
+ * creating interface
  */
 static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *ifname)
 {
@@ -695,8 +762,24 @@ static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *ifname)
 }
 
 /*
+ * Find an virtual FCoE interface by name.
+ */
+static struct fcm_vfcoe *fcm_vfcoe_lookup_name(struct fcm_fcoe *ff, char *name)
+{
+	struct fcm_vfcoe *fv, *curr;
+
+	TAILQ_FOREACH(curr, &(ff->ff_vfcoe_head), fv_list) {
+		if (!strncmp(curr->fv_name, name, sizeof(name))) {
+			fv = curr;
+			break;
+		}
+	}
+
+	return fv;
+}
+
+/*
  * Find an FCoE interface by name.
- * What about VLAN instances?  They can't use DCB, perhaps.
  */
 static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
 {
@@ -871,6 +954,20 @@ static void fcm_dcbd_shutdown(void)
 	closelog();
 }
 
+static void fcm_vfcoe_cleanup(struct fcm_fcoe *ff)
+{
+	struct fcm_vfcoe *fv, *head;
+	struct fcm_vfcoe_head *list;
+
+	list = &(ff->ff_vfcoe_head);
+
+	for (head = TAILQ_FIRST(list); head; head = fv) {
+		fv = TAILQ_NEXT(head, fv_list);
+		TAILQ_REMOVE(list, head, fv_list);
+		free(head);
+	}
+}
+
 static void fcm_cleanup(void)
 {
 	struct fcoe_port_config *curr, *next;
@@ -884,6 +981,7 @@ static void fcm_cleanup(void)
 	for (head = TAILQ_FIRST(&fcm_fcoe_head); head; head = ff) {
 		ff = TAILQ_NEXT(head, ff_list);
 		TAILQ_REMOVE(&fcm_fcoe_head, head, ff_list);
+		fcm_vfcoe_cleanup(head);
 		free(head);
 	}
 
@@ -1712,6 +1810,7 @@ ignore_event:
  */
 static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 {
+	struct fcm_vfcoe *fv;
 	char *op, *debug, *syslog = NULL;
 	char *qos_arg;
 	char qos[64];
@@ -1781,10 +1880,37 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 						syslog);
 		}
 
-		execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
-		       op, qos_arg, qos, debug, syslog, (char *)NULL);
+		rc = fork();
+		if (rc < 0)
+			FCM_LOG_ERR(errno, "fork error");
+		else if (rc == 0) {     /* child process */
+			if (ff->ff_active)
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
+				       op, qos_arg, qos, debug, syslog,
+				       (char *)NULL);
+			else
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
+				       qos_arg, qos, debug, syslog,
+				       (char *)NULL);
+		}
 
-		FCM_LOG_ERR(errno, "exec '%s' failed", fcm_dcbd_cmd);
+		/* VLAN interfaces only enable and disable */
+		if (action < 0  || action > 1)
+			exit(1);
+
+		TAILQ_FOREACH(fv, &(ff->ff_vfcoe_head), fv_list) {
+			if (!fv->fv_active)
+				continue;
+			FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n", fcm_dcbd_cmd,
+					fv->fv_name, op, syslog);
+			rc = fork();
+			if (rc < 0)
+				FCM_LOG_ERR(errno, "fork error");
+			else if (rc == 0)       /* child process */
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, fv->fv_name,
+				       op, debug, syslog, (char *)NULL);
+		}
+
 		exit(1);
 	} else
 		wait(NULL);

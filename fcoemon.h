@@ -109,10 +109,22 @@ struct feature_info {
 };
 
 /*
+ * Description of FCoE VLAN interfaces
+ */
+struct fcm_vfcoe {
+   TAILQ_ENTRY(fcm_vfcoe) fv_list;
+   char			  fv_name[IFNAMSIZ];
+   int			  fv_active;
+};
+
+TAILQ_HEAD(fcm_vfcoe_head, fcm_vfcoe);
+
+/*
  * Description of potential FCoE interface.
  */
 struct fcm_fcoe {
    TAILQ_ENTRY(fcm_fcoe) ff_list;          /* list linkage */
+   struct fcm_vfcoe_head ff_vfcoe_head;    /* list of fcm_vfcoe */
    u_int32_t             ff_ifindex;       /* kernel interface index */
    u_int32_t             ff_flags;         /* kernel interface flags */
    u_int32_t             ff_last_flags;    /* previously known flags */
@@ -125,6 +137,7 @@ struct fcm_fcoe {
    u_int32_t             ff_llink_status;  /* LLink status */
    u_int64_t             ff_mac;           /* MAC address */
    int                   ff_vlan;          /* VLAN ID or -1 if none */
+   int                   ff_active;	   /* active device */
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */
    u_int8_t              ff_qos_mask;      /* 801.p priority mask */
    enum fcm_dcbd_state   ff_dcbd_state;    /* DCB daemon state */
@@ -145,7 +158,9 @@ static struct fcm_fcoe *fcm_fcoe_lookup_mac(u_int64_t ff_mac, int vlan);
 static struct fcm_fcoe *fcm_fcoe_lookup_create_mac(u_int64_t ff_mac, int vlan);
 #endif
 static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name);
+static struct fcm_vfcoe *fcm_vfcoe_lookup_name(struct fcm_fcoe *, char *);
 static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *);
+static struct fcm_vfcoe *fcm_vfcoe_lookup_create_ifname(char *, char *);
 static void fcm_fcoe_set_name(struct fcm_fcoe *, char *);
 static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *);
 static int fcm_link_init(void);

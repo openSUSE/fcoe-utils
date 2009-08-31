@@ -752,6 +752,25 @@ static void fcm_dcbd_shutdown(void)
 	closelog();
 }
 
+static void fcm_cleanup(void)
+{
+	struct fcoe_port_config *curr, *next;
+	struct fcm_fcoe *ff, *head;
+
+	for (curr = fcoe_config.port; curr; curr = next) {
+		next = curr->next;
+		free(curr);
+	}
+
+	for (head = TAILQ_FIRST(&fcm_fcoe_head); head; head = ff) {
+		ff = TAILQ_NEXT(head, ff_list);
+		TAILQ_REMOVE(&fcm_fcoe_head, head, ff_list);
+		free(head);
+	}
+
+	free(fcm_link_buf);
+}
+
 static u_int32_t fcm_get_hex(char *cp, u_int32_t len, char **endptr)
 {
 	u_int32_t hex = 0;
@@ -1892,6 +1911,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	fcm_dcbd_shutdown();
+	fcm_cleanup();
 	return 0;
 }
 

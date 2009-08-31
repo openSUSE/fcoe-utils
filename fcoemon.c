@@ -69,6 +69,8 @@
 #define FCM_DEFAULT_QOS_MASK        (1 << 3)
 #define FILE_NAME_LEN               (NAME_MAX + 1)
 
+#define VLAN_DIR                "/proc/net/vlan"
+
 #define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
@@ -374,15 +376,113 @@ static int fcm_link_init(void)
 	return 0;
 }
 
+
+/* fcm_read_vlan - parse file for "Device" string
+ * @val_buf - copy string to val_buf
+ * @len - length of val_buf buffer
+ * @fp - file pointer to parse
+ */
+static void read_vlan(char *val_buf, size_t len,  FILE *fp)
+{
+	char *s;
+	char buf[FILE_NAME_LEN];
+
+	val_buf[0] = '\0';
+	buf[sizeof(buf) - 1] = '\0';
+	while ((s = fgets(buf, sizeof(buf) - 1, fp)) != NULL) {
+		while (isspace(*s))
+			s++;
+
+		if (*s == '\0' || *s == '#')
+			continue;
+
+		s = strstr(s, "Device:");
+		if (s == NULL)
+			continue;
+
+		while (!isspace(*s))
+			s++;
+
+		while (isspace(*s))
+			s++;
+
+		s = strncpy(val_buf, s, len);
+		while (isalnum(*s))
+			s++;
+
+		*s = '\0';
+		return;
+	}
+}
+
+
+
+
+/* fcm_vlan_dev_real_dev - parse vlan real_dev from /proc
+ * @vlan_dev - vlan_dev to find real interface name for
+ * @real_dev - pointer to copy real_dev to
+ *
+ * This parses the /proc/net/vlan/ directory for the vlan_dev.
+ * If the file exists it will parse for the real device and
+ * copy it to real_dev parameter.
+ */
+static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
+{
+	FILE *fp;
+	char  file[80];
+
+	if (opendir(VLAN_DIR)) {
+		strncpy(file, VLAN_DIR "/", sizeof(file));
+		strncat(file, vlan_ifname, sizeof(file) - strlen(file));
+
+		fp = fopen(file, "r");
+		if (fp) {
+			read_vlan(real_ifname, sizeof(real_ifname), fp);
+			fclose(fp);
+			return;
+		}
+	}
+
+	strncpy(real_ifname, vlan_ifname, sizeof(real_ifname));
+}
+
+/* fcm_is_linkinfo_vlan - parse nlmsg linkinfo rtattr for vlan kind
+ * @ap: pointer to the linkinfo rtattr
+ *
+ * This function parses the linkinfo rtattr and returns
+ * 1 if it is kind vlan otherwise returns 0.
+ */
+int fcm_is_linkinfo_vlan(struct rtattr *ap)
+{
+	struct rtattr *info;
+	int len;
+
+	info = (struct rtattr *) (RTA_DATA(ap));
+
+	for (len = ap->rta_len; RTA_OK(info, len); info = RTA_NEXT(info, len)) {
+		if (info->rta_type != IFLA_INFO_KIND)
+			continue;
+
+		if (strncmp("vlan", RTA_DATA(info), sizeof("vlan")))
+			return 0;
+		else
+			return 1;
+	}
+
+	return 0;
+}
+
 void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 {
 	struct fcm_fcoe *ff;
 	struct rtattr *ap;
 	char ifname[IFNAMSIZ];
+	char real_dev[IFNAMSIZ];
 	u_int8_t operstate;
 	u_int64_t mac;
+	int is_vlan;
 
-	mac = 0;
+	mac = is_vlan = 0;
 	operstate = IF_OPER_UNKNOWN;
 
 	if (ip->ifi_type != ARPHRD_ETHER)
@@ -408,10 +508,22 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 			operstate = *(uint8_t *) RTA_DATA(ap);
 			break;
 
+		case IFLA_LINKINFO:
+			if (!fcm_is_linkinfo_vlan(ap))
+				break;
+			fcm_vlan_dev_real_dev(ifname, real_dev);
+			is_vlan = 1;
+			FCM_LOG_DBG("vlan ifname %s:%s", real_dev, ifname);
+			break;
+
 		default:
 			break;
 		}
 	}
+
+	/* Do not monitor interfaces on VLAN */
+	if (is_vlan)
+		return;
 
 	ff = fcm_fcoe_lookup_create_ifname(ifname);
 	if (!ff)

@@ -702,8 +702,9 @@ static void fcm_fcoe_config_reset(void)
 				fcm_dcbd_setup(ff, ADM_DESTROY);
 				ff->ff_qos_mask = fcm_def_qos_mask;
 				ff->ff_pfc_saved.u.pfcup = 0xffff;
+				FCM_LOG_DEV_DBG(ff, "Port config reset\n");
 			}
-			FCM_LOG_DEV_DBG(ff, "Port config reset\n");
+
 		}
 		p = p->next;
 	}

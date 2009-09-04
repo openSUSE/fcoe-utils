@@ -577,12 +577,17 @@ static struct fcm_fcoe *fcm_fcoe_lookup_create_ifindex(u_int32_t ifindex)
  */
 static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_fcoe *ff, *curr;
 
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (strcmp(ff->ff_name, name) == 0)
+	ff = NULL;
+
+	TAILQ_FOREACH(curr, &fcm_fcoe_head, ff_list) {
+		if (strcmp(curr->ff_name, name) == 0) {
+			ff = curr;
 			break;
+		}
 	}
+
 	return ff;
 }
 

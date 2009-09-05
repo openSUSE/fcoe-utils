@@ -258,15 +258,6 @@ int fip_recv(int s)
 		return len;
 	}
 
-	list_for_each_entry(iff, &interfaces, list) {
-		if (iff->ifindex == sa.sll_ifindex)
-			break;
-	}
-	if (&iff->list == &interfaces) {
-		log_err("received packet on unexpected interface");
-		return -1;
-	}
-
 	if (len < sizeof(*fh)) {
 		log_err("received packed smaller that FIP header length");
 		return -1;
@@ -278,6 +269,15 @@ int fip_recv(int s)
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
 		log_debug(1, "ignoring FIP packet, protocol %d",
 			  ntohs(fh->fip_proto));
+		return -1;
+	}
+
+	list_for_each_entry(iff, &interfaces, list) {
+		if (iff->ifindex == sa.sll_ifindex)
+			break;
+	}
+	if (&iff->list == &interfaces) {
+		log_warn("received packet on unexpected interface");
 		return -1;
 	}
 

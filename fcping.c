@@ -590,8 +590,8 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 		net64_t	 wwn;
 	} ct;
 	struct fc_bsg_request cdb;
+	struct fc_bsg_reply reply;
 	struct sg_io_v4 sg_io;
-	char sense[MAX_SENSE_LEN];
 	size_t actual_len;
 	int cmd, rc = 0;
 
@@ -602,26 +602,29 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 	ct.hdr.ct_fs_type = FC_FST_DIR;
 	ct.hdr.ct_fs_subtype = FC_NS_SUBTYPE;
 	ct.hdr.ct_options = 0;
-	ct.hdr.ct_cmd = op;
+	ct.hdr.ct_cmd = htons(op);
 	ct.hdr.ct_mr_size = *resp_len;
 	net64_put(&ct.wwn, wwn);
 
 	cdb.msgcode = FC_BSG_HST_CT;
+	hton24(cdb.rqst_data.h_ct.port_id, 0xfffffc);
+	memcpy(&cdb.rqst_data.h_ct.preamble_word0, &ct.hdr,
+	       3 * sizeof(uint32_t));
 
 	sg_io.guard = 'Q';
 	sg_io.protocol = BSG_PROTOCOL_SCSI;
 	sg_io.subprotocol = BSG_SUB_PROTOCOL_SCSI_TRANSPORT;
 	sg_io.request_len = sizeof(cdb);
-	sg_io.request = (unsigned long)&cdb;
+	sg_io.request = (__u64)&cdb;
 	sg_io.dout_xfer_len = sizeof(ct);
 	sg_io.dout_xferp = (unsigned long)&ct;
 	sg_io.din_xfer_len = *resp_len;
-	sg_io.din_xferp = (unsigned long)response;
-	sg_io.max_response_len = sizeof(sense);
-	sg_io.response = (unsigned long)sense;
+	sg_io.din_xferp = (__u64)response;
+	sg_io.max_response_len = sizeof(reply);
+	sg_io.response = (__u64)&reply;
 	sg_io.timeout = 1000;	/* millisecond */
-	memset(sense, 0, sizeof(sense));
-	memset(response, 0, sizeof(response));
+	memset(&reply, 0, sizeof(reply));
+	memset(response, 0, *resp_len);
 
 	rc = ioctl(fp_fd, SG_IO, &sg_io);
 	if (rc < 0) {
@@ -636,7 +639,7 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 	if (cmd != FC_FS_ACC)
 		return -1;
 
-	actual_len = (size_t)(sg_io.din_xfer_len - sg_io.din_resid);
+	actual_len = reply.reply_payload_rcv_len;
 	if (actual_len < *resp_len)
 		*resp_len = actual_len;
 

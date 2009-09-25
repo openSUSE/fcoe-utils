@@ -446,6 +446,7 @@ fp_find_hba(void)
 	HBA_ADAPTERATTRIBUTES hba_attrs;
 	HBA_PORTATTRIBUTES port_attrs;
 	HBA_UINT32 fcid = 0;
+	struct stat statbuf;
 	char namebuf[1028];
 	char hba_dir[256];
 	fc_wwn_t wwn = 0;
@@ -466,7 +467,7 @@ fp_find_hba(void)
 	 */
 
 	snprintf(hba_dir, sizeof(hba_dir), SYSFS_HBA_DIR "/%s", fp_hba);
-	if (readlink(hba_dir, namebuf, sizeof(namebuf) - 1)) {
+	if (!stat(hba_dir, &statbuf)) {
 		fp_hba_type = FP_HBA_ETH_TYPE;
 	} else if (strstr(fp_hba, "host") == fp_hba) {
 		i = strtoul(fp_hba + 4, &endptr, 10);

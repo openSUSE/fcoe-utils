@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.1 08/10/2009"
+VERSION="fcc v1.0.2 10/07/2009"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -36,6 +36,7 @@ cmd:
 	destroy 	Same as destroy
 	enable / en	Same as create
 	help		Show this usage message
+	info		Show HBA detailed info
 	list		List the HBAs with remote port and LUN status
 	luns		Show LUN list and status
 	stats		Show HBA statistics
@@ -233,6 +234,12 @@ hba_name() {
 	local sym=$1
 	local hba
 
+	if [ -d "$fdir/$sym" ]
+	then
+		echo $sym
+		exit
+	fi
+
 	for hba in $all_hbas
 	do
 		if [ "`sym_name $hba`" = "$sym" ]
@@ -261,6 +268,30 @@ hba_state() {
 				"`sym_name $x`"
 		) 2>/dev/null
 	done
+}
+
+hba_info() {
+	local x=`hba_name $1`
+	local fmt="\t%-20s %s\n"
+
+	verify_hba $x
+	printf "\n$x Info:\n"
+	(
+		cd $fdir/$x
+
+		printf "$fmt" "Symbolic Name" "`cat symbolic_name`"
+		printf "$fmt" "Port Name" "`fmt_hex port_name`"
+		printf "$fmt" "Node Name" "`fmt_hex node_name`"
+		printf "$fmt" "Port Type" "`cat port_type`"
+		echo
+		printf "$fmt" "Port State" "`cat port_state`"
+		printf "$fmt" "Port ID" "`fmt_hex port_id`"
+		printf "$fmt" "Fabric Name" "`fmt_hex fabric_name`"
+		echo
+		printf "$fmt" "Max Frame Size" "`cat maxframe_size`"
+		printf "$fmt" "Speed" "`cat speed`"
+		echo
+	)
 }
 
 scsi_state() {
@@ -428,6 +459,9 @@ case "$cmd" in
 			exit 2
 		fi
 		fcoe_ctl $hba destroy
+		;;
+	info)
+		repeat hba_info $hbas
 		;;
 	list)
 		hba_list

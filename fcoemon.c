@@ -802,6 +802,7 @@ static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 	fc_wwn_t wwpn;
 	int vlan = ff->ff_vlan;
 	struct fcoe_port_config *p;
+	struct fcm_vfcoe *fv;
 
 	if (ff->ff_mac == 0)
 		return;		/* loopback or other non-eligible interface */
@@ -818,6 +819,15 @@ static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 			ff->ff_app_info.willing = p->dcb_app_0_willing;
 			break;
 		}
+
+		TAILQ_FOREACH(fv, &(ff->ff_vfcoe_head), fv_list) {
+			if (!strncmp(fv->fv_name, p->ifname, IFNAMSIZ)) {
+				ff->ff_app_info.enable = p->dcb_app_0_enable;
+				ff->ff_app_info.willing = p->dcb_app_0_willing;
+				break;
+			}
+		}
+
 		p = p->next;
 	}
 }
@@ -1371,7 +1381,7 @@ static void update_saved_pfcup(struct fcm_fcoe *ff)
 }
 
 /*
- * clear_dcbd_info - lear dcbd info to unknown values
+ * clear_dcbd_info - clear dcbd info to unknown values
  *
  */
 static void clear_dcbd_info(struct fcm_fcoe *ff)

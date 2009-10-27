@@ -645,7 +645,7 @@ static void fcm_link_getlink(void)
 	msg.nl.nlmsg_type = RTM_GETLINK;
 	msg.nl.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC;
 	msg.nl.nlmsg_seq = ++fcm_link_seq;
-	/* msg.nl.nlmsg_pid = getpid(); */
+	msg.nl.nlmsg_pid = getpid();
 	msg.ifi.ifi_family = AF_UNSPEC;
 	msg.ifi.ifi_type = ARPHRD_ETHER;
 	rc = write(fcm_link_socket, &msg, sizeof(msg));

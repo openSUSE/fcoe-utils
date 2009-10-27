@@ -826,8 +826,6 @@ static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
 
 static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 {
-	fc_wwn_t wwpn;
-	int vlan = ff->ff_vlan;
 	struct fcoe_port_config *p;
 	struct fcm_vfcoe *fv;
 
@@ -837,8 +835,6 @@ static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
 	/*
 	 * Get DCB config from file if possible.
 	 */
-	wwpn = fc_wwn_from_mac(ff->ff_mac, 2, vlan >= 0 ? vlan : 0);
-
 	p = fcoe_config.port;
 	while (p) {
 		if (!strncmp(ff->ff_name, p->ifname, IFNAMSIZ)) {

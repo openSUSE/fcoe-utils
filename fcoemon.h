@@ -65,11 +65,8 @@ enum fcm_dcbd_state {
    FCD_GET_DCB_STATE,   /* getting DCB state */
    FCD_SEND_CONF,       /* set proposed configuration */
    FCD_GET_PFC_CONFIG,  /* getting PFC configuration */
-   FCD_GET_LLINK_CONFIG,/* getting LLINK configuration */
    FCD_GET_APP_CONFIG,  /* getting APP configuration */
    FCD_GET_PFC_OPER,    /* getting PFC operational mode */
-   FCD_GET_LLINK_OPER,  /* getting LLINK operational mode */
-   FCD_GET_LLINK_PEER,  /* getting LLINK peer configuration */
    FCD_GET_APP_OPER,    /* getting operational mode */
    FCD_GET_PEER,        /* getting peer configuration */
    FCD_DONE,            /* DCB exchanges complete */
@@ -81,11 +78,8 @@ enum fcm_dcbd_state {
     { "GET_DCB_STATE",    FCD_GET_DCB_STATE },    \
     { "SEND_CONF",        FCD_SEND_CONF },        \
     { "GET_PFC_CONFIG",   FCD_GET_PFC_CONFIG },   \
-    { "GET_LLINK_CONFIG", FCD_GET_LLINK_CONFIG }, \
     { "GET_APP_CONFIG",   FCD_GET_APP_CONFIG },   \
     { "GET_PFC_OPER",     FCD_GET_PFC_OPER },     \
-    { "GET_LLINK_OPER",   FCD_GET_LLINK_OPER },   \
-    { "GET_LLINK_PEER",   FCD_GET_LLINK_PEER },   \
     { "GET_APP_OPER",     FCD_GET_APP_OPER },     \
     { "GET_PEER",         FCD_GET_PEER },         \
     { "DONE",             FCD_DONE },             \

@@ -472,6 +472,25 @@ int fcm_is_linkinfo_vlan(struct rtattr *ap)
 	return 0;
 }
 
+static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
+
+static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
+			       enum fcm_dcbd_state new_state)
+{
+	if (fcoe_config.debug) {
+		char old[32];
+		char new[32];
+
+		FCM_LOG_DEV_DBG(ff, "%s -> %s",
+				sa_enum_decode(old, sizeof(old),
+					       fcm_dcbd_states,
+					       ff->ff_dcbd_state),
+				sa_enum_decode(new, sizeof(new),
+					       fcm_dcbd_states, new_state));
+	}
+	ff->ff_dcbd_state = new_state;
+}
+
 void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 {
 	struct fcm_fcoe *ff;
@@ -535,6 +554,14 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 		ff->ff_active = 1;
 	}
 
+	/* Set FCD_INIT when netif is enabled */
+	if (!(ff->ff_flags & IFF_LOWER_UP) && (ip->ifi_flags & IFF_LOWER_UP))
+		fcm_dcbd_state_set(ff, FCD_INIT);
+
+	/* Set FCD_ERROR when netif is disabled */
+	if ((ff->ff_flags & IFF_LOWER_UP) && !(ip->ifi_flags & IFF_LOWER_UP))
+		fcm_dcbd_state_set(ff, FCD_ERROR);
+
 	ff->ff_flags = ip->ifi_flags;
 	ff->ff_mac = mac;
 	ff->ff_operstate = operstate;
@@ -588,8 +615,8 @@ static void fcm_link_recv(void *arg)
 		case RTM_NEWLINK:
 		case RTM_DELLINK:
 		case RTM_GETLINK:
-			FCM_LOG_DBG("Link event %d for index %d", type,
-				    ip->ifi_index);
+			FCM_LOG_DBG("Link event: %d flags %05X index %d\n",
+				    type, ip->ifi_flags, ip->ifi_index);
 
 			fcm_parse_link_msg(ip, plen);
 			break;
@@ -1016,25 +1043,6 @@ static u_int32_t fcm_get_hex(char *cp, u_int32_t len, char **endptr)
 	}
 	*endptr = (len == 0) ? NULL : cp;
 	return hex;
-}
-
-static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
-
-static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
-			       enum fcm_dcbd_state new_state)
-{
-	if (fcoe_config.debug) {
-		char old[32];
-		char new[32];
-
-		FCM_LOG_DEV_DBG(ff, "%s -> %s",
-				sa_enum_decode(old, sizeof(old),
-					       fcm_dcbd_states,
-					       ff->ff_dcbd_state),
-				sa_enum_decode(new, sizeof(new),
-					       fcm_dcbd_states, new_state));
-	}
-	ff->ff_dcbd_state = new_state;
 }
 
 static void fcm_dcbd_rx(void *arg)
@@ -1687,6 +1695,11 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		return;
 	}
 
+	if (!(ff->ff_flags & IFF_LOWER_UP)) {
+		FCM_LOG_DEV_DBG(ff, "Port state netif carrier down\n");
+		return;
+	}
+
 	switch (cmd) {
 	case CMD_SET_CONFIG:
 		fcm_dcbd_set_config(ff, st);
@@ -1747,6 +1760,12 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	ff = fcm_dcbd_get_port(&cp, EV_PORT_LEN_OFF, EV_PORT_LEN_LEN, len);
 	if (ff == NULL)
 		return;
+
+	if (!(ff->ff_flags & IFF_LOWER_UP)) {
+		FCM_LOG_DEV_DBG(ff, "Port state netif carrier down\n");
+		return;
+	}
+
 	feature = fcm_get_hex(cp + EV_FEATURE_OFF, 2, &ep);
 	if (ep != NULL) {
 		FCM_LOG_DEV_DBG(ff, "Invalid feature code in event msg %s",
@@ -2014,7 +2033,9 @@ static void fcm_dcbd_next(void)
 	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
 		if (fcm_clif->cl_busy)
 			break;
-		fcm_dcbd_port_advance(ff);
+
+		if (ff->ff_flags & IFF_LOWER_UP)
+			fcm_dcbd_port_advance(ff);
 	}
 }
 

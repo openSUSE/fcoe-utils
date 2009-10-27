@@ -1795,6 +1795,7 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	default:
 		FCM_LOG_DEV_DBG(ff, "Unknown feature 0x%x in msg %s",
 				feature, msg);
+		goto ignore_event;
 
 handle_event:
 		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);

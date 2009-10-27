@@ -1792,39 +1792,39 @@ static void fcm_dcbd_event(char *msg, size_t len)
 		FCM_LOG_DEV_DBG(ff, "Unknown feature 0x%x in msg %s",
 				feature, msg);
 		goto ignore_event;
+	}
 
 handle_event:
-		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
-		if (ep != NULL || subtype != APP_FCOE_STYPE) {
-			FCM_LOG_DEV_DBG(ff, "Unknown application subtype "
-					"in msg %s", msg);
-			break;
-		}
-		if (fcoe_config.debug) {
-			if (cp[EV_OP_MODE_CHG_OFF] == '1')
-				FCM_LOG_DEV_DBG(ff,
-						"Operational mode changed");
-			if (cp[EV_OP_CFG_CHG_OFF] == '1')
-				FCM_LOG_DEV_DBG(ff,
-						"Operational config changed");
-		}
-		if (ff->ff_dcbd_state == FCD_DONE ||
-		    ff->ff_dcbd_state == FCD_ERROR) {
-			if (cp[EV_OP_MODE_CHG_OFF] == '1' ||
-			    cp[EV_OP_CFG_CHG_OFF] == '1') {
-				/* Cancel timer if it is active */
-				sa_timer_cancel(&ff->ff_event_timer);
-				/* Reset the timer */
-				sa_timer_set(&ff->ff_event_timer,
-					     FCM_EVENT_TIMEOUT_USEC);
-			}
-			if (fcm_clif->cl_busy == 0)
-				fcm_dcbd_port_advance(ff);
-		}
-
-ignore_event:
-		break;
+	subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
+	if (subtype != APP_FCOE_STYPE) {
+		FCM_LOG_DEV_DBG(ff, "Unknown application subtype "
+				"in msg %s", msg);
+		return;
 	}
+	if (fcoe_config.debug) {
+		if (cp[EV_OP_MODE_CHG_OFF] == '1')
+			FCM_LOG_DEV_DBG(ff,
+					"Operational mode changed");
+		if (cp[EV_OP_CFG_CHG_OFF] == '1')
+			FCM_LOG_DEV_DBG(ff,
+					"Operational config changed");
+	}
+
+	if (ff->ff_dcbd_state == FCD_DONE ||
+	    ff->ff_dcbd_state == FCD_ERROR) {
+		if (cp[EV_OP_MODE_CHG_OFF] == '1' ||
+		    cp[EV_OP_CFG_CHG_OFF] == '1') {
+			/* Cancel timer if it is active */
+			sa_timer_cancel(&ff->ff_event_timer);
+			/* Reset the timer */
+			sa_timer_set(&ff->ff_event_timer,
+				     FCM_EVENT_TIMEOUT_USEC);
+		}
+		if (fcm_clif->cl_busy == 0)
+			fcm_dcbd_port_advance(ff);
+	}
+ignore_event:
+	return;
 }
 
 /*

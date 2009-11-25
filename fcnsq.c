@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
 	int bsg_dev;
 	u32 port_id;
 	u64 wwnn;
-	int rc;
+	int rc = 0;
 	enum commands cmd = 0;
 	char c;
 

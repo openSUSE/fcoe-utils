@@ -1,5 +1,5 @@
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm fcping fipvlan fcnsq
+sbin_PROGRAMS = fcoeadm fcping fipvlan fcnsq fcrls
 if WITH_DCB
 sbin_PROGRAMS += fcoemon
 endif

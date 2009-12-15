@@ -38,12 +38,14 @@
 #include <sys/queue.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 #include <linux/sockios.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/ethtool.h>
+#include <linux/if_vlan.h>
 
 #include <dcbd/dcb_types.h>
 #include <dcbd/dcbtool.h>	/* for typedef cmd_status */
@@ -377,73 +379,33 @@ static int fcm_link_init(void)
 }
 
 
-/* fcm_read_vlan - parse file for "Device" string
- * @val_buf - copy string to val_buf
- * @len - length of val_buf buffer
- * @fp - file pointer to parse
- */
-static void read_vlan(char *val_buf, size_t len,  FILE *fp)
-{
-	char *s;
-	char buf[FILE_NAME_LEN];
-
-	val_buf[0] = '\0';
-	buf[sizeof(buf) - 1] = '\0';
-	while ((s = fgets(buf, sizeof(buf) - 1, fp)) != NULL) {
-		while (isspace(*s))
-			s++;
-
-		if (*s == '\0' || *s == '#')
-			continue;
-
-		s = strstr(s, "Device:");
-		if (s == NULL)
-			continue;
-
-		while (!isspace(*s))
-			s++;
-
-		while (isspace(*s))
-			s++;
-
-		s = strncpy(val_buf, s, len);
-		while (isalnum(*s))
-			s++;
-
-		*s = '\0';
-		return;
-	}
-}
-
-
-
-
-/* fcm_vlan_dev_real_dev - parse vlan real_dev from /proc
- * @vlan_dev - vlan_dev to find real interface name for
- * @real_dev - pointer to copy real_dev to
+/* fcm_vlan_dev_real_dev - query vlan real_dev
+ * @vlan_ifname - vlan device ifname to find real interface name for
+ * @real_ifname - pointer to copy real ifname to
  *
- * This parses the /proc/net/vlan/ directory for the vlan_dev.
- * If the file exists it will parse for the real device and
- * copy it to real_dev parameter.
+ * Make an ioctl call to find the real device for vlan_ifname.
+ * Copy to real_ifname if found.
  */
 static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
 {
-	FILE *fp;
-	char  file[80];
+	int fd;
+	struct vlan_ioctl_args ifv;
 
-	if (opendir(VLAN_DIR)) {
-		strncpy(file, VLAN_DIR "/", sizeof(file));
-		strncat(file, vlan_ifname, sizeof(file) - strlen(file));
+	real_ifname[0] = '\0';
 
-		fp = fopen(file, "r");
-		if (fp) {
-			read_vlan(real_ifname, sizeof(real_ifname), fp);
-			fclose(fp);
-			return;
-		}
+	fd = socket(PF_INET, SOCK_DGRAM, 0);
+
+	if (fd <= 0) {
+		FCM_LOG_ERR(errno, "open vlan query socket error");
+		return;
 	}
 
-	strncpy(real_ifname, vlan_ifname, sizeof(real_ifname));
+	memset(&ifv, 0, sizeof(ifv));
+	ifv.cmd = GET_VLAN_REALDEV_NAME_CMD;
+	strncpy(ifv.device1, vlan_ifname, strlen(vlan_ifname)+1);
+	if (ioctl(fd, SIOCGIFVLAN, &ifv) == 0)
+		strncpy(real_ifname, ifv.u.device2, strlen(ifv.u.device2)+1);
+	close(fd);
 }
 
 /* fcm_is_linkinfo_vlan - parse nlmsg linkinfo rtattr for vlan kind

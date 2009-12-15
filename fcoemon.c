@@ -116,7 +116,6 @@ static void fcm_dcbd_timeout(void *);
 static void fcm_dcbd_disconnect(void);
 static void fcm_dcbd_request(char *);
 static void fcm_dcbd_rx(void *);
-static void fcm_dcbd_ex(void *);
 static void fcm_dcbd_next(void);
 static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
@@ -878,7 +877,7 @@ static int fcm_dcbd_connect(void)
 		return 0;
 	}
 	fcm_clif->cl_fd = fd;
-	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, fcm_dcbd_ex, fcm_clif);
+	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, NULL, fcm_clif);
 	FCM_LOG_DBG("connected to dcbd");
 	return 1;
 }
@@ -1071,11 +1070,6 @@ static void fcm_dcbd_rx(void *arg)
 			break;
 		}
 	}
-}
-
-static void fcm_dcbd_ex(void *arg)
-{
-	FCM_LOG_DBG("called");
 }
 
 static void fcm_dcbd_request(char *req)

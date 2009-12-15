@@ -23,7 +23,7 @@
 struct fcoe_config {
 	int debug;
 	int use_syslog;
-	struct fcoe_port_config *port;
+	struct fcoe_port *port;
 } fcoe_config;
 
 /*
@@ -48,12 +48,12 @@ struct fcoe_config {
 #define FCM_LOG_DEV_DBG(fcm, fmt, args...)				\
 	do {								\
 		if (fcoe_config.debug)					\
-			sa_log("%s, " fmt, fcm->ff_name, ##args);	\
+			sa_log("%s, " fmt, fcm->ifname, ##args);	\
 	} while (0)
 
 #define FCM_LOG_DEV(fcm, fmt, args...)				\
 	do {							\
-		sa_log("%s, " fmt, fcm->ff_name, ##args);	\
+		sa_log("%s, " fmt, fcm->ifname, ##args);	\
 	} while (0)
 
 /*
@@ -71,6 +71,17 @@ enum fcm_dcbd_state {
    FCD_GET_PEER,        /* getting peer configuration */
    FCD_DONE,            /* DCB exchanges complete */
    FCD_ERROR,           /* DCB error or port unknown by DCB */
+};
+
+/*
+ * Action codes for FCoE ports
+*/
+enum fcp_action {
+   FCP_WAIT = 0,        /* waiting for something to happen */
+   FCP_CREATE_IF,       /* create FCoE interface */
+   FCP_DESTROY_IF,      /* destroy FCoE interface */
+   FCP_RESET_IF,        /* reset FCoE interface */
+   FCP_ERROR,           /* error condition */
 };
 
 #define FCM_DCBD_STATES {                         \
@@ -103,59 +114,32 @@ struct feature_info {
 };
 
 /*
- * Description of FCoE VLAN interfaces
+ * Description of potential FCoE network interface.
  */
-struct fcm_vfcoe {
-   TAILQ_ENTRY(fcm_vfcoe) fv_list;
-   char			  fv_name[IFNAMSIZ];
-   int			  fv_active;
-};
-
-TAILQ_HEAD(fcm_vfcoe_head, fcm_vfcoe);
-
-/*
- * Description of potential FCoE interface.
- */
-struct fcm_fcoe {
-   TAILQ_ENTRY(fcm_fcoe) ff_list;          /* list linkage */
-   struct fcm_vfcoe_head ff_vfcoe_head;    /* list of fcm_vfcoe */
-   u_int32_t             ff_ifindex;       /* kernel interface index */
-   u_int32_t             ff_flags;         /* kernel interface flags */
+struct fcm_netif {
+   TAILQ_ENTRY(fcm_netif) ff_list;          /* list linkage */
    u_int32_t             ff_last_flags;    /* previously known flags */
    u_int32_t             ff_enabled:1;     /* operational status */
    u_int32_t             ff_dcb_state;     /* DCB feature state */
    struct feature_info   ff_pfc_info;      /* PFC feature info */
-   struct feature_info   ff_pfc_saved;     /* saved PFC feature info */
    struct feature_info   ff_app_info;      /* App feature info */
-   struct feature_info   ff_llink_info;    /* LLink feature info */
-   u_int32_t             ff_llink_status;  /* LLink status */
-   u_int64_t             ff_mac;           /* MAC address */
-   int                   ff_vlan;          /* VLAN ID or -1 if none */
-   int                   ff_active;	   /* active device */
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */
    u_int8_t              ff_qos_mask;      /* 801.p priority mask */
    enum fcm_dcbd_state   ff_dcbd_state;    /* DCB daemon state */
    struct sa_timer       ff_event_timer;   /* Event timer */
-   char                  ff_name[IFNAMSIZ];/* Ethernet interface name */
+   char                  ifname[IFNAMSIZ]; /* Ethernet interface name */
 };
 
-TAILQ_HEAD(fcm_fcoe_head, fcm_fcoe);
+TAILQ_HEAD(fcm_netif_head, fcm_netif);
 
-struct fcm_fcoe_head fcm_fcoe_head;
+struct fcm_netif_head fcm_netif_head;
 extern char build_date[];
 
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);
 static void fcm_fcoe_init(void);
-#ifdef NOT_YET
-static struct fcm_fcoe *fcm_fcoe_lookup_mac(u_int64_t ff_mac, int vlan);
-static struct fcm_fcoe *fcm_fcoe_lookup_create_mac(u_int64_t ff_mac, int vlan);
-#endif
-static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name);
-static struct fcm_vfcoe *fcm_vfcoe_lookup_name(struct fcm_fcoe *, char *);
-static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *);
-static struct fcm_vfcoe *fcm_vfcoe_lookup_create_ifname(char *, char *);
-static void fcm_fcoe_set_name(struct fcm_fcoe *, char *);
+static struct fcm_netif *fcm_netif_lookup(char *name);
+static struct fcm_netif *fcm_netif_lookup_create(char *);
 static int fcm_link_init(void);
 
 #endif /* _FCOEMON_H_ */

@@ -90,17 +90,29 @@ static char *fcoemon_version =						\
  * Note: These information are read in from the fcoe service
  *       files in CONFIG_DIR
  */
-struct fcoe_port_config {
-	struct fcoe_port_config *next;
-	char ifname[IFNAMSIZ];
+struct fcoe_port {
+	struct fcoe_port *next;
+
+	/* information from fcoe configuration files in CONFIG_DIR */
+	char ifname[IFNAMSIZ];       /* netif on which fcoe i/f is created */
+	char real_ifname[IFNAMSIZ];  /* underlying net ifname - e.g. if ifname
+					is a VLAN */
 	int fcoe_enable;
 	int dcb_required;
+
+	/* following track data required to manage FCoE interface state */
+	u_int32_t action;             /* current state */
 };
 
 enum fcoeadm_action {
 	ADM_DESTROY = 0,
 	ADM_CREATE,
 	ADM_RESET
+};
+
+enum fcoeport_ifname {
+	FCP_CFG_IFNAME = 0,
+	FCP_REAL_IFNAME
 };
 
 static u_int8_t fcm_def_qos_mask = FCM_DEFAULT_QOS_MASK;
@@ -118,8 +130,8 @@ static void fcm_dcbd_rx(void *);
 static void fcm_dcbd_next(void);
 static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
-static void fcm_dcbd_port_advance(struct fcm_fcoe *);
-static void fcm_dcbd_setup(struct fcm_fcoe *, enum fcoeadm_action);
+static void fcm_dcbd_port_advance(struct fcm_netif *);
+static void fcm_dcbd_setup(struct fcm_netif *, enum fcoeadm_action);
 
 struct fcm_clif {
 	int cl_fd;
@@ -137,7 +149,7 @@ char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
 /* Debugging routine */
 static void print_errors(int errors);
 
-struct fcm_fcoe_head fcm_fcoe_head = TAILQ_HEAD_INITIALIZER(fcm_fcoe_head);
+struct fcm_netif_head fcm_netif_head = TAILQ_HEAD_INITIALIZER(fcm_netif_head);
 
 static int fcm_link_socket;
 static int fcm_link_seq;
@@ -260,8 +272,8 @@ static int fcm_read_config_files(void)
 	char val[CONFIG_MAX_VAL_LEN + 1];
 	DIR *dir;
 	struct dirent *dp;
-	struct fcoe_port_config *curr;
-	struct fcoe_port_config *next;
+	struct fcoe_port *curr;
+	struct fcoe_port *next;
 	int rc;
 
 	dir = opendir(CONFIG_DIR);
@@ -280,8 +292,55 @@ static int fcm_read_config_files(void)
 		rc = strncmp(dp->d_name, "cfg-", strlen("cfg-"));
 		if (rc)
 			continue;
-		next = (struct fcoe_port_config *)
-			calloc(1, sizeof(struct fcoe_port_config));
+		next = (struct fcoe_port *)
+			calloc(1, sizeof(struct fcoe_port));
+
+		if (!next) {
+			FCM_LOG_ERR(errno, "failed to allocate fcoe_port %s",
+				dp->d_name);
+			continue;
+		}
+		strncpy(next->ifname, dp->d_name + 4, sizeof(next->ifname));
+		strncpy(file, CONFIG_DIR "/", sizeof(file));
+		strncat(file, dp->d_name, sizeof(file) - strlen(file));
+		fp = fopen(file, "r");
+		if (!fp) {
+			FCM_LOG_ERR(errno, "Failed to read %s\n", file);
+			free(next);
+			continue;
+		}
+
+		next->action = FCP_WAIT;
+
+		/* FCOE_ENABLE */
+		rc = fcm_read_config_variable(file, val, sizeof(val),
+					      fp, "FCOE_ENABLE");
+		if (rc < 0) {
+			FCM_LOG("%s invalid format for FCOE_ENABLE setting");
+			fclose(fp);
+			free(next);
+			continue;
+		}
+		/* if not found, default to "no" */
+		if (!strncasecmp(val, "yes", 3) && rc == 1)
+			next->fcoe_enable = 1;
+
+		/* DCB_REQUIRED */
+		rc = fcm_read_config_variable(file, val, sizeof(val),
+					      fp, "DCB_REQUIRED");
+		if (rc < 0) {
+			FCM_LOG("%s invalid format for DCB_REQUIRED setting");
+			fclose(fp);
+			free(next);
+			continue;
+		}
+		/* if not found, default to "no" */
+		if (!strncasecmp(val, "yes", 3) && rc == 1) {
+			next->dcb_required = 1;
+		}
+
+		fclose(fp);
+
 		if (!fcoe_config.port) {
 			fcoe_config.port = next;
 			curr = next;
@@ -289,52 +348,64 @@ static int fcm_read_config_files(void)
 			curr->next = next;
 			curr = next;
 		}
-		strncpy(curr->ifname, dp->d_name + 4, sizeof(curr->ifname));
-		strncpy(file, CONFIG_DIR "/", sizeof(file));
-		strncat(file, dp->d_name, sizeof(file) - strlen(file));
-		fp = fopen(file, "r");
-		if (!fp) {
-			FCM_LOG_ERR(errno, "Failed reading %s\n", file);
-			exit(1);
-		}
-
-		/* FCOE_ENABLE */
-		rc = fcm_read_config_variable(file, val, sizeof(val),
-					      fp, "FCOE_ENABLE");
-		if (rc < 0) {
-			fclose(fp);
-			return -1;
-		}
-		/* if not found, default to "no" */
-		if (!strncasecmp(val, "yes", 3) && rc == 1)
-			curr->fcoe_enable = 1;
-
-		/* DCB_REQUIRED */
-		rc = fcm_read_config_variable(file, val, sizeof(val),
-					      fp, "DCB_REQUIRED");
-		if (rc < 0) {
-			fclose(fp);
-			return -1;
-		}
-		/* if not found, default to "no" */
-		if (!strncasecmp(val, "yes", 3) && rc == 1) {
-			curr->dcb_required = 1;
-		}
-
-		fclose(fp);
 	}
 	closedir(dir);
 	return 0;
 }
 
-static struct fcoe_port_config *fcm_find_port_config(char *ifname)
+/*
+ * Given an fcoe_port pointer and an ifname, find the next fcoe_port
+ * in the list with a real ifname of 'ifname'.
+ *
+ * Returns:  fcoe_port pointer to fcoe port entry
+ *           NULL - if not found
+ */
+static struct fcoe_port *fcm_find_next_fcoe_port(struct fcoe_port *p,
+						 char *ifname)
 {
-	struct fcoe_port_config *p;
+	struct fcoe_port *np;
+
+	np = fcoe_config.port;
+	while (np) {
+		if (np == p)
+			break;
+		np = np->next;
+	}
+
+	if (np)
+		np = np->next;
+
+	while (np) {
+		if (!strncmp(ifname, np->real_ifname, IFNAMSIZ))
+			return np;
+		np = np->next;
+	}
+
+	return NULL;
+}
+
+static struct fcoe_port *fcm_find_fcoe_port(char *ifname,
+					    enum fcoeport_ifname t)
+{
+	struct fcoe_port *p;
+	char *fp_ifname;
 
 	p = fcoe_config.port;
 	while (p) {
-		if (!strncmp(ifname, p->ifname, IFNAMSIZ) &&
-		    p->fcoe_enable && p->dcb_required)
+		switch (t) {
+		case FCP_CFG_IFNAME:
+			fp_ifname = p->ifname;
+			break;
+		case FCP_REAL_IFNAME:
+			fp_ifname = p->real_ifname;
+			break;
+		default:
+			FCM_LOG("unhandled interface type [%d] for %s",
+				t, ifname);
+			return NULL;
+		}
+
+		if (!strncmp(ifname, fp_ifname, IFNAMSIZ))
 			return p;
 		p = p->next;
 	}
@@ -432,7 +503,7 @@ int fcm_is_linkinfo_vlan(struct rtattr *ap)
 
 static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 
-static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
+static void fcm_dcbd_state_set(struct fcm_netif *ff,
 			       enum fcm_dcbd_state new_state)
 {
 	if (fcoe_config.debug) {
@@ -449,10 +520,35 @@ static void fcm_dcbd_state_set(struct fcm_fcoe *ff,
 	ff->ff_dcbd_state = new_state;
 }
 
-void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
+static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
+				   u_int8_t operstate)
 {
-	struct fcm_fcoe *ff;
-	struct fcm_vfcoe *fv;
+	struct fcm_netif *ff = NULL;
+
+	if (type != RTM_DELLINK) {
+		ff = fcm_netif_lookup_create(p->real_ifname);
+		if (!ff)
+			return;
+
+		if (!p->fcoe_enable) {
+			p->action = FCP_DESTROY_IF;
+			return;
+		}
+
+		if (operstate == IF_OPER_UP) {
+			if (p->dcb_required)
+				fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
+			else
+				p->action = FCP_CREATE_IF;
+		}
+	} else {
+		p->action = FCP_DESTROY_IF;
+	}
+}
+
+void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
+{
+	struct fcoe_port *p;
 	struct rtattr *ap;
 	char ifname[IFNAMSIZ];
 	char real_dev[IFNAMSIZ];
@@ -487,11 +583,8 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 			break;
 
 		case IFLA_LINKINFO:
-			if (!fcm_is_linkinfo_vlan(ap))
-				break;
-			fcm_vlan_dev_real_dev(ifname, real_dev);
-			is_vlan = 1;
-			FCM_LOG_DBG("vlan ifname %s:%s", real_dev, ifname);
+			if (fcm_is_linkinfo_vlan(ap))
+				is_vlan = 1;
 			break;
 
 		default:
@@ -499,30 +592,36 @@ void fcm_parse_link_msg(struct ifinfomsg *ip, int len)
 		}
 	}
 
+	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (is_vlan) {
-		fv = fcm_vfcoe_lookup_create_ifname(ifname, real_dev);
-		if (!fv)
+		/* if not in fcoe port list, then ignore this ifname */
+		if (!p)
 			return;
-		ff = fcm_fcoe_lookup_name(real_dev);
-		fv->fv_active = 1;
+
+		/* try to find the real device name */
+		real_dev[0] = '\0';
+		fcm_vlan_dev_real_dev(ifname, real_dev);
+		if (strlen(real_dev))
+			strncpy(p->real_ifname, real_dev, strlen(real_dev)+1);
+		update_fcoe_port_state(p, type, operstate);
 	} else {
-		ff = fcm_fcoe_lookup_create_ifname(ifname);
-		if (!ff)
-			return;
-		ff->ff_active = 1;
+		/* the ifname is not a VLAN.  handle the case where it has
+		 * an FCoE interface configured on it.
+		 */
+		if (p) {
+			strncpy(p->real_ifname, ifname, strlen(ifname)+1);
+			update_fcoe_port_state(p, type, operstate);
+		}
+
+		/* handle all FCoE ports which are on VLANs over this
+		 * ifname.
+		 */
+		p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
+		while (p) {
+			update_fcoe_port_state(p, type, operstate);
+			p = fcm_find_next_fcoe_port(p, ifname);
+		}
 	}
-
-	/* Set FCD_INIT when netif is enabled */
-	if (!(ff->ff_flags & IFF_LOWER_UP) && (ip->ifi_flags & IFF_LOWER_UP))
-		fcm_dcbd_state_set(ff, FCD_INIT);
-
-	/* Set FCD_ERROR when netif is disabled */
-	if ((ff->ff_flags & IFF_LOWER_UP) && !(ip->ifi_flags & IFF_LOWER_UP))
-		fcm_dcbd_state_set(ff, FCD_ERROR);
-
-	ff->ff_flags = ip->ifi_flags;
-	ff->ff_mac = mac;
-	ff->ff_operstate = operstate;
 }
 
 static void fcm_link_recv(void *arg)
@@ -573,10 +672,10 @@ static void fcm_link_recv(void *arg)
 		case RTM_NEWLINK:
 		case RTM_DELLINK:
 		case RTM_GETLINK:
-			FCM_LOG_DBG("Link event: %d flags %05X index %d\n",
+			FCM_LOG_DBG("Link event: %d flags %05X index %d ",
 				    type, ip->ifi_flags, ip->ifi_index);
 
-			fcm_parse_link_msg(ip, plen);
+			fcm_process_link_msg(ip, plen, type);
 			break;
 
 		default:
@@ -629,6 +728,8 @@ static int fcm_link_buf_check(size_t read_len)
 			fcm_link_buf = buf;
 			fcm_link_buf_size = len;
 			return 1;
+		} else {
+			FCM_LOG_ERR(errno, "failed to allocate link buffer");
 		}
 	}
 	return 0;
@@ -641,161 +742,66 @@ static void fcm_fcoe_init(void)
 }
 
 /*
- * Allocate a virtual FCoE interface state structure.
- */
-static struct fcm_vfcoe *fcm_vfcoe_alloc(struct fcm_fcoe *ff)
-{
-	struct fcm_vfcoe *fv;
-
-	fv = calloc(1, sizeof(*fv));
-	if (fv)
-		TAILQ_INSERT_TAIL(&ff->ff_vfcoe_head, fv, fv_list);
-	return fv;
-}
-/*
  * Allocate an FCoE interface state structure.
  */
-static struct fcm_fcoe *fcm_fcoe_alloc(void)
+static struct fcm_netif *fcm_netif_alloc(void)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 
 	ff = calloc(1, sizeof(*ff));
 	if (ff) {
 		ff->ff_qos_mask = fcm_def_qos_mask;
-		ff->ff_ifindex = ~0;
-		ff->ff_operstate = IF_OPER_UNKNOWN;
-		TAILQ_INSERT_TAIL(&fcm_fcoe_head, ff, ff_list);
-		TAILQ_INIT(&(ff->ff_vfcoe_head));
+		ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
+		ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
+		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
+		TAILQ_INSERT_TAIL(&fcm_netif_head, ff, ff_list);
+	} else {
+		FCM_LOG_ERR(errno, "failed to allocate fcm_netif");
 	}
 	return ff;
 }
 
 /*
- * Find a virtual FCoE interface by ifname
- */
-static struct fcm_vfcoe *fcm_vfcoe_lookup_create_ifname(char *ifname,
-							char *real_name)
-{
-	struct fcm_fcoe *ff;
-	struct fcm_vfcoe *fv;
-	struct fcoe_port_config *p;
-
-	p = fcm_find_port_config(ifname);
-	if (!p)
-		return NULL;
-
-	ff = fcm_fcoe_lookup_name(real_name);
-	if (!ff) {
-		ff = fcm_fcoe_alloc();
-		if (!ff)
-			return NULL;
-		fcm_fcoe_set_name(ff, real_name);
-		ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
-		ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
-		ff->ff_pfc_saved.u.pfcup = 0xffff;
-		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
-	}
-
-	fv = fcm_vfcoe_lookup_name(ff, ifname);
-	if (fv)
-		return fv;
-
-	fv = fcm_vfcoe_alloc(ff);
-	if (!fv) {
-		TAILQ_REMOVE(&fcm_fcoe_head, ff, ff_list);
-		free(ff);
-		return NULL;
-	}
-
-	snprintf(fv->fv_name, sizeof(fv->fv_name), "%s", ifname);
-	return fv;
-}
-
-/*
- * Find an FCoE interface by ifindex.
+ * Find or create an FCoE network interface by ifname.
  * @ifname - interface name to create
- * @check - check for port config file before creating
  *
- * This create a fcoe interface structure with interface name,
- * or if one already exists returns the existing one.  If check
- * is set it verifies the ifname has a valid config file before
- * creating interface
+ * This creates a netif interface structure with interface name,
+ * or if one already exists returns the existing one.
  */
-static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *ifname)
+static struct fcm_netif *fcm_netif_lookup_create(char *ifname)
 {
-	struct fcm_fcoe *ff;
-	struct fcoe_port_config *p;
+	struct fcm_netif *ff;
 
-	p = fcm_find_port_config(ifname);
-	if (!p)
-		return NULL;
-
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		if (!strncmp(ifname, ff->ff_name, IFNAMSIZ))
+	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
+		if (!strncmp(ifname, ff->ifname, IFNAMSIZ))
 			return ff;
 	}
 
-	ff = fcm_fcoe_alloc();
-	if (ff != NULL) {
-		fcm_fcoe_set_name(ff, ifname);
-		ff->ff_pfc_saved.u.pfcup = 0xffff;
-		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
-	}
+	ff = fcm_netif_alloc();
+	if (ff != NULL)
+		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
 
 	FCM_LOG_DEV_DBG(ff, "Monitoring port %s\n", ifname);
 	return ff;
 }
 
 /*
- * Find an virtual FCoE interface by name.
- */
-static struct fcm_vfcoe *fcm_vfcoe_lookup_name(struct fcm_fcoe *ff, char *name)
-{
-	struct fcm_vfcoe *fv, *curr;
-
-	TAILQ_FOREACH(curr, &(ff->ff_vfcoe_head), fv_list) {
-		if (!strncmp(curr->fv_name, name, sizeof(name))) {
-			fv = curr;
-			break;
-		}
-	}
-
-	return fv;
-}
-
-/*
  * Find an FCoE interface by name.
  */
-static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
+static struct fcm_netif *fcm_netif_lookup(char *ifname)
 {
-	struct fcm_fcoe *ff, *curr;
+	struct fcm_netif *ff, *curr;
 
 	ff = NULL;
 
-	TAILQ_FOREACH(curr, &fcm_fcoe_head, ff_list) {
-		if (strcmp(curr->ff_name, name) == 0) {
+	TAILQ_FOREACH(curr, &fcm_netif_head, ff_list) {
+		if (strcmp(curr->ifname, ifname) == 0) {
 			ff = curr;
 			break;
 		}
 	}
 
 	return ff;
-}
-
-static void fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
-{
-	char *cp;
-	int vlan;
-
-	snprintf(ff->ff_name, sizeof(ff->ff_name), "%s", ifname);
-	vlan = -1;
-	cp = strchr(ff->ff_name, '.');
-	if (cp != NULL) {
-		vlan = atoi(cp + 1);
-		if (vlan < 0 || vlan > 4095)
-			vlan = 0;
-	}
-	ff->ff_vlan = vlan;
 }
 
 static void fcm_dcbd_init()
@@ -850,26 +856,14 @@ static int fcm_dcbd_connect(void)
 
 static int is_query_in_progress(void)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
+	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
 		if (ff->ff_dcbd_state >= FCD_GET_DCB_STATE &&
 		    ff->ff_dcbd_state < FCD_DONE)
 			return 1;
 	}
 	return 0;
-}
-
-static void fcm_fcoe_config_reset(void)
-{
-	struct fcm_fcoe *ff;
-
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
-		fcm_dcbd_setup(ff, ADM_DESTROY);
-		ff->ff_qos_mask = fcm_def_qos_mask;
-		ff->ff_pfc_saved.u.pfcup = 0xffff;
-		FCM_LOG_DEV_DBG(ff, "Port config reset\n");
-	}
 }
 
 static void fcm_dcbd_timeout(void *arg)
@@ -899,7 +893,6 @@ static void fcm_dcbd_disconnect(void)
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;
-		fcm_fcoe_config_reset();
 		FCM_LOG_DBG("Disconnected from dcbd");
 	}
 }
@@ -913,34 +906,19 @@ static void fcm_dcbd_shutdown(void)
 	closelog();
 }
 
-static void fcm_vfcoe_cleanup(struct fcm_fcoe *ff)
-{
-	struct fcm_vfcoe *fv, *head;
-	struct fcm_vfcoe_head *list;
-
-	list = &(ff->ff_vfcoe_head);
-
-	for (head = TAILQ_FIRST(list); head; head = fv) {
-		fv = TAILQ_NEXT(head, fv_list);
-		TAILQ_REMOVE(list, head, fv_list);
-		free(head);
-	}
-}
-
 static void fcm_cleanup(void)
 {
-	struct fcoe_port_config *curr, *next;
-	struct fcm_fcoe *ff, *head;
+	struct fcoe_port *curr, *next;
+	struct fcm_netif *ff, *head;
 
 	for (curr = fcoe_config.port; curr; curr = next) {
 		next = curr->next;
 		free(curr);
 	}
 
-	for (head = TAILQ_FIRST(&fcm_fcoe_head); head; head = ff) {
+	for (head = TAILQ_FIRST(&fcm_netif_head); head; head = ff) {
 		ff = TAILQ_NEXT(head, ff_list);
-		TAILQ_REMOVE(&fcm_fcoe_head, head, ff_list);
-		fcm_vfcoe_cleanup(head);
+		TAILQ_REMOVE(&fcm_netif_head, head, ff_list);
 		free(head);
 	}
 
@@ -1023,7 +1001,7 @@ static void fcm_dcbd_rx(void *arg)
 					len, buf);
 				break;
 			}
-			fcm_dcbd_next();	/* advance ports if possible */
+			fcm_dcbd_next();        /* advance ports if possible */
 			break;
 
 		case EVENT_MSG:
@@ -1069,10 +1047,10 @@ static void fcm_dcbd_request(char *req)
  * The pointer to the message pointer is passed in, and updated to point
  * past the interface name.
  */
-static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
-					  size_t len_len, size_t len)
+static struct fcm_netif *fcm_dcbd_get_port(char **msgp, size_t len_off,
+					   size_t len_len, size_t len)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 	u_int32_t if_len;
 	char *ep;
 	char *msg;
@@ -1095,10 +1073,9 @@ static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
 	msg += len_off + len_len;
 	sa_strncpy_safe(ifname, sizeof(ifname), msg, if_len);
 	*msgp = msg + if_len;
-	ff = fcm_fcoe_lookup_name(ifname);
+	ff = fcm_netif_lookup(ifname);
 	if (ff == NULL) {
 		FCM_LOG("ifname '%s' not found", ifname);
-		exit(1);	/* XXX */
 	}
 	return ff;
 }
@@ -1109,7 +1086,7 @@ static struct fcm_fcoe *fcm_dcbd_get_port(char **msgp, size_t len_off,
  * information of the response packet from the DCBD. In the
  * future, it should be merged into fcm_dcbd_cmd_resp().
  */
-static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
+static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
 {
 	int version;
 	int dcb_cmd;
@@ -1218,7 +1195,7 @@ static int dcb_rsp_parser(struct fcm_fcoe *ff, char *rsp, cmd_status st)
  * Returns:  1 if succeeded
  *           0 if failed
  */
-static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
+static int validating_dcb_app_pfc(struct fcm_netif *ff)
 {
 	int error = 0;
 
@@ -1271,7 +1248,7 @@ static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
  * Returns:  1 if succeeded
  *           0 if failed
  */
-static int validating_dcbd_info(struct fcm_fcoe *ff)
+static int validating_dcbd_info(struct fcm_netif *ff)
 {
 	int rc;
 
@@ -1280,48 +1257,19 @@ static int validating_dcbd_info(struct fcm_fcoe *ff)
 }
 
 /*
- * is_pfcup_changed - Check to see if PFC priority is changed
- *
- * Returns:  0 if no
- *           1 if yes, but it is the first time, or was destroyed.
- *           2 if yes
- */
-static int is_pfcup_changed(struct fcm_fcoe *ff)
-{
-	if (ff->ff_pfc_info.u.pfcup != ff->ff_pfc_saved.u.pfcup) {
-		if (ff->ff_pfc_saved.u.pfcup == 0xffff)
-			return 1;	/* first time */
-		else
-			return 2;
-	}
-	return 0;
-}
-
-/*
- * update_saved_pfcup - Update the saved PFC priority with
- *                      the current priority.
- *
- * Returns:  None
- */
-static void update_saved_pfcup(struct fcm_fcoe *ff)
-{
-	ff->ff_pfc_saved.u.pfcup = ff->ff_pfc_info.u.pfcup;
-}
-
-/*
  * clear_dcbd_info - clear dcbd info to unknown values
  *
  */
-static void clear_dcbd_info(struct fcm_fcoe *ff)
+static void clear_dcbd_info(struct fcm_netif *ff)
 {
 	ff->ff_dcb_state = 0;
 	ff->ff_app_info.advertise = 0;
-	ff->ff_app_info.enable = 0;
 	ff->ff_app_info.op_mode = 0;
 	ff->ff_app_info.u.appcfg = 0;
-	ff->ff_app_info.willing = 0;
 	ff->ff_pfc_info.op_mode = 0;
 	ff->ff_pfc_info.u.pfcup = 0xffff;
+	ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
+	ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
 }
 
 
@@ -1330,7 +1278,7 @@ static void clear_dcbd_info(struct fcm_fcoe *ff)
  * @ff: fcoe port structure
  * @st: status
  */
-static void fcm_dcbd_set_config(struct fcm_fcoe *ff, cmd_status st)
+static void fcm_dcbd_set_config(struct fcm_netif *ff, cmd_status st)
 {
 	if (ff->ff_dcbd_state == FCD_SEND_CONF) {
 		if (st != cmd_success)
@@ -1346,7 +1294,7 @@ static void fcm_dcbd_set_config(struct fcm_fcoe *ff, cmd_status st)
  * @resp: response buffer
  * @st:   status
  */
-static void fcm_dcbd_get_config(struct fcm_fcoe *ff, char *resp,
+static void fcm_dcbd_get_config(struct fcm_netif *ff, char *resp,
 				const cmd_status st)
 {
 	int rc;
@@ -1402,9 +1350,10 @@ static void fcm_dcbd_get_config(struct fcm_fcoe *ff, char *resp,
  * Sample msg: R00C103050004eth8010100100208
  *                  opppssll    vvmmeemsllpp
  */
-static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
+static void fcm_dcbd_get_oper(struct fcm_netif *ff, char *resp,
 			      char *cp, const cmd_status st)
 {
+	u_int32_t old_qos_mask;
 	u_int32_t enable;
 	u_int32_t val;
 	u_int32_t parm_len;
@@ -1484,14 +1433,14 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 					break;
 				}
 			}
+			old_qos_mask = ff->ff_qos_mask;
 			ff->ff_qos_mask = parm;
 			if (validating_dcbd_info(ff)) {
 				FCM_LOG_DEV_DBG(ff, "DCB settings "
 						"qualified for creating "
 						"FCoE interface\n");
 
-				rc = is_pfcup_changed(ff);
-				if (rc == 1) {
+				if (ff->ff_qos_mask == fcm_def_qos_mask) {
 					FCM_LOG_DEV_DBG(ff, "Initial "
 							"QOS = 0x%x\n",
 							ff->ff_qos_mask);
@@ -1501,14 +1450,11 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 							" to 0x%x\n",
 							ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_RESET);
-				} else if (!ff->ff_enabled) {
+				} else {
 					FCM_LOG_DEV_DBG(ff, "Re-create "
 							"QOS = 0x%x\n",
 							ff->ff_qos_mask);
 					fcm_dcbd_setup(ff, ADM_CREATE);
-				} else {
-					FCM_LOG_DEV_DBG(ff, "No action will "
-							"be taken\n");
 				}
 			} else {
 				FCM_LOG_DEV_DBG(ff, "DCB settings of %s not "
@@ -1518,7 +1464,6 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 				clear_dcbd_info(ff);
 			}
 
-			update_saved_pfcup(ff);
 			fcm_dcbd_state_set(ff, FCD_DONE);
 			return;
 
@@ -1536,7 +1481,7 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
  * @cp:   response buffer pointer, points past the interface name
  * @st:   status
  */
-static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
+static void fcm_dcbd_get_peer(struct fcm_netif *ff, char *resp,
 			      char *cp, const cmd_status st)
 {
 	char *ep = NULL;
@@ -1574,7 +1519,7 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
  */
 static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 	u_int32_t ver;
 	u_int32_t cmd;
 	u_int32_t feature;
@@ -1615,11 +1560,6 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		return;
 	}
 
-	if (!(ff->ff_flags & IFF_LOWER_UP)) {
-		FCM_LOG_DEV_DBG(ff, "Port state netif carrier down\n");
-		return;
-	}
-
 	switch (cmd) {
 	case CMD_SET_CONFIG:
 		fcm_dcbd_set_config(ff, st);
@@ -1646,7 +1586,7 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 
 static void fcm_event_timeout(void *arg)
 {
-	struct fcm_fcoe *ff = (struct fcm_fcoe *)arg;
+	struct fcm_netif *ff = (struct fcm_netif *)arg;
 
 	FCM_LOG_DEV_DBG(ff, "%d milliseconds timeout!\n",
 			FCM_EVENT_TIMEOUT_USEC/1000);
@@ -1664,7 +1604,7 @@ static void fcm_event_timeout(void *arg)
  */
 static void fcm_dcbd_event(char *msg, size_t len)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 	u_int32_t feature;
 	u_int32_t subtype;
 	char *cp;
@@ -1680,11 +1620,6 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	ff = fcm_dcbd_get_port(&cp, EV_PORT_LEN_OFF, EV_PORT_LEN_LEN, len);
 	if (ff == NULL)
 		return;
-
-	if (!(ff->ff_flags & IFF_LOWER_UP)) {
-		FCM_LOG_DEV_DBG(ff, "Port state netif carrier down\n");
-		return;
-	}
 
 	feature = fcm_get_hex(cp + EV_FEATURE_OFF, 2, &ep);
 	if (ep != NULL) {
@@ -1758,9 +1693,9 @@ ignore_event:
  *         enable = 1      Create the FCoE interface
  *         enable = 2      Reset the interface
  */
-static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
+static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
 {
-	struct fcm_vfcoe *fv;
+	struct fcoe_port *p;
 	char *op, *debug, *syslog = NULL;
 	char *qos_arg;
 	char qos[64];
@@ -1834,35 +1769,17 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 		if (rc < 0)
 			FCM_LOG_ERR(errno, "fork error");
 		else if (rc == 0) {     /* child process */
-			if (ff->ff_active)
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
-				       "--fcoeif", ff->ff_name,
-				       op, "--netif", ff->ff_name, qos_arg,
-				       qos, debug, syslog, (char *)NULL);
-			else
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
-				       "--netif", ff->ff_name,
-				       qos_arg, qos, debug, syslog,
-				       (char *)NULL);
+			p = fcm_find_fcoe_port(ff->ifname, FCP_REAL_IFNAME);
+			if (!p)
+				exit(1);
+			execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, "--fcoeif",
+			       p->ifname, op, "--netif", p->real_ifname,
+			       qos_arg, qos, debug, syslog, (char *)NULL);
 		}
 
 		/* VLAN interfaces only enable and disable */
 		if (action < 0  || action > 1)
 			exit(1);
-
-		TAILQ_FOREACH(fv, &(ff->ff_vfcoe_head), fv_list) {
-			if (!fv->fv_active)
-				continue;
-			FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n", fcm_dcbd_cmd,
-					fv->fv_name, op, syslog);
-			rc = fork();
-			if (rc < 0)
-				FCM_LOG_ERR(errno, "fork error");
-			else if (rc == 0)       /* child process */
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
-				       "--fcoeif", fv->fv_name,
-				       op, debug, syslog, (char *)NULL);
-		}
 
 		exit(1);
 	} else
@@ -1873,7 +1790,7 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
  * Called for all ports.  For FCoE ports and candidates,
  * get information and send to dcbd.
  */
-static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
+static void fcm_dcbd_port_advance(struct fcm_netif *ff)
 {
 	char buf[80], params[30];
 
@@ -1891,7 +1808,7 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_DCB, 0,
-			 (u_int) strlen(ff->ff_name), ff->ff_name);
+			 (u_int) strlen(ff->ifname), ff->ifname);
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_SEND_CONF:
@@ -1902,42 +1819,42 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, params);
+			 (u_int) strlen(ff->ifname), ff->ifname, params);
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_PFC, 0,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 (u_int) strlen(ff->ifname), ff->ifname, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 (u_int) strlen(ff->ifname), ff->ifname, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_PFC, 0,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 (u_int) strlen(ff->ifname), ff->ifname, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 (u_int) strlen(ff->ifname), ff->ifname, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PEER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_PEER, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ff_name), ff->ff_name, "");
+			 (u_int) strlen(ff->ifname), ff->ifname, "");
 		fcm_dcbd_request(buf);
 		break;
 	case FCD_DONE:
@@ -1951,14 +1868,13 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 
 static void fcm_dcbd_next(void)
 {
-	struct fcm_fcoe *ff;
+	struct fcm_netif *ff;
 
-	TAILQ_FOREACH(ff, &fcm_fcoe_head, ff_list) {
+	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
 		if (fcm_clif->cl_busy)
 			break;
 
-		if (ff->ff_flags & IFF_LOWER_UP)
-			fcm_dcbd_port_advance(ff);
+		fcm_dcbd_port_advance(ff);
 	}
 }
 

@@ -76,9 +76,10 @@
 #define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
-#define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
-#define FCM_DCBD_RETRY_TIMEOUT_USEC   (1 * 1000 * 1000)	/* 1 seconds */
-#define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
+#define DCBD_CONNECT_TIMEOUT    (10 * 1000 * 1000)	/* 10 seconds */
+#define DCBD_CONNECT_RETRY_TIMEOUT   (1 * 1000 * 1000)	/* 1 seconds */
+#define DCBD_REQ_RETRY_TIMEOUT  (200 * 1000)            /* 0.2 seconds */
+#define DCBD_MAX_REQ_RETRIES    10
 #define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
@@ -101,7 +102,9 @@ struct fcoe_port {
 	int dcb_required;
 
 	/* following track data required to manage FCoE interface state */
-	u_int32_t action;             /* current state */
+	u_int32_t action;      /* current state */
+	u_int32_t last_action; /* last action */
+	int last_msg_type;     /* last rtnetlink msg type received on if name */
 };
 
 enum fcoeport_ifname {
@@ -116,8 +119,8 @@ struct clif;			/* for dcbtool.h only */
 /*
  * Interact with DCB daemon.
  */
-static void fcm_event_timeout(void *);
 static void fcm_dcbd_timeout(void *);
+static void fcm_dcbd_retry_timeout(void *);
 static void fcm_dcbd_disconnect(void);
 static int fcm_dcbd_request(char *);
 static void fcm_dcbd_rx(void *);
@@ -511,6 +514,11 @@ static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 static void fcm_dcbd_state_set(struct fcm_netif *ff,
 			       enum fcm_dcbd_state new_state)
 {
+	if (ff->ff_operstate != IF_OPER_UP) {
+		ff->ff_dcbd_state = FCD_INIT;
+		return;
+	}
+
 	if (fcoe_config.debug) {
 		char old[32];
 		char new[32];
@@ -523,14 +531,29 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 					       fcm_dcbd_states, new_state));
 	}
 
-	ff->ff_dcbd_state = new_state;
-	ff->response_pending = 0;
 	if (new_state == FCD_GET_DCB_STATE)
 		clear_dcbd_info(ff);
+
+	if (new_state == FCD_INIT) {
+		ff->dcbd_retry_cnt = 0;
+		sa_timer_cancel(&ff->dcbd_retry_timer);
+	}
+
+	if (new_state == FCD_ERROR) {
+		ff->dcbd_retry_cnt++;
+		FCM_LOG_DEV_DBG(ff, "%s: SETTING dcbd RETRY TIMER  = %d\n",
+			ff->ifname,
+			ff->dcbd_retry_cnt * DCBD_REQ_RETRY_TIMEOUT);
+		sa_timer_set(&ff->dcbd_retry_timer,
+			ff->dcbd_retry_cnt * DCBD_REQ_RETRY_TIMEOUT);
+	}
+
+	ff->ff_dcbd_state = new_state;
+	ff->response_pending = 0;
 }
 
 static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
-				   u_int8_t operstate)
+				   u_int8_t operstate, enum fcoeport_ifname t)
 {
 	struct fcm_netif *ff = NULL;
 
@@ -539,16 +562,41 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 		if (!ff)
 			return;
 
+		/* Only set the ff_operstate field of the network interface
+		 * element if this routine is being called for the real
+		 * network interface, or, if the interface is a VLAN, if the
+		 * network interface element has not been intialized and the
+		 * VLAN operstate is up (if VLAN is up, then real interface is
+		 * up).
+		 */
+		if ((t == FCP_REAL_IFNAME) ||
+		   ((t == FCP_CFG_IFNAME) &&
+		    (ff->ff_operstate == IF_OPER_UNKNOWN) &&
+		    (operstate == IF_OPER_UP)))
+			ff->ff_operstate = operstate;
+
 		if (!p->fcoe_enable) {
 			p->action = FCP_DESTROY_IF;
 			return;
 		}
 
 		if (operstate == IF_OPER_UP) {
-			if (p->dcb_required)
-				fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
-			else
+			if (p->dcb_required) {
+				/* If DCB is required, do not start the dcbd
+				 * query sequence if this routine is being
+				 * called for a real interface and the FCoE
+				 * interface is configured on a VLAN.
+				 */
+				if ((t == FCP_REAL_IFNAME) &&
+				    strncmp(p->ifname, p->real_ifname,
+					    IFNAMSIZ))
+					fcm_dcbd_state_set(ff, FCD_INIT);
+				else
+					fcm_dcbd_state_set(ff,
+						FCD_GET_DCB_STATE);
+			} else {
 				p->action = FCP_CREATE_IF;
+			}
 		}
 	} else {
 		p->action = FCP_DESTROY_IF;
@@ -612,14 +660,16 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		fcm_vlan_dev_real_dev(ifname, real_dev);
 		if (strlen(real_dev))
 			strncpy(p->real_ifname, real_dev, strlen(real_dev)+1);
-		update_fcoe_port_state(p, type, operstate);
+		update_fcoe_port_state(p, type, operstate, FCP_CFG_IFNAME);
+		p->last_msg_type = type;
 	} else {
 		/* the ifname is not a VLAN.  handle the case where it has
 		 * an FCoE interface configured on it.
 		 */
 		if (p) {
 			strncpy(p->real_ifname, ifname, strlen(ifname)+1);
-			update_fcoe_port_state(p, type, operstate);
+			update_fcoe_port_state(p, type, operstate,
+					       FCP_REAL_IFNAME);
 		}
 
 		/* handle all FCoE ports which are on VLANs over this
@@ -627,7 +677,8 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		 */
 		p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
 		while (p) {
-			update_fcoe_port_state(p, type, operstate);
+			update_fcoe_port_state(p, type, operstate,
+					       FCP_REAL_IFNAME);
 			p = fcm_find_next_fcoe_port(p, ifname);
 		}
 	}
@@ -760,9 +811,7 @@ static struct fcm_netif *fcm_netif_alloc(void)
 	ff = calloc(1, sizeof(*ff));
 	if (ff) {
 		ff->ff_qos_mask = fcm_def_qos_mask;
-		ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
-		ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
-		sa_timer_init(&ff->ff_event_timer, fcm_event_timeout, ff);
+		ff->ff_operstate = IF_OPER_UNKNOWN;
 		TAILQ_INSERT_TAIL(&fcm_netif_head, ff, ff_list);
 	} else {
 		FCM_LOG_ERR(errno, "failed to allocate fcm_netif");
@@ -787,10 +836,13 @@ static struct fcm_netif *fcm_netif_lookup_create(char *ifname)
 	}
 
 	ff = fcm_netif_alloc();
-	if (ff != NULL)
+	if (ff != NULL) {
 		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
+		sa_timer_init(&ff->dcbd_retry_timer, fcm_dcbd_retry_timeout,
+			(void *)ff);
+		FCM_LOG_DEV_DBG(ff, "Monitoring port %s\n", ifname);
+	}
 
-	FCM_LOG_DEV_DBG(ff, "Monitoring port %s\n", ifname);
 	return ff;
 }
 
@@ -863,18 +915,6 @@ static int fcm_dcbd_connect(void)
 	return 1;
 }
 
-static int is_query_in_progress(void)
-{
-	struct fcm_netif *ff;
-
-	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
-		if (ff->ff_dcbd_state >= FCD_GET_DCB_STATE &&
-		    ff->ff_dcbd_state < FCD_DONE)
-			return 1;
-	}
-	return 0;
-}
-
 static void fcm_dcbd_timeout(void *arg)
 {
 	if (fcm_clif->cl_ping_pending > 0) {
@@ -885,11 +925,23 @@ static void fcm_dcbd_timeout(void *arg)
 		if (fcm_dcbd_connect())
 			fcm_dcbd_request("A");	/* ATTACH_CMD: for events */
 		else
-			sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
+			sa_timer_set(&fcm_dcbd_timer, DCBD_CONNECT_TIMEOUT);
 	} else {
 		fcm_clif->cl_ping_pending++;
 		fcm_dcbd_request("P");	/* ping to verify connection */
 	}
+}
+
+static void fcm_dcbd_retry_timeout(void *arg)
+{
+	struct fcm_netif *ff = (struct fcm_netif *)arg;
+
+	ASSERT(ff);
+	FCM_LOG_DBG("%s: dcbd retry TIMEOUT occurred [%d]",
+		ff->ifname, ff->dcbd_retry_cnt);
+
+	fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
+	fcm_netif_advance(ff);
 }
 
 static void fcm_dcbd_disconnect(void)
@@ -968,7 +1020,6 @@ static void fcm_dcbd_rx(void *arg)
 	if (rc < 0)
 		FCM_LOG_ERR(errno, "read");
 	else if ((rc > 0) && (rc < sizeof(buf))) {
-		ASSERT(rc < sizeof(buf));
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
@@ -1036,14 +1087,14 @@ static int fcm_dcbd_request(char *req)
 		return 0;
 	len = strlen(req);
 	ASSERT(fcm_clif->cl_busy == 0);
-	sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
+	sa_timer_set(&fcm_dcbd_timer, DCBD_CONNECT_TIMEOUT);
 	fcm_clif->cl_busy = 1;
 	rc = write(fcm_clif->cl_fd, req, len);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "Failed write req %s len %d", req, len);
 		fcm_clif->cl_busy = 0;
 		fcm_dcbd_disconnect();
-		sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_RETRY_TIMEOUT_USEC);
+		sa_timer_set(&fcm_dcbd_timer, DCBD_CONNECT_RETRY_TIMEOUT);
 		return 0;
 	}
 
@@ -1295,8 +1346,10 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 			    ff->ff_pfc_info.u.pfcup);
 		errors++;
 	}
-	if (errors)
+	if (errors) {
 		FCM_LOG_DEV(ff, "WARNING: DCB may be configured incorrectly\n");
+		return FCP_ERROR;
+	}
 
 	return FCP_WAIT;
 }
@@ -1308,7 +1361,6 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
  */
 static void clear_dcbd_info(struct fcm_netif *ff)
 {
-	ff->ff_dcb_state = 0;
 	memset(&ff->ff_pfc_info, 0, sizeof(struct feature_info));
 	memset(&ff->ff_app_info, 0, sizeof(struct feature_info));
 }
@@ -1507,20 +1559,6 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	}
 }
 
-static void fcm_event_timeout(void *arg)
-{
-	struct fcm_netif *ff = (struct fcm_netif *)arg;
-
-	FCM_LOG_DEV_DBG(ff, "%d milliseconds timeout!\n",
-			FCM_EVENT_TIMEOUT_USEC/1000);
-
-	if (!is_query_in_progress()) {
-		fcm_clif->cl_ping_pending++;
-		fcm_dcbd_request("P");
-	}
-	fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
-}
-
 /*
  * Handle incoming DCB event message.
  * Example message: E5104eth8050001
@@ -1559,15 +1597,18 @@ static void fcm_dcbd_event(char *msg, size_t len)
 
 	p = fcm_find_fcoe_port(ff->ifname, FCP_REAL_IFNAME);
 	while (p) {
-		if (p->dcb_required)
+		if (p->dcb_required && p->last_msg_type != RTM_DELLINK)
 			break;
 		p = fcm_find_next_fcoe_port(p, ff->ifname);
 	}
 
 	/*
-	 * dcb is not required, ignore dcbd event
-	 */
+	 * dcb is not required or link was removed, ignore dcbd event
+	*/
 	if (!p)
+		return;
+
+	if (ff->ff_operstate != IF_OPER_UP)
 		return;
 
 	switch (feature) {
@@ -1624,9 +1665,13 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	qos_arg = "--qos-enable";
 	switch (p->action) {
 	case FCP_CREATE_IF:
+		if (p->last_action == FCP_CREATE_IF)
+			return;
 		op = "--create";
 		break;
 	case FCP_DESTROY_IF:
+		if (p->last_action == FCP_DESTROY_IF)
+			return;
 		op = "--destroy";
 		qos_arg = "--qos-disable";
 		break;
@@ -1637,6 +1682,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		return;
 		break;
 	}
+	p->last_action = p->action;
 
 	if (p->action && !ff->ff_qos_mask)
 		return;
@@ -1720,6 +1766,9 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 	if (ff->response_pending)
 		return;
 
+	if (sa_timer_active(&ff->dcbd_retry_timer))
+		return;
+
 	switch (ff->ff_dcbd_state) {
 	case FCD_INIT:
 	case FCD_ERROR:
@@ -1783,6 +1832,7 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 		switch (validate_dcbd_info(ff)) {
 		case FCP_DESTROY_IF:
 			fcp_action_set(ff->ifname, FCP_DESTROY_IF);
+			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
 		case FCP_CREATE_IF:
 			if (!old_qos_mask) {
@@ -1796,13 +1846,21 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 						ff->ff_qos_mask);
 				fcp_action_set(ff->ifname, FCP_RESET_IF);
 			}
+			fcm_dcbd_state_set(ff, FCD_INIT);
+			break;
+		case FCP_ERROR:
+			if (ff->dcbd_retry_cnt < DCBD_MAX_REQ_RETRIES) {
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+			} else {
+				fcp_action_set(ff->ifname, FCP_DESTROY_IF);
+				fcm_dcbd_state_set(ff, FCD_INIT);
+			}
 			break;
 		case FCP_WAIT:
 		default:
 			break;
 		}
 
-		fcm_dcbd_state_set(ff, FCD_INIT);
 		break;
 	default:
 		break;

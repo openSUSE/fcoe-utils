@@ -118,7 +118,6 @@ struct feature_info {
  */
 struct fcm_netif {
    TAILQ_ENTRY(fcm_netif) ff_list;          /* list linkage */
-   u_int32_t             ff_last_flags;    /* previously known flags */
    u_int32_t             ff_enabled:1;     /* operational status */
    u_int32_t             ff_dcb_state;     /* DCB feature state */
    struct feature_info   ff_pfc_info;      /* PFC feature info */
@@ -126,9 +125,10 @@ struct fcm_netif {
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */
    u_int8_t              ff_qos_mask;      /* 801.p priority mask */
    enum fcm_dcbd_state   ff_dcbd_state;    /* DCB daemon state */
-   struct sa_timer       ff_event_timer;   /* Event timer */
    char                  ifname[IFNAMSIZ]; /* Ethernet interface name */
    int                   response_pending; /* dcbd query in progress */
+   int                   dcbd_retry_cnt;   /* Number of query attempts */
+   struct sa_timer       dcbd_retry_timer; /* dcbd retry timer */
 };
 
 TAILQ_HEAD(fcm_netif_head, fcm_netif);

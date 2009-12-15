@@ -135,7 +135,7 @@ static struct sa_timer fcm_dcbd_timer;
 char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
 
 /* Debugging routine */
-static void print_errors(char *buf, int errors);
+static void print_errors(int errors);
 
 struct fcm_fcoe_head fcm_fcoe_head = TAILQ_HEAD_INITIALIZER(fcm_fcoe_head);
 
@@ -1240,10 +1240,12 @@ static int validating_dcb_app_pfc(struct fcm_fcoe *ff)
 	}
 	if (!ff->ff_app_info.op_mode) {
 		FCM_LOG_DEV(ff, "WARNING: APP:0 operational mode is false\n");
+		print_errors(ff->ff_app_info.op_error);
 		error++;
 	}
 	if (!ff->ff_pfc_info.op_mode) {
 		FCM_LOG_DEV(ff, "WARNING: PFC operational mode is false\n");
+		print_errors(ff->ff_pfc_info.op_error);
 		error++;
 	}
 	if ((ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) \
@@ -1422,7 +1424,7 @@ static void fcm_dcbd_get_oper(struct fcm_fcoe *ff, char *resp,
 			FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val,
 					resp);
 			if (fcoe_config.debug)
-				print_errors("", val);
+				print_errors(val);
 
 			fcm_dcbd_setup(ff, ADM_DESTROY);
 			fcm_dcbd_state_set(ff, FCD_DONE);
@@ -1552,7 +1554,7 @@ static void fcm_dcbd_get_peer(struct fcm_fcoe *ff, char *resp,
 	if (val != 0) {
 		FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val, resp);
 		if (fcoe_config.debug)
-			print_errors("", val);
+			print_errors(val);
 		fcm_dcbd_setup(ff, ADM_DESTROY);
 		fcm_dcbd_state_set(ff, FCD_DONE);
 		return;
@@ -2105,61 +2107,48 @@ int main(int argc, char **argv)
 /*******************************************************
  *         The following are debug routines            *
  *******************************************************/
-
-static void print_errors(char *buf, int errors)
+static void add_msg_to_buf(char *buf, int maxlen, char *msg, char *prefix)
 {
-	char msg[80];
-	int len, j;
-	int flag = 0;
+	int len = strlen(buf);
+
+	if (len + strlen(msg) + strlen(prefix) < maxlen)
+		sprintf(buf+len, "%s%s", prefix, msg);
+}
+
+static void print_errors(int errors)
+{
+	char msg[256];
+	int cnt = 0;
 
 	memset(msg, 0, sizeof(msg));
-	len = sprintf(msg, "0x%02x - ", errors);
+	sprintf(msg, "0x%02x - ", errors);
 
-	if (!errors) {
-		j = sprintf(msg + len, "none\n");
-		FCM_LOG("%s %s", buf, msg);
-		return;
-	}
+	if (errors & 0x01)
+		add_msg_to_buf(msg, sizeof(msg), "mismatch with peer",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x01) {
-		flag++;
-		j = sprintf(msg + len, "mismatch with peer");
-	}
+	if (errors & 0x02)
+		add_msg_to_buf(msg, sizeof(msg), "local configuration error",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x02) {
-		j = len;
-		if (flag++)
-			j = sprintf(msg + len, ", ");
-		sprintf(msg + j, "local configuration error");
-	}
+	if (errors & 0x04)
+		add_msg_to_buf(msg, sizeof(msg), "multiple TLV's received",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x04) {
-		j = len;
-		if (flag++)
-			j = sprintf(msg + len, ", ");
-		sprintf(msg + j, "multiple TLV's received");
-	}
+	if (errors & 0x08)
+		add_msg_to_buf(msg, sizeof(msg), "peer error",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x08) {
-		j = len;
-		if (flag++)
-			j = sprintf(msg + len, ", ");
-		sprintf(msg + j, "peer error");
-	}
+	if (errors & 0x10)
+		add_msg_to_buf(msg, sizeof(msg), "multiple LLDP neighbors",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x10) {
-		j = len;
-		if (flag++)
-			j = sprintf(msg + len, ", ");
-		sprintf(msg + j, "multiple LLDP neighbors");
-	}
+	if (errors & 0x20)
+		add_msg_to_buf(msg, sizeof(msg), "peer feature not present",
+			      (cnt++) ? ", " : "");
 
-	if (errors & 0x20) {
-		j = len;
-		if (flag++)
-			j = sprintf(msg + len, ", ");
-		sprintf(msg + j, "peer feature not present");
-	}
+	if (!errors)
+		add_msg_to_buf(msg, sizeof(msg), "none", "");
 
-	FCM_LOG("%s %s\n", buf, msg);
+	FCM_LOG("%s\n", msg);
 }

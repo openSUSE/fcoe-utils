@@ -128,6 +128,7 @@ struct fcm_netif {
    enum fcm_dcbd_state   ff_dcbd_state;    /* DCB daemon state */
    struct sa_timer       ff_event_timer;   /* Event timer */
    char                  ifname[IFNAMSIZ]; /* Ethernet interface name */
+   int                   response_pending; /* dcbd query in progress */
 };
 
 TAILQ_HEAD(fcm_netif_head, fcm_netif);
@@ -138,8 +139,9 @@ extern char build_date[];
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);
 static void fcm_fcoe_init(void);
-static struct fcm_netif *fcm_netif_lookup(char *name);
+static struct fcm_netif *fcm_netif_lookup(char *);
 static struct fcm_netif *fcm_netif_lookup_create(char *);
 static int fcm_link_init(void);
+static void fcm_dcbd_state_set(struct fcm_netif *, enum fcm_dcbd_state);
 
 #endif /* _FCOEMON_H_ */

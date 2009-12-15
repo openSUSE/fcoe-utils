@@ -104,12 +104,6 @@ struct fcoe_port {
 	u_int32_t action;             /* current state */
 };
 
-enum fcoeadm_action {
-	ADM_DESTROY = 0,
-	ADM_CREATE,
-	ADM_RESET
-};
-
 enum fcoeport_ifname {
 	FCP_CFG_IFNAME = 0,
 	FCP_REAL_IFNAME
@@ -125,13 +119,12 @@ struct clif;			/* for dcbtool.h only */
 static void fcm_event_timeout(void *);
 static void fcm_dcbd_timeout(void *);
 static void fcm_dcbd_disconnect(void);
-static void fcm_dcbd_request(char *);
+static int fcm_dcbd_request(char *);
 static void fcm_dcbd_rx(void *);
-static void fcm_dcbd_next(void);
 static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
-static void fcm_dcbd_port_advance(struct fcm_netif *);
-static void fcm_dcbd_setup(struct fcm_netif *, enum fcoeadm_action);
+static void fcm_netif_advance(struct fcm_netif *);
+static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
 
 struct fcm_clif {
 	int cl_fd;
@@ -156,6 +149,7 @@ static int fcm_link_seq;
 static void fcm_link_recv(void *);
 static void fcm_link_getlink(void);
 static int fcm_link_buf_check(size_t);
+static void clear_dcbd_info(struct fcm_netif *ff);
 
 /*
  * Table for getopt_long(3).
@@ -501,6 +495,17 @@ int fcm_is_linkinfo_vlan(struct rtattr *ap)
 	return 0;
 }
 
+static void fcp_action_set(char *ifname, enum fcp_action action)
+{
+	struct fcoe_port *p;
+
+	p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
+	while (p) {
+		p->action = action;
+		p = fcm_find_next_fcoe_port(p, ifname);
+	}
+}
+
 static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 
 static void fcm_dcbd_state_set(struct fcm_netif *ff,
@@ -517,7 +522,11 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 				sa_enum_decode(new, sizeof(new),
 					       fcm_dcbd_states, new_state));
 	}
+
 	ff->ff_dcbd_state = new_state;
+	ff->response_pending = 0;
+	if (new_state == FCD_GET_DCB_STATE)
+		clear_dcbd_info(ff);
 }
 
 static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
@@ -1001,7 +1010,6 @@ static void fcm_dcbd_rx(void *arg)
 					len, buf);
 				break;
 			}
-			fcm_dcbd_next();        /* advance ports if possible */
 			break;
 
 		case EVENT_MSG:
@@ -1015,13 +1023,17 @@ static void fcm_dcbd_rx(void *arg)
 	}
 }
 
-static void fcm_dcbd_request(char *req)
+/*
+ * returns:  1 if request was successfully written
+ *           0 if the write failed
+*/
+static int fcm_dcbd_request(char *req)
 {
 	size_t len;
 	int rc;
 
 	if (fcm_clif->cl_fd < 0)
-		return;
+		return 0;
 	len = strlen(req);
 	ASSERT(fcm_clif->cl_busy == 0);
 	sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
@@ -1032,12 +1044,12 @@ static void fcm_dcbd_request(char *req)
 		fcm_clif->cl_busy = 0;
 		fcm_dcbd_disconnect();
 		sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_RETRY_TIMEOUT_USEC);
-		return;
+		return 0;
 	}
 
 	if (rc > FCM_PING_REQ_LEN)
 		FCM_LOG_DBG("sent '%s', rc=%d bytes succeeded", req, rc);
-	return;
+	return 1;
 }
 
 /*
@@ -1083,10 +1095,11 @@ static struct fcm_netif *fcm_dcbd_get_port(char **msgp, size_t len_off,
 /*
  * (XXX) Notes:
  * This routine is here to help fcm_dcbd_cmd_resp() to pick up
- * information of the response packet from the DCBD. In the
- * future, it should be merged into fcm_dcbd_cmd_resp().
+ * information of the response packet from the DCBD.
+ * Returns:  0 on success
+ *          -1 on failure
  */
-static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
+static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp)
 {
 	int version;
 	int dcb_cmd;
@@ -1099,25 +1112,9 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
 	struct feature_info *f_info = NULL;
 	char buf[20];
 
-	if (st != cmd_success)	/* log msg already issued */
-		return -1;
-
 	feature = hex2int(rsp+DCB_FEATURE_OFF);
-	if (feature != FEATURE_DCB &&
-	    feature != FEATURE_PFC &&
-	    feature != FEATURE_APP) {
-		FCM_LOG_DEV(ff, "WARNING: Unexpected DCB feature %d\n",
-			    feature);
-		return -1;
-	}
 
 	dcb_cmd = hex2int(rsp+DCB_CMD_OFF);
-	if (dcb_cmd != CMD_GET_CONFIG &&
-	    dcb_cmd != CMD_GET_OPER &&
-	    dcb_cmd != CMD_GET_PEER) {
-		FCM_LOG_DEV(ff, "WARNING: Unexpected DCB cmd %d\n", dcb_cmd);
-		return -1;
-	}
 
 	version = rsp[DCB_VER_OFF] & 0x0f;
 	if (version != CLIF_MSG_VERSION) {
@@ -1133,10 +1130,6 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
 	switch (feature) {
 	case FEATURE_DCB:
 		ff->ff_dcb_state = (*(rsp+doff+CFG_ENABLE) == '1');
-		if (!ff->ff_dcb_state) {
-			FCM_LOG_DEV(ff, "WARNING: DCB state is off\n");
-			return -1;
-		}
 		return 0;
 	case FEATURE_PFC:
 		f_info = &ff->ff_pfc_info;
@@ -1145,6 +1138,8 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
 		f_info = &ff->ff_app_info;
 		f_info->subtype = subtype;
 		break;
+	default:
+		return -1;
 	}
 
 	switch (dcb_cmd) {
@@ -1180,81 +1175,132 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp, cmd_status st)
 	return 0;
 }
 
-/*
- * validating_dcb_app_pfc - Validating App:FCoE and PFC requirements
- *
- * DCB is configured correctly when
- * 1) The local configuration of the App:FCoE feature is
- *    configured to Enable=TRUE, Advertise=TRUE, Willing=TRUE.
- * 2) App:FCoE feature is in Opertional Mode = TRUE,
- * 3) PFC feasture is in Opertional Mode = TRUE,
- * 4) The priority indicated by the App:FCoE Operational Configuration
- *    is also enabled in the PFC Operational Configuration.
- * 5) DCB State is on.
- *
- * Returns:  1 if succeeded
- *           0 if failed
- */
-static int validating_dcb_app_pfc(struct fcm_netif *ff)
-{
-	int error = 0;
 
-	if (!ff->ff_dcb_state) {
-		FCM_LOG_DEV(ff, "WARNING: DCB state is off\n");
-		error++;
+/*
+ * validate_dcbd_info - Validating DCBD configuration and status
+ *
+ * Returns:  FCP_CREATE_IF - if the dcb netif qualifies for an fcoe interface
+ *           FCP_DESTROY_IF - if the dcb netif should not support fcoe interface
+ *           FCP_WAIT - if dcb criteria is inconclusive
+ */
+static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
+{
+	int errors = 0;
+	int dcbon;
+
+	dcbon = ff->ff_dcb_state;
+
+	/* check if dcb state qualifies to create the fcoe interface */
+	if (dcbon &&
+	    ff->ff_app_info.enable &&
+	    ff->ff_pfc_info.enable &&
+	    ff->ff_app_info.op_mode &&
+	    ff->ff_pfc_info.op_mode &&
+	    ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) {
+
+		if (dcbon && !ff->ff_app_info.willing) {
+			FCM_LOG_DEV(ff,
+				"WARNING: FCoE willing mode is false\n");
+			errors++;
+		}
+		if (dcbon && !ff->ff_app_info.advertise) {
+			FCM_LOG_DEV(ff,
+				"WARNING: FCoE advertise mode is false\n");
+			errors++;
+		}
+		if (dcbon && !ff->ff_pfc_info.willing) {
+			FCM_LOG_DEV(ff,
+				"WARNING: PFC willing mode is false\n");
+			errors++;
+		}
+		if (dcbon && !ff->ff_pfc_info.advertise) {
+			FCM_LOG_DEV(ff,
+				"WARNING: PFC advertise mode is false\n");
+			errors++;
+		}
+
+		if (errors)
+			FCM_LOG_DEV_DBG(ff,
+			    "WARNING: DCB may not be configured correctly\n");
+		else
+			FCM_LOG_DEV_DBG(ff, "DCB is configured correctly\n");
+
+		ff->ff_qos_mask =
+			ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg;
+
+		return FCP_CREATE_IF;
 	}
-	if (!ff->ff_app_info.willing) {
-		FCM_LOG_DEV(ff, "WARNING: APP:0 willing mode is false\n");
-		error++;
+
+	/* check if dcb state qualifies to destroy the fcoe interface */
+	if (!dcbon ||
+	    !ff->ff_app_info.enable ||
+	    (ff->ff_app_info.op_mode && ff->ff_pfc_info.op_mode &&
+	    !(ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg))) {
+
+		if (dcbon && !ff->ff_dcb_state)
+			FCM_LOG_DEV(ff, "WARNING: DCB is disabled\n");
+
+		if (dcbon && !ff->ff_app_info.enable)
+			FCM_LOG_DEV(ff, "WARNING: FCoE enable is off\n");
+
+		if (dcbon &&
+			!(ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg))
+			FCM_LOG_DEV(ff,
+				"WARNING: FCoE priority (0x%02x) doesn't "
+				"intersect with PFC priority (0x%02x)\n",
+				ff->ff_app_info.u.appcfg,
+				ff->ff_pfc_info.u.pfcup);
+
+		return FCP_DESTROY_IF;
 	}
-	if (!ff->ff_app_info.advertise) {
-		FCM_LOG_DEV(ff, "WARNING: APP:0 advertise mode is false\n");
-		error++;
+
+	/* The dcbd state does not match the create or destroy criteria.
+	 * Log possible problems.
+	 */
+	if (dcbon && !ff->ff_app_info.willing) {
+		FCM_LOG_DEV(ff, "WARNING: FCoE willing mode is false\n");
+		errors++;
 	}
-	if (!ff->ff_app_info.enable) {
-		FCM_LOG_DEV(ff, "WARNING: APP:0 enable mode is false\n");
-		error++;
+	if (dcbon && !ff->ff_app_info.advertise) {
+		FCM_LOG_DEV(ff, "WARNING: FCoE advertise mode is false\n");
+		errors++;
 	}
-	if (!ff->ff_app_info.op_mode) {
+	if (dcbon && !ff->ff_app_info.op_mode) {
+		FCM_LOG_DEV(ff, "WARNING: FCoE operational mode is false\n");
+		print_errors(ff->ff_app_info.op_error);
+		errors++;
+	}
+	if (dcbon && !ff->ff_pfc_info.enable) {
+		FCM_LOG_DEV(ff, "WARNING: PFC enable is off\n");
+		errors++;
+	}
+	if (dcbon && !ff->ff_pfc_info.advertise) {
+		FCM_LOG_DEV(ff, "WARNING: PFC advertise mode is false\n");
+		errors++;
+	}
+	if (dcbon && !ff->ff_app_info.op_mode) {
 		FCM_LOG_DEV(ff, "WARNING: APP:0 operational mode is false\n");
 		print_errors(ff->ff_app_info.op_error);
-		error++;
+		errors++;
 	}
-	if (!ff->ff_pfc_info.op_mode) {
+	if (dcbon && !ff->ff_pfc_info.op_mode) {
 		FCM_LOG_DEV(ff, "WARNING: PFC operational mode is false\n");
 		print_errors(ff->ff_pfc_info.op_error);
-		error++;
+		errors++;
 	}
-	if ((ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg) \
-	    != ff->ff_app_info.u.appcfg) {
+	if (dcbon && !(ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg)) {
 		FCM_LOG_DEV(ff, "WARNING: APP:0 priority (0x%02x) doesn't "
-			    "match PFC priority (0x%02x)\n",
+			    "intersect with PFC priority (0x%02x)\n",
 			    ff->ff_app_info.u.appcfg,
 			    ff->ff_pfc_info.u.pfcup);
-		error++;
+		errors++;
 	}
-	if (error) {
-		FCM_LOG_DEV(ff, "WARNING: DCB is configured incorrectly\n");
-		return 0;
-	}
-	FCM_LOG_DEV_DBG(ff, "DCB is configured correctly\n");
+	if (errors)
+		FCM_LOG_DEV(ff, "WARNING: DCB may be configured incorrectly\n");
 
-	return 1;
+	return FCP_WAIT;
 }
 
-/*
- * validating_dcbd_info - Validating DCBD configuration and status
- *
- * Returns:  1 if succeeded
- *           0 if failed
- */
-static int validating_dcbd_info(struct fcm_netif *ff)
-{
-	int rc;
-
-	rc = validating_dcb_app_pfc(ff);
-	return rc;
-}
 
 /*
  * clear_dcbd_info - clear dcbd info to unknown values
@@ -1263,13 +1309,8 @@ static int validating_dcbd_info(struct fcm_netif *ff)
 static void clear_dcbd_info(struct fcm_netif *ff)
 {
 	ff->ff_dcb_state = 0;
-	ff->ff_app_info.advertise = 0;
-	ff->ff_app_info.op_mode = 0;
-	ff->ff_app_info.u.appcfg = 0;
-	ff->ff_pfc_info.op_mode = 0;
-	ff->ff_pfc_info.u.pfcup = 0xffff;
-	ff->ff_app_info.enable = DCB_APP_0_DEFAULT_ENABLE;
-	ff->ff_app_info.willing = DCB_APP_0_DEFAULT_WILLING;
+	memset(&ff->ff_pfc_info, 0, sizeof(struct feature_info));
+	memset(&ff->ff_app_info, 0, sizeof(struct feature_info));
 }
 
 
@@ -1278,13 +1319,10 @@ static void clear_dcbd_info(struct fcm_netif *ff)
  * @ff: fcoe port structure
  * @st: status
  */
-static void fcm_dcbd_set_config(struct fcm_netif *ff, cmd_status st)
+static void fcm_dcbd_set_config(struct fcm_netif *ff)
 {
 	if (ff->ff_dcbd_state == FCD_SEND_CONF) {
-		if (st != cmd_success)
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-		else
-			fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+		fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
 	}
 }
 
@@ -1294,47 +1332,31 @@ static void fcm_dcbd_set_config(struct fcm_netif *ff, cmd_status st)
  * @resp: response buffer
  * @st:   status
  */
-static void fcm_dcbd_get_config(struct fcm_netif *ff, char *resp,
-				const cmd_status st)
+static void fcm_dcbd_get_config(struct fcm_netif *ff, char *resp)
 {
-	int rc;
-
 	switch (ff->ff_dcbd_state) {
 	case FCD_GET_DCB_STATE:
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		rc = dcb_rsp_parser(ff, resp, st);
-		if (!rc)
-			fcm_dcbd_state_set(ff, FCD_SEND_CONF);
-		else
+		if (!dcb_rsp_parser(ff, resp)) {
+			if (ff->ff_dcb_state)
+				fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
+			else
+				fcm_dcbd_state_set(ff, FCD_DONE);
+		} else
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
 	case FCD_GET_PFC_CONFIG:
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		rc = dcb_rsp_parser(ff, resp, st);
-		if (!rc)
+		if (!dcb_rsp_parser(ff, resp))
 			fcm_dcbd_state_set(ff, FCD_GET_APP_CONFIG);
 		else
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
 	case FCD_GET_APP_CONFIG:
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			break;
-		}
-		rc = dcb_rsp_parser(ff, resp, st);
-		if (!rc)
+		if (!dcb_rsp_parser(ff, resp))
 			fcm_dcbd_state_set(ff, FCD_GET_PFC_OPER);
 		else
 			fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
 	default:
-		fcm_dcbd_state_set(ff, FCD_ERROR);
 		break;
 	}
 }
@@ -1350,167 +1372,50 @@ static void fcm_dcbd_get_config(struct fcm_netif *ff, char *resp,
  * Sample msg: R00C103050004eth8010100100208
  *                  opppssll    vvmmeemsllpp
  */
-static void fcm_dcbd_get_oper(struct fcm_netif *ff, char *resp,
-			      char *cp, const cmd_status st)
+static void fcm_dcbd_get_oper(struct fcm_netif *ff, char *resp, char *cp)
 {
-	u_int32_t old_qos_mask;
-	u_int32_t enable;
 	u_int32_t val;
-	u_int32_t parm_len;
-	u_int32_t parm;
 	char *ep = NULL;
-	int rc;
 
 	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
 
 	if (ep) {
 		FCM_LOG_DEV(ff, "Invalid get oper response "
-			    "parse error byte %d, resp %s",
-			    ep - cp, cp);
+			    "parse error byte %d, resp %s", ep - cp, cp);
 		fcm_dcbd_state_set(ff, FCD_ERROR);
 	} else {
-		if (val != 0) {
-			FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val,
-					resp);
-			if (fcoe_config.debug)
-				print_errors(val);
-
-			fcm_dcbd_setup(ff, ADM_DESTROY);
-			fcm_dcbd_state_set(ff, FCD_DONE);
-			return;
-		}
-
-		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
-			return;
-		}
-
-		enable = (cp[OPER_OPER_MODE] == '1');
+		if (val && fcoe_config.debug)
+			print_errors(val);
 
 		switch (ff->ff_dcbd_state) {
 		case FCD_GET_PFC_OPER:
-			FCM_LOG_DEV_DBG(ff, "PFC feature is %ssynced",
-					cp[OPER_SYNCD] == '1' ? "" : "not ");
-
-			FCM_LOG_DEV_DBG(ff, "PFC operating mode is %s",
-					cp[OPER_OPER_MODE] == '1'
-					? "on" : "off ");
-			ff->ff_pfc_info.enable = enable;
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (!rc)
-				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
-			else
+			if (dcb_rsp_parser(ff, resp) || !ff->ff_pfc_info.syncd)
 				fcm_dcbd_state_set(ff, FCD_ERROR);
+			else
+				fcm_dcbd_state_set(ff, FCD_GET_APP_OPER);
+
+			FCM_LOG_DEV_DBG(ff, "PFC feature is %ssynced",
+				ff->ff_pfc_info.syncd ? "" : "not ");
+			FCM_LOG_DEV_DBG(ff, "PFC operating mode is %s",
+				ff->ff_pfc_info.op_mode ? "on" : "off ");
 			break;
 
 		case FCD_GET_APP_OPER:
+			if (dcb_rsp_parser(ff, resp) || !ff->ff_app_info.syncd)
+				fcm_dcbd_state_set(ff, FCD_ERROR);
+			else
+				fcm_dcbd_state_set(ff, FCD_DONE);
+
 			FCM_LOG_DEV_DBG(ff, "FCoE feature is %ssynced",
-					cp[OPER_SYNCD] == '1' ? "" : "not ");
+				ff->ff_app_info.syncd ? "" : "not ");
 			FCM_LOG_DEV_DBG(ff, "FCoE operating mode is %s",
-					cp[OPER_OPER_MODE] == '1'
-					? "on" : "off ");
-			rc = dcb_rsp_parser(ff, resp, st);
-			if (rc) {
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-
-			parm_len = fcm_get_hex(cp + OPER_LEN, 2, &ep);
-			cp += OPER_LEN + 2;
-			if (ep != NULL || parm_len > strlen(cp)) {
-				FCM_LOG_DEV_DBG(ff, "Invalid peer parm_len %d",
-						parm_len);
-				fcm_dcbd_state_set(ff, FCD_ERROR);
-				break;
-			}
-			parm = 0;
-			if (parm_len > 0) {
-				parm = fcm_get_hex(cp, parm_len, &ep);
-				if (ep != NULL) {
-					FCM_LOG_DEV_DBG(ff, "Invalid parameter "
-							"%s", cp);
-					fcm_dcbd_state_set(ff, FCD_ERROR);
-					break;
-				}
-			}
-			old_qos_mask = ff->ff_qos_mask;
-			ff->ff_qos_mask = parm;
-			if (validating_dcbd_info(ff)) {
-				FCM_LOG_DEV_DBG(ff, "DCB settings "
-						"qualified for creating "
-						"FCoE interface\n");
-
-				if (ff->ff_qos_mask == fcm_def_qos_mask) {
-					FCM_LOG_DEV_DBG(ff, "Initial "
-							"QOS = 0x%x\n",
-							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, ADM_CREATE);
-				} else if (rc == 2) {
-					FCM_LOG_DEV_DBG(ff, "QOS changed"
-							" to 0x%x\n",
-							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, ADM_RESET);
-				} else {
-					FCM_LOG_DEV_DBG(ff, "Re-create "
-							"QOS = 0x%x\n",
-							ff->ff_qos_mask);
-					fcm_dcbd_setup(ff, ADM_CREATE);
-				}
-			} else {
-				FCM_LOG_DEV_DBG(ff, "DCB settings of %s not "
-						"qualified for FCoE "
-						"operations.");
-				fcm_dcbd_setup(ff, ADM_DESTROY);
-				clear_dcbd_info(ff);
-			}
-
-			fcm_dcbd_state_set(ff, FCD_DONE);
-			return;
+				ff->ff_app_info.op_mode ? "on" : "off ");
+			break;
 
 		default:
-			fcm_dcbd_state_set(ff, FCD_ERROR);
 			break;
 		}
 	}
-}
-
-/**
- * fcm_dcbd_get_peer() - Response handler for get peer command
- * @ff:   fcoe port structure
- * @resp: response buffer
- * @cp:   response buffer pointer, points past the interface name
- * @st:   status
- */
-static void fcm_dcbd_get_peer(struct fcm_netif *ff, char *resp,
-			      char *cp, const cmd_status st)
-{
-	char *ep = NULL;
-	u_int32_t val;
-
-	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
-	if (ep) {
-		FCM_LOG_DEV_DBG(ff, "Invalid get oper response "
-				"parse error byte %d. resp %s",
-				ep - cp, cp);
-		fcm_dcbd_state_set(ff, FCD_ERROR);
-		return;
-	}
-
-	if (val != 0) {
-		FCM_LOG_DEV_DBG(ff, "val=0x%x resp:%s\n", val, resp);
-		if (fcoe_config.debug)
-			print_errors(val);
-		fcm_dcbd_setup(ff, ADM_DESTROY);
-		fcm_dcbd_state_set(ff, FCD_DONE);
-		return;
-	}
-
-	if (st != cmd_success) {
-		fcm_dcbd_state_set(ff, FCD_ERROR);
-		return;
-	}
-
-	fcm_dcbd_state_set(ff, FCD_ERROR);
 }
 
 /*
@@ -1524,6 +1429,7 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	u_int32_t cmd;
 	u_int32_t feature;
 	u_int32_t subtype;
+	u_int32_t state;
 	char *ep;
 	char *cp;
 	size_t len;
@@ -1560,21 +1466,38 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		return;
 	}
 
+	/*
+	 * check that dcbd response matches the current dcbd state.
+	 */
+	state = ff->ff_dcbd_state;
+	if (((cmd == CMD_GET_CONFIG) &&
+		((state == FCD_GET_DCB_STATE && feature == FEATURE_DCB) ||
+		(state == FCD_GET_PFC_CONFIG && feature == FEATURE_PFC) ||
+		(state == FCD_GET_APP_CONFIG && feature == FEATURE_APP)))
+		||
+	    ((cmd == CMD_GET_OPER) &&
+		((state == FCD_GET_PFC_OPER && feature == FEATURE_PFC) ||
+		(state == FCD_GET_APP_OPER && feature == FEATURE_APP)))) {
+
+		/* the response matches the current pending query */
+		ff->response_pending = 0;
+		if (st != cmd_success) {
+			fcm_dcbd_state_set(ff, FCD_ERROR);
+			return;
+		}
+	}
+
 	switch (cmd) {
 	case CMD_SET_CONFIG:
-		fcm_dcbd_set_config(ff, st);
+		fcm_dcbd_set_config(ff);
 		break;
 
 	case CMD_GET_CONFIG:
-		fcm_dcbd_get_config(ff, resp, st);
+		fcm_dcbd_get_config(ff, resp);
 		break;
 
 	case CMD_GET_OPER:
-		fcm_dcbd_get_oper(ff, resp, cp, st);
-		break;
-
-	case CMD_GET_PEER:
-		fcm_dcbd_get_peer(ff, resp, cp, st);
+		fcm_dcbd_get_oper(ff, resp, cp);
 		break;
 
 	default:
@@ -1605,6 +1528,7 @@ static void fcm_event_timeout(void *arg)
 static void fcm_dcbd_event(char *msg, size_t len)
 {
 	struct fcm_netif *ff;
+	struct fcoe_port *p;
 	u_int32_t feature;
 	u_int32_t subtype;
 	char *cp;
@@ -1628,38 +1552,48 @@ static void fcm_dcbd_event(char *msg, size_t len)
 		return;
 	}
 
+	/*
+	 * Check if the FCoE ports which use the interface on which the
+	 * dcbd event arrived are configured to require dcb.
+	 */
+
+	p = fcm_find_fcoe_port(ff->ifname, FCP_REAL_IFNAME);
+	while (p) {
+		if (p->dcb_required)
+			break;
+		p = fcm_find_next_fcoe_port(p, ff->ifname);
+	}
+
+	/*
+	 * dcb is not required, ignore dcbd event
+	 */
+	if (!p)
+		return;
+
 	switch (feature) {
-	case FEATURE_DCB:
-		FCM_LOG_DEV_DBG(ff, "<%s: Got DCB Event>\n");
-		goto ignore_event;
 	case FEATURE_PG:     /* 'E5204eth2020001' */
-		FCM_LOG_DEV_DBG(ff, "<%s: Got PG Event>\n");
-		goto ignore_event;
-	case FEATURE_BCN:    /* 'E5204eth2040001' */
-		FCM_LOG_DEV_DBG(ff, "<%s: Got BCN Event>\n");
-		goto ignore_event;
-	case FEATURE_PG_DESC:
-		FCM_LOG_DEV_DBG(ff, "<%s: Got PG_DESC Event>\n");
-		goto ignore_event;
+		FCM_LOG_DEV_DBG(ff, "<Got PG Event>\n");
+		break;
 	case FEATURE_PFC:    /* 'E5204eth2030011' */
-		FCM_LOG_DEV_DBG(ff, "<%s: Got PFC Event>\n");
-		goto handle_event;
+		FCM_LOG_DEV_DBG(ff, "<Got PFC Event>\n");
+		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
+		break;
 	case FEATURE_APP:    /* 'E5204eth2050011' */
-		FCM_LOG_DEV_DBG(ff, "<%s: Got APP Event>\n");
-		goto handle_event;
+		FCM_LOG_DEV_DBG(ff, "<Got APP Event>\n");
+		subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
+		if (subtype != APP_FCOE_STYPE) {
+			FCM_LOG_DEV_DBG(ff, "Unknown application subtype "
+					"in msg %s", msg);
+			break;
+		}
+		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
+		break;
 	default:
 		FCM_LOG_DEV_DBG(ff, "Unknown feature 0x%x in msg %s",
 				feature, msg);
-		goto ignore_event;
+		break;
 	}
 
-handle_event:
-	subtype = fcm_get_hex(cp + EV_SUBTYPE_OFF, 2, &ep);
-	if (subtype != APP_FCOE_STYPE) {
-		FCM_LOG_DEV_DBG(ff, "Unknown application subtype "
-				"in msg %s", msg);
-		return;
-	}
 	if (fcoe_config.debug) {
 		if (cp[EV_OP_MODE_CHG_OFF] == '1')
 			FCM_LOG_DEV_DBG(ff,
@@ -1668,21 +1602,6 @@ handle_event:
 			FCM_LOG_DEV_DBG(ff,
 					"Operational config changed");
 	}
-
-	if (ff->ff_dcbd_state == FCD_DONE ||
-	    ff->ff_dcbd_state == FCD_ERROR) {
-		if (cp[EV_OP_MODE_CHG_OFF] == '1' ||
-		    cp[EV_OP_CFG_CHG_OFF] == '1') {
-			/* Cancel timer if it is active */
-			sa_timer_cancel(&ff->ff_event_timer);
-			/* Reset the timer */
-			sa_timer_set(&ff->ff_event_timer,
-				     FCM_EVENT_TIMEOUT_USEC);
-		}
-		if (fcm_clif->cl_busy == 0)
-			fcm_dcbd_port_advance(ff);
-	}
-ignore_event:
 	return;
 }
 
@@ -1693,9 +1612,8 @@ ignore_event:
  *         enable = 1      Create the FCoE interface
  *         enable = 2      Reset the interface
  */
-static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
+static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
-	struct fcoe_port *p;
 	char *op, *debug, *syslog = NULL;
 	char *qos_arg;
 	char qos[64];
@@ -1703,13 +1621,24 @@ static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
 	int rc;
 	int fd;
 
-	if (action == 0)
-		op = "--destroy";
-	else if (action == 1)
+	qos_arg = "--qos-enable";
+	switch (p->action) {
+	case FCP_CREATE_IF:
 		op = "--create";
-	else
+		break;
+	case FCP_DESTROY_IF:
+		op = "--destroy";
+		qos_arg = "--qos-disable";
+		break;
+	case FCP_RESET_IF:
 		op = "--reset";
-	if (action && !ff->ff_qos_mask)
+		break;
+	default:
+		return;
+		break;
+	}
+
+	if (p->action && !ff->ff_qos_mask)
 		return;
 	if (fcm_dcbd_cmd == NULL) {
 		FCM_LOG_DEV_DBG(ff, "Should %s per op state", op);
@@ -1719,34 +1648,28 @@ static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
 	/*
 	 * XXX should wait for child status
 	 */
-	ff->ff_enabled = action;
-
 	rc = fork();
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "fork error");
 	} else if (rc == 0) {	/* child process */
 		for (fd = ulimit(4 /* __UL_GETOPENMAX */ , 0); fd > 2; fd--)
 			close(fd);
-		qos_arg = "--qos-disable";
 		snprintf(qos, sizeof(qos), "%s", "0");
-		if (action) {
-			mask = ff->ff_qos_mask;
-			if (mask) {
-				int off = 0;
-				char *sep = "";
-				u_int32_t bit;
+		mask = ff->ff_qos_mask;
+		if (mask) {
+			int off = 0;
+			char *sep = "";
+			u_int32_t bit;
 
-				while (mask != 0 && off < sizeof(qos) - 1) {
-					bit = ffs(mask) - 1;
-					off +=
-						snprintf(qos + off,
-							 sizeof(qos) - off,
-							 "%s%u",
-							 sep, bit);
-					mask &= ~(1 << bit);
-					sep = ",";
-				}
-				qos_arg = "--qos-enable";
+			while (mask != 0 && off < sizeof(qos) - 1) {
+				bit = ffs(mask) - 1;
+				off +=
+					snprintf(qos + off,
+						 sizeof(qos) - off,
+						 "%s%u",
+						 sep, bit);
+				mask &= ~(1 << bit);
+				sep = ",";
 			}
 		}
 
@@ -1756,7 +1679,7 @@ static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
 		if (fcoe_config.debug) {
 			debug = "--debug";
 
-			if (!action)
+			if (!p->action)
 				FCM_LOG_DEV_DBG(ff, "%s %s %s\n", fcm_dcbd_cmd,
 						op, syslog);
 			else
@@ -1769,17 +1692,10 @@ static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
 		if (rc < 0)
 			FCM_LOG_ERR(errno, "fork error");
 		else if (rc == 0) {     /* child process */
-			p = fcm_find_fcoe_port(ff->ifname, FCP_REAL_IFNAME);
-			if (!p)
-				exit(1);
 			execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, "--fcoeif",
 			       p->ifname, op, "--netif", p->real_ifname,
 			       qos_arg, qos, debug, syslog, (char *)NULL);
 		}
-
-		/* VLAN interfaces only enable and disable */
-		if (action < 0  || action > 1)
-			exit(1);
 
 		exit(1);
 	} else
@@ -1790,9 +1706,10 @@ static void fcm_dcbd_setup(struct fcm_netif *ff, enum fcoeadm_action action)
  * Called for all ports.  For FCoE ports and candidates,
  * get information and send to dcbd.
  */
-static void fcm_dcbd_port_advance(struct fcm_netif *ff)
+static void fcm_netif_advance(struct fcm_netif *ff)
 {
 	char buf[80], params[30];
+	int old_qos_mask;
 
 	ASSERT(ff);
 	ASSERT(fcm_clif);
@@ -1800,16 +1717,19 @@ static void fcm_dcbd_port_advance(struct fcm_netif *ff)
 	if (fcm_clif->cl_busy)
 		return;
 
+	if (ff->response_pending)
+		return;
+
 	switch (ff->ff_dcbd_state) {
 	case FCD_INIT:
-		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
-		/* Fall through */
+	case FCD_ERROR:
+		break;
 	case FCD_GET_DCB_STATE:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_DCB, 0,
 			 (u_int) strlen(ff->ifname), ff->ifname);
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_SEND_CONF:
 		snprintf(params, sizeof(params), "%x1%x02%2.2x",
@@ -1820,61 +1740,111 @@ static void fcm_dcbd_port_advance(struct fcm_netif *ff)
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
 			 (u_int) strlen(ff->ifname), ff->ifname, params);
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_PFC, 0,
 			 (u_int) strlen(ff->ifname), ff->ifname, "");
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_CONFIG:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
 			 (u_int) strlen(ff->ifname), ff->ifname, "");
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_PFC, 0,
 			 (u_int) strlen(ff->ifname), ff->ifname, "");
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_OPER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_APP, APP_FCOE_STYPE,
 			 (u_int) strlen(ff->ifname), ff->ifname, "");
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PEER:
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_PEER, FEATURE_APP, APP_FCOE_STYPE,
 			 (u_int) strlen(ff->ifname), ff->ifname, "");
-		fcm_dcbd_request(buf);
+		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_DONE:
-		break;
-	case FCD_ERROR:
+		/* keep qos_mask and see if it changed */
+		old_qos_mask = ff->ff_qos_mask;
+		switch (validate_dcbd_info(ff)) {
+		case FCP_DESTROY_IF:
+			fcp_action_set(ff->ifname, FCP_DESTROY_IF);
+			break;
+		case FCP_CREATE_IF:
+			if (!old_qos_mask) {
+				FCM_LOG_DEV_DBG(ff, "Initial QOS = 0x%x\n",
+						ff->ff_qos_mask);
+				fcp_action_set(ff->ifname, FCP_CREATE_IF);
+			} else if (old_qos_mask == ff->ff_qos_mask) {
+				fcp_action_set(ff->ifname, FCP_CREATE_IF);
+			} else {
+				FCM_LOG_DEV_DBG(ff, "QOS changed to 0x%x\n",
+						ff->ff_qos_mask);
+				fcp_action_set(ff->ifname, FCP_RESET_IF);
+			}
+			break;
+		case FCP_WAIT:
+		default:
+			break;
+		}
+
+		fcm_dcbd_state_set(ff, FCD_INIT);
 		break;
 	default:
 		break;
 	}
 }
 
-static void fcm_dcbd_next(void)
+
+/*
+ * Run through these steps at the end of each select loop.
+ * 1.  Process list of network interfaces
+ *     - issue next dcbd query action
+ *     - if query sequence is complete - update FCoE port objects
+ *       as necessary with a CREATE or DESTROY next action.
+ * 2.  Process FCoE port list - handle next actions, update states, clean up
+*/
+static void fcm_handle_changes()
 {
 	struct fcm_netif *ff;
+	struct fcoe_port *p;
+	int i;
 
-	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
-		if (fcm_clif->cl_busy)
-			break;
+	/*
+	 * Perform pending actions (dcbd queries) on network interfaces.
+	 */
+	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list)
+		fcm_netif_advance(ff);
 
-		fcm_dcbd_port_advance(ff);
+	/*
+	 * Perform actions on FCoE ports
+	 */
+	i = 0;
+	p = fcoe_config.port;
+	while (p) {
+		ff = fcm_netif_lookup(p->real_ifname);
+		if (!ff)
+			goto next_port;
+
+		fcm_fcoe_action(ff, p);
+
+		p->action = FCP_WAIT;
+next_port:
+		p = p->next;
 	}
 }
 
@@ -2012,6 +1982,7 @@ int main(int argc, char **argv)
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
+	sa_select_set_callback(fcm_handle_changes);
 
 	rc = sa_select_loop();
 	if (rc < 0) {

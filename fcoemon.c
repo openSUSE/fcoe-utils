@@ -84,7 +84,7 @@
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
 static char *fcoemon_version =						\
-	"fcoemon v1.0.7\n Copyright (c) 2009, Intel Corporation.\n";
+	"fcoemon v1.0.8\n Copyright (c) 2009, Intel Corporation.\n";
 
 /*
  * fcoe service configuration data

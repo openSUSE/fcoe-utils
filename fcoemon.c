@@ -1835,11 +1835,13 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 			FCM_LOG_ERR(errno, "fork error");
 		else if (rc == 0) {     /* child process */
 			if (ff->ff_active)
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
-				       op, qos_arg, qos, debug, syslog,
-				       (char *)NULL);
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
+				       "--fcoeif", ff->ff_name,
+				       op, "--netif", ff->ff_name, qos_arg,
+				       qos, debug, syslog, (char *)NULL);
 			else
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, ff->ff_name,
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
+				       "--netif", ff->ff_name,
 				       qos_arg, qos, debug, syslog,
 				       (char *)NULL);
 		}
@@ -1857,7 +1859,8 @@ static void fcm_dcbd_setup(struct fcm_fcoe *ff, enum fcoeadm_action action)
 			if (rc < 0)
 				FCM_LOG_ERR(errno, "fork error");
 			else if (rc == 0)       /* child process */
-				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, fv->fv_name,
+				execlp(fcm_dcbd_cmd, fcm_dcbd_cmd,
+				       "--fcoeif", fv->fv_name,
 				       op, debug, syslog, (char *)NULL);
 		}
 

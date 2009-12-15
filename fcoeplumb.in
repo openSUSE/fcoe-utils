@@ -22,8 +22,10 @@ cmdname=`basename $0`
 usage()
 {
 	echo usage: $cmdname \
-		'<ethX> [--reset | --create | --destroy] [--debug] [--syslog]' \
-		'[--qos-disable | --qos-enable  <pri>[,<pri>]...]' >&2
+		'[--fcoeif <ethX> --reset | --create | --destroy]' \
+		'[--debug] [--syslog]' \
+		'[--netif <ethX> --qos-disable |' \
+		'--qos-enable  <pri>[,<pri>]...]' >&2
 	exit 1
 }
 
@@ -239,20 +241,48 @@ config_logging()
 
 [ ${DEBUG_LOGGING} ] && $LOGGER "fcoeplumb arguments: ($*)"
 
-ifname=$1
-shift
-
 while [ "$#" -ge 1 ]
 do
 	case "$1" in
-	    --reset | -r)
-		cmd=reset
+	    --fcoeif)
+		shift
+		fcoe_ifname=$1
+		shift
+		case "$1" in
+		    --reset | -r)
+			cmd=reset
+			;;
+		    --create | -c)
+			cmd=create
+			;;
+		    --destroy | -d)
+			cmd=destroy
+			;;
+		    *)
+			echo "$cmdname: unknown fcoe parameter '$1'" >&2
+			usage
+			;;
+		esac
 		;;
-	    --create | -c)
-		cmd=create
-		;;
-	    --destroy | -d)
-		cmd=destroy
+	    --netif)
+		shift
+		net_ifname=$1
+		shift
+		case "$1" in
+		    --qos-enable)
+			[ "$#" -lt 2 ] && usage
+			qos_list=$2
+			shift
+			;;
+		    --qos-disable)
+			[[ "$2" =~ ^[0-9]+$ ]] && shift
+			qos_list="disable"
+			;;
+		    *)
+			echo "$cmdname: unknown qos parameter '$1'" >&2
+			usage
+			;;
+		esac
 		;;
 	    --debug)
 		DEBUG_LOGGING=1
@@ -261,15 +291,6 @@ do
             --syslog)
 		USE_SYSLOG=1
 		config_logging
-		;;
-	    --qos-enable)
-		[ "$#" -lt 2 ] && usage
-		qos_list=$2
-		shift
-		;;
-	    --qos-disable)
-		[[ "$2" =~ ^[0-9]+$ ]] && shift
-		qos_list="disable"
 		;;
 	    *)
 		echo "$cmdname: unknown parameter '$1'" >&2
@@ -282,26 +303,28 @@ done
 # This must be the first to do after parsing the command arguments!
 # Notice that the filter ID is used in find_skbedit_filter(),
 # add_skbedit_filter(), replace_skbedit_filter().
-fcoe_filter_id=`get_filter_id $ifname $FCOE_FILTER_KEY`
-fip_filter_id=`get_filter_id $ifname $FIP_FILTER_KEY`
+fcoe_filter_id=`get_filter_id $net_ifname $FCOE_FILTER_KEY`
+fip_filter_id=`get_filter_id $net_ifname $FIP_FILTER_KEY`
 
 if [ "$cmd" == "destroy" ]; then
-	remove_fcoe_interface $ifname
+	remove_fcoe_interface $fcoe_ifname
 
 elif [ "$cmd" == "create" ]; then
-	create_fcoe_interface $ifname
+	create_fcoe_interface $fcoe_ifname
 fi
 
 if [ "$qos_list" == "disable" ]; then
 	# Remove the FCoE filters
-	find_skbedit_filter $ifname $FCOE_ETHERTYPE $fcoe_filter_id
+	find_skbedit_filter $net_ifname $FCOE_ETHERTYPE $fcoe_filter_id
 	found_filter=$?
-	[ $found_filter -le 7 ] && delete_skbedit_filter $ifname $found_filter $FCOE_ETHERTYPE $fcoe_filter_id
+	[ $found_filter -le 7 ] && delete_skbedit_filter $net_ifname \
+		$found_filter $FCOE_ETHERTYPE $fcoe_filter_id
 
 	# Remove the FIP filters
-	find_skbedit_filter $ifname $FIP_ETHERTYPE $fip_filter_id
+	find_skbedit_filter $net_ifname $FIP_ETHERTYPE $fip_filter_id
 	found_filter=$?
-	[ $found_filter -le 7 ] && delete_skbedit_filter $ifname $found_filter $FIP_ETHERTYPE $fip_filter_id
+	[ $found_filter -le 7 ] && delete_skbedit_filter $net_ifname \
+		$found_filter $FIP_ETHERTYPE $fip_filter_id
 
 elif [ -n $qos_list ]; then
 	#
@@ -338,7 +361,7 @@ elif [ -n $qos_list ]; then
 	# If the best QOS is not found, do nothing.
 	[ -z "$QOS_BEST" ] && exit 0
 
-	[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname - Choosing QOS '$QOS_BEST'"
+	[ ${DEBUG_LOGGING} ] && $LOGGER "$net_ifname - Choosing QOS '$QOS_BEST'"
 
 	#
 	# Setup the traffic classifier for FCoE
@@ -346,45 +369,49 @@ elif [ -n $qos_list ]; then
 	#
 	qos_queue=`expr $QOS_BEST`
 
-	find_multiq_qdisc $ifname
+	find_multiq_qdisc $net_ifname
 	found_qdisc=$?
 
 	if [ $found_qdisc -eq 1 ]; then
 	        # Adjust the FCoE filter
-		[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname: Qdisc is found"
-		find_skbedit_filter $ifname $FCOE_ETHERTYPE $fcoe_filter_id
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$net_ifname: Qdisc is found"
+		find_skbedit_filter $net_ifname $FCOE_ETHERTYPE $fcoe_filter_id
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
-			add_skbedit_filter $ifname $qdisc_id $qos_queue \
+			add_skbedit_filter $net_ifname $qdisc_id $qos_queue \
 			    $FCOE_ETHERTYPE $fcoe_filter_id
 		elif [ $found_filter -ne $qos_queue ]; then
 			[ ${DEBUG_LOGGING} ] && $LOGGER \
-				"$ifname: Filter is found and QOS is different"
-			replace_skbedit_filter $ifname $qos_queue $FCOE_ETHERTYPE $fcoe_filter_id
+			    "$net_ifname: Filter is found and QOS is different"
+			replace_skbedit_filter $net_ifname $qos_queue \
+				$FCOE_ETHERTYPE $fcoe_filter_id
 		else
 			[ ${DEBUG_LOGGING} ] && $LOGGER \
-				"$ifname: Filter is found and is identical"
+				"$net_ifname: Filter is found and is identical"
 		fi
 
 		# Adjust the FIP filter
-		[ ${DEBUG_LOGGING} ] && $LOGGER "$ifname: Qdisc is found"
-		find_skbedit_filter $ifname $FIP_ETHERTYPE $fip_filter_id
+		[ ${DEBUG_LOGGING} ] && $LOGGER "$net_ifname: Qdisc is found"
+		find_skbedit_filter $net_ifname $FIP_ETHERTYPE $fip_filter_id
 		found_filter=$?
 		if [ $found_filter -gt 7 ]; then
-			add_skbedit_filter $ifname $qdisc_id $qos_queue \
+			add_skbedit_filter $net_ifname $qdisc_id $qos_queue \
 			    $FIP_ETHERTYPE $fip_filter_id
 		elif [ $found_filter -ne $qos_queue ]; then
 			[ ${DEBUG_LOGGING} ] && $LOGGER \
-				"$ifname: Filter is found and QOS is different"
-			replace_skbedit_filter $ifname $qos_queue $FIP_ETHERTYPE $fip_filter_id
+			    "$net_ifname: Filter is found and QOS is different"
+			replace_skbedit_filter $net_ifname $qos_queue \
+				$FIP_ETHERTYPE $fip_filter_id
 		else
 			[ ${DEBUG_LOGGING} ] && $LOGGER \
-				"$ifname: Filter is found and is identical"
+				"$net_ifname: Filter is found and is identical"
 		fi
 	else
-		add_multiq_qdisc $ifname $qdisc_id
-		add_skbedit_filter $ifname $qdisc_id $qos_queue $FCOE_ETHERTYPE $fcoe_filter_id
-		add_skbedit_filter $ifname $qdisc_id $qos_queue $FIP_ETHERTYPE $fip_filter_id
+		add_multiq_qdisc $net_ifname $qdisc_id
+		add_skbedit_filter $net_ifname $qdisc_id $qos_queue \
+			$FCOE_ETHERTYPE $fcoe_filter_id
+		add_skbedit_filter $net_ifname $qdisc_id $qos_queue \
+			$FIP_ETHERTYPE $fip_filter_id
 	fi
 fi
 

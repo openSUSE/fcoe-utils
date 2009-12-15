@@ -189,42 +189,7 @@ service_start()
 
 	startup_fcoe_modules
 
-	HAS_DCB_IF="false"
-	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
-	do
-		ifname=`basename $ifcfg_file | cut -d"-" -f2`
-		. $ifcfg_file
-		[ "$FCOE_ENABLE" != "yes" ] &&
-		[ "$FCOE_ENABLE" != "YES" ] && continue
-
-		if [ "$DCB_REQUIRED" != "yes" ] &&
-		   [ "$DCB_REQUIRED" != "YES" ]; then
-			#
-			# DCB is not required, we nee to validate the
-			# link flow control of the Ethernet port
-			#
-			validate_link_flow_control $ifname
-			[ $? -ne 0 ] && continue
-			#
-			# Create the FCoE interface
-			#
-			$FCOEADM -c $ifname
-		else
-			#
-			# Configure the DCB for the Ethernet
-			# port if DCB is required
-			#
-			HAS_DCB_IF="true"
-		fi
-	done
-
-	#
-	# If DCB-required Ethernet port exists, then start the fcoemon
-	# daemon to create the FCoE interfaces for these ports.
-	#
-	if [ "$HAS_DCB_IF" = "true" ]; then
-		startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
-	fi
+	startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
 	rc_status -v
 	return

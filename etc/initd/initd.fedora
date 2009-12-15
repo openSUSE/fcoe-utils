@@ -118,72 +118,20 @@ test -x $FCOEMON || {
 	fi
 }
 
-validate_link_flow_control()
-{
-	ifname=$1
-
-	retry_count=1
-	while true
-	do
-		TX_STATUS=`ethtool -a $ifname 2>&1 | awk '/TX:/{print $2}'`
-		RX_STATUS=`ethtool -a $ifname 2>&1 | awk '/RX:/{print $2}'`
-
-		if [ "$TX_STATUS" = "on" ] && [ "$RX_STATUS" = "on" ]; then
-			return 0
-		fi
-
-		ethtool -A $ifname rx on tx on
-		[ $retry_count -eq 0 ] && return 0
-		retry_count=$(($retry_count-1))
-		usleep 500000
-	done
-	$LOGGER "Warning: Failed to bring up link flow control of $ifname."
-	return 1
-}
-
 service_start()
 {
+	pidof $FCOEMON
+	if [ $? -eq 0 ]; then
+		$LOGGER "Warning: daemon already running."
+		return
+	fi
+
 	rm -f /var/run/fcoemon.*
 
 	modprobe -q libfc
 	modprobe -q fcoe
 
-	HAS_DCB_IF="false"
-	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
-	do
-		ifname=`basename $ifcfg_file | cut -d"-" -f2`
-		. $ifcfg_file
-		[ "$FCOE_ENABLE" != "yes" ] &&
-		[ "$FCOE_ENABLE" != "YES" ] && continue
-
-		if [ "$DCB_REQUIRED" != "yes" ] &&
-		   [ "$DCB_REQUIRED" != "YES" ]; then
-			#
-			# DCB is not required, we nee to validate the
-			# link flow control of the Ethernet port
-			#
-			validate_link_flow_control $ifname
-			[ $? -ne 0 ] && continue
-			#
-			# Create the FCoE interface
-			#
-			$FCOEADM -c $ifname
-		else
-			#
-			# Configure the DCB for the Ethernet
-			# port if DCB is required
-			#
-			HAS_DCB_IF="true"
-		fi
-	done
-
-	#
-	# If DCB-required Ethernet port exists, then start the fcoemon
-	# daemon to create the FCoE interfaces for these ports.
-	#
-	if [ "$HAS_DCB_IF" = "true" ]; then
-	    daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
-	fi
+	daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
 	return
 }

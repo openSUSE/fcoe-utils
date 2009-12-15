@@ -77,6 +77,7 @@
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
 #define FCM_DCBD_TIMEOUT_USEC   (10 * 1000 * 1000)	/* 10 seconds */
+#define FCM_DCBD_RETRY_TIMEOUT_USEC   (1 * 1000 * 1000)	/* 1 seconds */
 #define FCM_EVENT_TIMEOUT_USEC  (500 * 1000)		/* half a second */
 #define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
@@ -915,13 +916,12 @@ static void fcm_dcbd_timeout(void *arg)
 	if (fcm_clif->cl_fd < 0) {
 		if (fcm_dcbd_connect())
 			fcm_dcbd_request("A");	/* ATTACH_CMD: for events */
+		else
+			sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
 	} else {
-		if (!is_query_in_progress()) {
-			fcm_clif->cl_ping_pending++;
-			fcm_dcbd_request("P");	/* ping to verify connection */
-		}
+		fcm_clif->cl_ping_pending++;
+		fcm_dcbd_request("P");	/* ping to verify connection */
 	}
-	sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
 }
 
 static void fcm_dcbd_disconnect(void)
@@ -1081,13 +1081,14 @@ static void fcm_dcbd_request(char *req)
 		return;
 	len = strlen(req);
 	ASSERT(fcm_clif->cl_busy == 0);
+	sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_TIMEOUT_USEC);
 	fcm_clif->cl_busy = 1;
 	rc = write(fcm_clif->cl_fd, req, len);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "Failed write req %s len %d", req, len);
 		fcm_clif->cl_busy = 0;
 		fcm_dcbd_disconnect();
-		fcm_dcbd_connect();
+		sa_timer_set(&fcm_dcbd_timer, FCM_DCBD_RETRY_TIMEOUT_USEC);
 		return;
 	}
 

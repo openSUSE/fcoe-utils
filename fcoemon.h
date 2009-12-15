@@ -156,7 +156,6 @@ static struct fcm_vfcoe *fcm_vfcoe_lookup_name(struct fcm_fcoe *, char *);
 static struct fcm_fcoe *fcm_fcoe_lookup_create_ifname(char *);
 static struct fcm_vfcoe *fcm_vfcoe_lookup_create_ifname(char *, char *);
 static void fcm_fcoe_set_name(struct fcm_fcoe *, char *);
-static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *);
 static int fcm_link_init(void);
 
 #endif /* _FCOEMON_H_ */

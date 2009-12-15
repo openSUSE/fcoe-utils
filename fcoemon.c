@@ -95,8 +95,6 @@ struct fcoe_port_config {
 	char ifname[IFNAMSIZ];
 	int fcoe_enable;
 	int dcb_required;
-	int dcb_app_0_enable;
-	int dcb_app_0_willing;
 };
 
 enum fcoeadm_action {
@@ -321,8 +319,6 @@ static int fcm_read_config_files(void)
 		/* if not found, default to "no" */
 		if (!strncasecmp(val, "yes", 3) && rc == 1) {
 			curr->dcb_required = 1;
-			curr->dcb_app_0_enable = DCB_APP_0_DEFAULT_ENABLE;
-			curr->dcb_app_0_willing = DCB_APP_0_DEFAULT_WILLING;
 		}
 
 		fclose(fp);
@@ -784,37 +780,6 @@ static struct fcm_fcoe *fcm_fcoe_lookup_name(char *name)
 	}
 
 	return ff;
-}
-
-static void fcm_fcoe_get_dcb_settings(struct fcm_fcoe *ff)
-{
-	struct fcoe_port_config *p;
-	struct fcm_vfcoe *fv;
-
-	if (ff->ff_mac == 0)
-		return;		/* loopback or other non-eligible interface */
-
-	/*
-	 * Get DCB config from file if possible.
-	 */
-	p = fcoe_config.port;
-	while (p) {
-		if (!strncmp(ff->ff_name, p->ifname, IFNAMSIZ)) {
-			ff->ff_app_info.enable = p->dcb_app_0_enable;
-			ff->ff_app_info.willing = p->dcb_app_0_willing;
-			break;
-		}
-
-		TAILQ_FOREACH(fv, &(ff->ff_vfcoe_head), fv_list) {
-			if (!strncmp(fv->fv_name, p->ifname, IFNAMSIZ)) {
-				ff->ff_app_info.enable = p->dcb_app_0_enable;
-				ff->ff_app_info.willing = p->dcb_app_0_willing;
-				break;
-			}
-		}
-
-		p = p->next;
-	}
 }
 
 static void fcm_fcoe_set_name(struct fcm_fcoe *ff, char *ifname)
@@ -1918,7 +1883,6 @@ static void fcm_dcbd_port_advance(struct fcm_fcoe *ff)
 		fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 		/* Fall through */
 	case FCD_GET_DCB_STATE:
-		fcm_fcoe_get_dcb_settings(ff);
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_DCB, 0,

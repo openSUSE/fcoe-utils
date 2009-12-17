@@ -23,10 +23,11 @@
 #include <errno.h>
 #include <getopt.h>
 #include <dirent.h>
+#include "fcoe_utils.h"
 #include "fcoeadm.h"
 
-static char *fcoeadm_version =						\
-	"fcoeadm v1.0.7\n Copyright (c) 2009, Intel Corporation.\n";
+static char *fcoeadm_version =
+"fcoeadm v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
 
 #define SYSFS_MOUNT	"/sys"
 #define SYSFS_NET	SYSFS_MOUNT "/class/net"

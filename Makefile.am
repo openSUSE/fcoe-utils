@@ -12,7 +12,7 @@ AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
 
 ## rules for building fcoeadm
 ## only listed sources get packaged, so must list all headers too
-fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h \
+fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h fcoe_utils.h \
 include/fc_scsi.h include/fc_types.h include/net_types.h
 
 ## fcoeadm uses HBAAPI, so get the right flags for compiling and linking
@@ -30,7 +30,7 @@ fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
 ## rules for building fcoemon
 ## only listed sources get packaged, so must list all headers too
 fcoemon_SOURCES = fcoemon_utils.c fcoemon.c fcoemon.h fcoemon_utils.h \
-include/fc_scsi.h include/fc_types.h include/net_types.h
+fcoe_utils.h include/fc_scsi.h include/fc_types.h include/net_types.h
 
 ## fcoemon needs headers from dcbd, get the right include path for them
 fcoemon_CFLAGS = $(DCBD_CFLAGS)
@@ -38,7 +38,8 @@ fcoemon_LDFLAGS = -lrt
 
 ## rules for building fipvlan
 ## only listed sources get packaged, so must list all headers too
-fipvlan_SOURCES = fipvlan.c include/fip.h log.c include/log.h include/list.h
+fipvlan_SOURCES = fipvlan.c fcoe_utils.h include/fip.h \
+log.c include/log.h include/list.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

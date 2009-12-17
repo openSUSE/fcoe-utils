@@ -15,12 +15,16 @@ missing
 # other autoconf generated files
 fcoe-utils.spec
 fcoeplumb
+fcoe_utils.h
 
 # compile generated files
 *.o
 fcoeadm
 fcoemon
 fipvlan
+fcping
+fcnsq
+fcrls
 etc/initd/fcoe
 
 # build.sh generated files

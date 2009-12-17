@@ -36,6 +36,7 @@
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include "fcoe_utils.h"
 #include "fip.h"
 #include "log.h"
 #include "list.h"
@@ -45,7 +46,6 @@
 /* global configuration */
 
 char *exe;
-#define VERSION_STR	"0.5"
 
 struct iff {
 	int ifindex;
@@ -532,7 +532,7 @@ int parse_cmdline(int argc, char **argv)
 			help(0);
 			break;
 		case 'v':
-			printf("%s version %s\n", exe, VERSION_STR);
+			printf("%s version %s\n", exe, FCOE_UTILS_VERSION);
 			exit(0);
 			break;
 		default:

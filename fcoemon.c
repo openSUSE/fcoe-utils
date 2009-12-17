@@ -56,6 +56,7 @@
 #include "net_types.h"
 #include "fc_types.h"
 
+#include "fcoe_utils.h"
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
 
@@ -83,8 +84,8 @@
 #define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
-static char *fcoemon_version =						\
-	"fcoemon v1.0.8\n Copyright (c) 2009, Intel Corporation.\n";
+static char *fcoemon_version =
+"fcoemon v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
 
 /*
  * fcoe service configuration data

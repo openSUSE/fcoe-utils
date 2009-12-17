@@ -1,5 +1,5 @@
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm fipvlan
+sbin_PROGRAMS = fcoeadm fcping fipvlan fcnsq fcrls
 if WITH_DCB
 sbin_PROGRAMS += fcoemon
 endif
@@ -21,11 +21,11 @@ fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
 
 ## rules for building fcping
 ## only listed sources get packaged, so must list all headers too
-#fcping_SOURCES = fcping.c
+fcping_SOURCES = fcping.c
 
 ## fcping uses HBAAPI, so get the right flags for compiling and linking
-#fcping_CFLAGS = $(HBAAPI_CFLAGS)
-#fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
+fcping_CFLAGS = $(HBAAPI_CFLAGS)
+fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
 
 ## rules for building fcoemon
 ## only listed sources get packaged, so must list all headers too

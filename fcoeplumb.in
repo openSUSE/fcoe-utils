@@ -22,10 +22,8 @@ cmdname=`basename $0`
 usage()
 {
 	echo usage: $cmdname \
-		'[--fcoeif <ethX> --reset | --create | --destroy]' \
 		'[--debug] [--syslog]' \
-		'[--netif <ethX> --qos-disable |' \
-		'--qos-enable  <pri>[,<pri>]...]' >&2
+		'[<ethX> --qos-disable | --qos-enable  <pri>[,<pri>]...]' >&2
 	exit 1
 }
 
@@ -51,8 +49,6 @@ sbindir=@sbindir@
 sysconfdir=@sysconfdir@
 # make sure there's a sane path to find basic commands and system tools (tc)
 PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin
-FCOEADM=${sbindir}/fcoeadm	# command to create/destroy FCoE instances
-CONFIG_DIR=${sysconfdir}/fcoe
 LOGGER=
 DEBUG_LOGGING=
 
@@ -194,36 +190,6 @@ replace_skbedit_filter()
 		action skbedit queue_mapping $queue
 }
 
-remove_fcoe_interface()
-{
-	ifname=$1
-
-	STATUS=`$FCOEADM -i $ifname 2>&1 | \
-		awk '/Symbolic Name:/ && /'$ifname'$/{print $6}'`
-	if [ "$STATUS" == "$ifname" ]; then
-		[ ${DEBUG_LOGGING} ] && $LOGGER "$FCOEADM -d $ifname"
-		$FCOEADM -d $ifname
-	else
-		[ ${DEBUG_LOGGING} ] && $LOGGER \
-			"FCoE interface $ifname doesn't exist"
-	fi
-}
-
-create_fcoe_interface()
-{
-	ifname=$1
-
-	STATUS=`$FCOEADM -i $ifname 2>&1 | \
-		awk '/Symbolic Name:/ && /'$ifname'$/{print $6}'`
-	if [ -z "$STATUS" ]; then
-		[ ${DEBUG_LOGGING} ] && $LOGGER "$FCOEADM -c $ifname"
-		$FCOEADM -c $ifname
-	else
-		[ ${DEBUG_LOGGING} ] && $LOGGER \
-			"FCoE interface $ifname already created"
-	fi
-}
-
 config_logging()
 {
     if [ $DEBUG_LOGGING ] ; then
@@ -241,48 +207,20 @@ config_logging()
 
 [ ${DEBUG_LOGGING} ] && $LOGGER "fcoeplumb arguments: ($*)"
 
+net_ifname=$1
+shift
+
 while [ "$#" -ge 1 ]
 do
 	case "$1" in
-	    --fcoeif)
+	    --qos-enable)
+		[ "$#" -lt 2 ] && usage
+		qos_list=$2
 		shift
-		fcoe_ifname=$1
-		shift
-		case "$1" in
-		    --reset | -r)
-			cmd=reset
-			;;
-		    --create | -c)
-			cmd=create
-			;;
-		    --destroy | -d)
-			cmd=destroy
-			;;
-		    *)
-			echo "$cmdname: unknown fcoe parameter '$1'" >&2
-			usage
-			;;
-		esac
 		;;
-	    --netif)
-		shift
-		net_ifname=$1
-		shift
-		case "$1" in
-		    --qos-enable)
-			[ "$#" -lt 2 ] && usage
-			qos_list=$2
-			shift
-			;;
-		    --qos-disable)
-			[[ "$2" =~ ^[0-9]+$ ]] && shift
-			qos_list="disable"
-			;;
-		    *)
-			echo "$cmdname: unknown qos parameter '$1'" >&2
-			usage
-			;;
-		esac
+	    --qos-disable)
+		[[ "$2" =~ ^[0-9]+$ ]] && shift
+		qos_list="disable"
 		;;
 	    --debug)
 		DEBUG_LOGGING=1
@@ -305,13 +243,6 @@ done
 # add_skbedit_filter(), replace_skbedit_filter().
 fcoe_filter_id=`get_filter_id $net_ifname $FCOE_FILTER_KEY`
 fip_filter_id=`get_filter_id $net_ifname $FIP_FILTER_KEY`
-
-if [ "$cmd" == "destroy" ]; then
-	remove_fcoe_interface $fcoe_ifname
-
-elif [ "$cmd" == "create" ]; then
-	create_fcoe_interface $fcoe_ifname
-fi
 
 if [ "$qos_list" == "disable" ]; then
 	# Remove the FCoE filters

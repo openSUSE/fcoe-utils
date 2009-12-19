@@ -141,22 +141,6 @@ service_stop()
 	pidof $FCOEMON
 	[ $? -eq 0 ] && kill -TERM `pidof $FCOEMON`
 
-	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
-	do
-		ifname=`basename $ifcfg_file | cut -d"-" -f2`
-		. $ifcfg_file
-		[ "$FCOE_ENABLE" != "yes" ] &&
-		[ "$FCOE_ENABLE" != "YES" ] && continue
-		if [ "$DCB_REQUIRED" != "yes" ] &&
-		   [ "$DCB_REQUIRED" != "YES" ]; then
-			STATUS=`$FCOEADM -i $ifname 2>&1 | \
-				awk '/Symbolic Name:/{print $6}'`
-			if [ "$STATUS" = "$ifname" ]; then
-				$FCOEADM -d $ifname
-			fi
-		fi
-	done
-
 	retry_count=5
 	while true
 	do

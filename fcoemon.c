@@ -59,6 +59,7 @@
 #include "fcoe_utils.h"
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
+#include "fcoe_clif.h"
 
 #ifndef SYSCONFDIR
 #define SYSCONFDIR                  "/etc"
@@ -84,8 +85,17 @@
 #define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
+#define FCOE_CREATE	SYSFS_FCOE "/create"
+#define FCOE_DESTROY	SYSFS_FCOE "/destroy"
+
 static char *fcoemon_version =
 "fcoemon v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
+
+enum fcm_srv_status {
+	fcm_success = 0,
+	fcm_fail,
+	fcm_no_action
+};
 
 /*
  * fcoe service configuration data
@@ -129,6 +139,7 @@ static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_netif_advance(struct fcm_netif *);
 static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
+static int fcm_fcoe_if_action(char *, char *);
 
 struct fcm_clif {
 	int cl_fd;
@@ -974,6 +985,8 @@ static void fcm_cleanup(void)
 	struct fcm_netif *ff, *head;
 
 	for (curr = fcoe_config.port; curr; curr = next) {
+		FCM_LOG_DBG("OP: DESTROY %s\n", curr->ifname);
+		fcm_fcoe_if_action(FCOE_DESTROY,  curr->ifname);
 		next = curr->next;
 		free(curr);
 	}
@@ -1598,11 +1611,11 @@ static void fcm_dcbd_event(char *msg, size_t len)
 
 	p = fcm_find_fcoe_port(ff->ifname, FCP_REAL_IFNAME);
 	while (p) {
-		if (p->dcb_required && p->last_msg_type != RTM_DELLINK)
+		if (p->dcb_required && p->last_msg_type != RTM_DELLINK &&
+			p->fcoe_enable)
 			break;
 		p = fcm_find_next_fcoe_port(p, ff->ifname);
 	}
-
 	/*
 	 * dcb is not required or link was removed, ignore dcbd event
 	*/
@@ -1647,48 +1660,86 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	return;
 }
 
+static int fcm_fcoe_if_action(char *path, char *ifname)
+{
+	FILE *fp = NULL;
+	int ret = fcm_fail;
+
+	fp = fopen(path, "w");
+	if (!fp) {
+		FCM_LOG_ERR(errno, "%s: Failed to open path %s\n",
+					progname, path);
+		goto err_out;
+	}
+
+	if (EOF == fputs(ifname, fp)) {
+		FCM_LOG_ERR(errno, "%s: Failed to write %s to path %s.\n",
+				progname, ifname, path);
+		goto out;
+	}
+
+	ret = fcm_success;
+out:
+	fclose(fp);
+err_out:
+	return ret;
+}
+
 /*
- * Run script to enable or disable the interface or print a message.
  *
- * Input:  enable = 0      Destroy the FCoE interface
- *         enable = 1      Create the FCoE interface
- *         enable = 2      Reset the interface
+ * Input:  action = 1      Destroy the FCoE interface
+ *         action = 2      Create the FCoE interface
+ *         action = 3      Reset the interface
  */
 static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
-	char *op, *debug, *syslog = NULL;
+	char *debug, *syslog = NULL;
 	char *qos_arg;
 	char qos[64];
+	char *ifname = p->ifname;
+	char fchost[FCHOSTBUFLEN];
+	char path[256];
 	u_int32_t mask;
 	int rc;
 	int fd;
 
+	rc = fcm_success;
 	qos_arg = "--qos-enable";
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		if (p->last_action == FCP_CREATE_IF)
-			return;
-		op = "--create";
+			break;
+		FCM_LOG_DBG("OP: CREATE\n");
+		rc = fcm_fcoe_if_action(FCOE_CREATE, ifname);
 		break;
 	case FCP_DESTROY_IF:
 		if (p->last_action == FCP_DESTROY_IF)
-			return;
-		op = "--destroy";
+			break;
 		qos_arg = "--qos-disable";
+		FCM_LOG_DBG("OP: DESTROY\n");
+		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
 		break;
 	case FCP_RESET_IF:
-		op = "--reset";
+		FCM_LOG_DBG("OP: RESET\n");
+		if (fcoeclif_validate_interface(ifname, fchost, FCHOSTBUFLEN))
+			return;
+		sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
+		rc = fcm_fcoe_if_action(path, "1");
 		break;
 	default:
 		return;
 		break;
 	}
+
+	if ((p->action != FCP_RESET_IF) && (p->last_action == p->action))
+		return;
+
 	p->last_action = p->action;
 
 	if (p->action && !ff->ff_qos_mask)
 		return;
 	if (fcm_dcbd_cmd == NULL) {
-		FCM_LOG_DEV_DBG(ff, "Should %s per op state", op);
+		FCM_LOG_DEV_DBG(ff, "Should call fcoeplumb per op state");
 		return;
 	}
 
@@ -1726,12 +1777,8 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		if (fcoe_config.debug) {
 			debug = "--debug";
 
-			if (!p->action)
-				FCM_LOG_DEV_DBG(ff, "%s %s %s\n", fcm_dcbd_cmd,
-						op, syslog);
-			else
-				FCM_LOG_DEV_DBG(ff, "%s %s %s %s %s\n",
-						fcm_dcbd_cmd, op, qos_arg, qos,
+			FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n",
+						fcm_dcbd_cmd, qos_arg, qos,
 						syslog);
 		}
 
@@ -1739,8 +1786,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		if (rc < 0)
 			FCM_LOG_ERR(errno, "fork error");
 		else if (rc == 0) {     /* child process */
-			execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, "--fcoeif",
-			       p->ifname, op, "--netif", p->real_ifname,
+			execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, p->real_ifname,
 			       qos_arg, qos, debug, syslog, (char *)NULL);
 		}
 
@@ -1922,7 +1968,6 @@ static void fcm_usage(void)
 
 static void fcm_sig(int sig)
 {
-	fcm_dcbd_shutdown();
 	sa_select_exit();
 }
 
@@ -2038,6 +2083,13 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	fcm_pidfile_create();
+
+	/* check fcoe module */
+	if (fcoeclif_checkdir(SYSFS_FCOE)) {
+		FCM_LOG_ERR(errno, "make sure FCoE driver module is loaded!");
+		exit(1);
+	}
+
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();

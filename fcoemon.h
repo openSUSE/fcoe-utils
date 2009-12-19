@@ -73,6 +73,13 @@ enum fcm_dcbd_state {
    FCD_ERROR,           /* DCB error or port unknown by DCB */
 };
 
+#define MSG_RBUF sizeof(int)
+struct sock_info {
+	int sock;
+	struct sockaddr_un from;
+	socklen_t fromlen;
+};
+
 /*
  * Action codes for FCoE ports
 */
@@ -131,6 +138,17 @@ struct fcm_netif {
    struct sa_timer       dcbd_retry_timer; /* dcbd retry timer */
 };
 
+/*
+ * Description of fcoe socket server interface
+ */
+struct fcm_srv_data {
+	char iface[IFNAMSIZ+1];
+	char *srv_interface;
+	gid_t srv_if_gid;
+	int srv_if_gid_set;
+	int srv_sock;
+};
+
 TAILQ_HEAD(fcm_netif_head, fcm_netif);
 
 struct fcm_netif_head fcm_netif_head;
@@ -139,6 +157,8 @@ extern char build_date[];
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);
 static void fcm_fcoe_init(void);
+static void fcm_srv_init(void);
+static void fcm_srv_shutdown(void);
 static struct fcm_netif *fcm_netif_lookup(char *);
 static struct fcm_netif *fcm_netif_lookup_create(char *);
 static int fcm_link_init(void);

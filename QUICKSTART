@@ -68,6 +68,7 @@ PROCESS
    # tar -xvzf hbaapi_src_2.2.tgz
    # mv hbaapi_src_2.2/* hbaapi_build/
    # rmdir hbaapi_src_2.2/
+   # cd hbaapi_build/
 
 3) Bootstrap, configure, make and make install
    # ./bootstrap.sh

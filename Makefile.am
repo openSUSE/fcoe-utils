@@ -64,10 +64,8 @@ etc/initd/fcoe:
 	mkdir -p etc/initd
 	if [ -f /etc/fedora-release ]; then \
 		ln -s ${abs_srcdir}/etc/initd/initd.fedora $@; \
-	elif [ -f /etc/SuSE-release ]; then \
+	else [ -f /etc/SuSE-release ]; then \
 		ln -s ${abs_srcdir}/etc/initd/initd.suse $@; \
-	else \
-		ln -s ${abs_srcdir}/etc/initd/initd.fcoe $@; \
 	fi
 
 init_ddir = ${sysconfdir}/init.d

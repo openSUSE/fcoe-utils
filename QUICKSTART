@@ -28,7 +28,7 @@ DEPENDENCIES
 PROCESS
 
 1) Obtain the source tarball from sourceforge
-   http://sourceforge.net/project/shownotes.php?group_id=42302&release_id=605955
+   http://sourceforge.net/projects/e1000/files/DCB%20Tools/0.9.19/dcbd-0.9.19.tar.gz/download
 
 2) Untar the tarball and change into it's directory
    # tar -xvzf dcbd-x.y.z.tar.gz

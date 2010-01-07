@@ -1,7 +1,7 @@
 ## Type:       yes/no
 ## Default:    no
 # Enable/Disable FCoE service at the Ethernet port
-FCOE_ENABLE="no"
+FCOE_ENABLE="yes"
 
 ## Type:       yes/no
 ## Default:    yes

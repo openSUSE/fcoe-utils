@@ -42,14 +42,12 @@
 #include <getopt.h>
 #include <byteswap.h>
 #include <net/if.h>
+#include <sys/un.h>
 
 #include "hbaapi.h"
 #include "net_types.h"
 #include "fc_types.h"
 #include "fc_scsi.h"
-
-#define __USE_GNU
-#include <string.h>
 
 #define FCOE_MAX_LUN	255
 
@@ -67,6 +65,18 @@ struct opt_info {
 	#define DEFAULT_STATS_INTERVAL	1
 	int n_interval;		/* seconds */
 };
+
+/**
+ * struct clif - Internal structure for client interface library
+ *
+ * This structure is used by fcoeadm client interface to store internal data.
+ */
+struct clif {
+	int s;
+	struct sockaddr_un local;
+	struct sockaddr_un dest;
+};
+
 extern struct opt_info *opt_info;
 extern char build_date[];
 

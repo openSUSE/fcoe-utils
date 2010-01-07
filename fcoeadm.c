@@ -17,26 +17,19 @@
  * Maintained at www.Open-FCoE.org
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <libgen.h>
-#include <errno.h>
-#include <getopt.h>
-#include <dirent.h>
+#include <paths.h>
 #include "fcoe_utils.h"
 #include "fcoeadm.h"
+#include "fcoe_clif.h"
 
 static char *fcoeadm_version =
 "fcoeadm v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
 
-#define SYSFS_MOUNT	"/sys"
-#define SYSFS_NET	SYSFS_MOUNT "/class/net"
-#define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
-#define SYSFS_FCOE	SYSFS_MOUNT "/module/fcoe/parameters"
-#define FCOE_CREATE	SYSFS_FCOE "/create"
-#define FCOE_DESTROY	SYSFS_FCOE "/destroy"
-
-#define FCHOSTBUFLEN		64
+#define CMD_RESPONSE_TIMEOUT 5
 
 static struct option fcoeadm_opts[] = {
 	{"create", 1, 0, 'c'},
@@ -54,6 +47,8 @@ static struct option fcoeadm_opts[] = {
 struct opt_info _opt_info, *opt_info = &_opt_info;
 char progname[20];
 
+struct clif *clif_conn;
+
 static void fcoeadm_help(void)
 {
 	printf("%s\n", fcoeadm_version);
@@ -70,183 +65,225 @@ static void fcoeadm_help(void)
 }
 
 /*
- * Open and close to check if directory exists
- */
-static int fcoeadm_checkdir(char *dir)
-{
-	DIR *d = NULL;
-
-	if (!dir)
-		return -EINVAL;
-	/* check if we have sysfs */
-	d = opendir(dir);
-	if (!d)
-		return -EINVAL;
-	closedir(d);
-	return 0;
-}
-
-/*
  * TODO - check this ifname before performing any action
  */
 static int fcoeadm_check(char *ifname)
 {
 	char path[256];
+	int fd;
+	int status = 0;
 
 	/* check if we have sysfs */
-	if (fcoeadm_checkdir(SYSFS_MOUNT)) {
+	if (fcoeclif_checkdir(SYSFS_MOUNT)) {
 		fprintf(stderr,
 			"%s: Sysfs mount point %s not found!\n",
 			progname, SYSFS_MOUNT);
-		return -EINVAL;
+		status = -EINVAL;
 	}
-	/* check fcoe module */
-	if (fcoeadm_checkdir(SYSFS_FCOE)) {
-		fprintf(stderr,
-			"%s: Please make sure FCoE driver module is loaded!\n",
-			progname);
-		return -EINVAL;
-	}
+
 	/* check target interface */
 	if (!ifname) {
 		fprintf(stderr, "%s: Invalid interface name!\n", progname);
-		return -EINVAL;
+		status = -EINVAL;
 	}
 	sprintf(path, "%s/%s", SYSFS_NET, ifname);
-	if (fcoeadm_checkdir(path)) {
+	if (fcoeclif_checkdir(path)) {
 		fprintf(stderr,
 			"%s: Interface %s not found!\n", progname, ifname);
-		return -EINVAL;
+		status = -EINVAL;
+	}
+
+	fd = open(CLIF_PID_FILE, O_RDWR, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+		fprintf(stderr,
+			"%s: fcoemon was not running!\n", progname);
+		status = -EINVAL;
+	}
+
+	return status;
+}
+
+static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
+					char *reply, size_t *reply_len)
+{
+	struct timeval tv;
+	int ret;
+	fd_set rfds;
+
+	if (send(clif_conn->s, cmd, cmd_len, 0) < 0)
+		return -1;
+
+	for (;;) {
+		tv.tv_sec = CMD_RESPONSE_TIMEOUT;
+		tv.tv_usec = 0;
+		FD_ZERO(&rfds);
+		FD_SET(clif_conn->s, &rfds);
+		ret = select(clif_conn->s + 1, &rfds, NULL, NULL, &tv);
+		if (FD_ISSET(clif_conn->s, &rfds)) {
+			ret = recv(clif_conn->s, reply, *reply_len, 0);
+			if (ret < 0) {
+				fprintf(stderr, "less then zero\n");
+				return ret;
+			}
+			*reply_len = ret;
+			break;
+		} else {
+			fprintf(stderr, "timeout\n");
+			return -2;
+		}
 	}
 
 	return 0;
+}
+
+static int fcoeadm_request(int cmd, char *s)
+{
+	struct clif_data *data = NULL;
+	char rbuf[MAX_MSGBUF];
+	size_t len;
+	int ret;
+
+	if (clif_conn == NULL) {
+		printf("Not connected to fcoemon.\n");
+		return -EINVAL;
+	}
+
+	data = (struct clif_data *)malloc(sizeof(struct clif_data));
+	if (data == NULL)
+		return -EINVAL;
+
+	memset(data, 0, sizeof(data));
+	data->cmd = cmd;
+	strcpy(data->ifname, s);
+
+	len = sizeof(rbuf)-1;
+
+	ret = fcoeadm_clif_request(data, sizeof(struct clif_data), rbuf, &len);
+	if (ret == -2) {
+		printf("%d command timed out.\n", cmd);
+		goto fail;
+	} else if (ret < 0) {
+		printf("%d command failed.\n", cmd);
+		goto fail;
+	}
+
+	rbuf[len] = '\0';
+	ret = atoi(rbuf);
+	free(data);
+	return ret;
+
+fail:
+	free(data);
+	return -EINVAL;
+}
+
+static void fcoeadm_close_cli(void)
+{
+	if (clif_conn == NULL)
+		return;
+
+	unlink(clif_conn->local.sun_path);
+	close(clif_conn->s);
+	free(clif_conn);
+	clif_conn = NULL;
 }
 
 /*
- * TODO - for now, this just writes to path
+ * Create fcoeadm client interface
  */
-static int fcoeadm_action(char *path, char *s)
+static struct clif *fcoeadm_open_cli(const char *ifname)
 {
-	FILE *fp = NULL;
+	char *fcmon_file = NULL;
+	int flen;
+	static int counter;
 
-	if (!path)
-		return -EINVAL;
+	flen = strlen(FCM_SRV_DIR) + strlen(ifname) + 2;
+	fcmon_file = malloc(flen);
+	if (fcmon_file == NULL)
+		goto fail;
+	snprintf(fcmon_file, flen, "%s/%s", FCM_SRV_DIR, ifname);
 
-	if (!s)
-		return -EINVAL;
+	clif_conn = malloc(sizeof(*clif_conn));
+	if (clif_conn == NULL)
+		goto fail;
+	memset(clif_conn, 0, sizeof(*clif_conn));
 
-	fp = fopen(path, "w");
-	if (!fp) {
-		fprintf(stderr,
-			"%s: Failed to open %s\n", progname, path);
-		return -ENOENT;
+	clif_conn->s = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (clif_conn->s < 0)
+		goto fail;
+
+	clif_conn->local.sun_family = AF_UNIX;
+	snprintf(clif_conn->local.sun_path, sizeof(clif_conn->local.sun_path),
+		    "/tmp/fcadm_clif_%d-%d", getpid(), counter++);
+	if (bind(clif_conn->s, (struct sockaddr *) &clif_conn->local,
+		    sizeof(clif_conn->local)) < 0) {
+		close(clif_conn->s);
+		goto fail;
 	}
-	if (EOF == fputs(s, fp))
-		fprintf(stderr,
-			"%s: Failed to write %s to %s\n", progname, s, path);
 
-	fclose(fp);
-
-	return 0;
-}
-
-static char *fcoeadm_read(const char *path)
-{
-	FILE *fp;
-	char *buf;
-	int size = 512;
-
-	if (!path)
-		return NULL;
-
-	buf = malloc(size);
-	if (!buf)
-		return NULL;
-	memset(buf, 0, size);
-
-	fp = fopen(path, "r");
-	if (fp) {
-		if (fgets(buf, size, fp)) {
-			fclose(fp);
-			return buf;
-		}
+	clif_conn->dest.sun_family = AF_UNIX;
+	snprintf(clif_conn->dest.sun_path, sizeof(clif_conn->dest.sun_path),
+			"%s", fcmon_file);
+	if (connect(clif_conn->s, (struct sockaddr *) &clif_conn->dest,
+		    sizeof(clif_conn->dest)) < 0) {
+		close(clif_conn->s);
+		unlink(clif_conn->local.sun_path);
+		goto fail;
 	}
-	fclose(fp);
-	free(buf);
+
+	free(fcmon_file);
+	return clif_conn;
+
+fail:
+	free(fcmon_file);
+	free(clif_conn);
 	return NULL;
 }
 
-static int fcoeadm_check_fchost(const char *ifname, const char *dname)
+/*
+ * Send request to fcoemon
+ */
+static int fcoeadm_action(int cmd, char *device_name)
 {
-	char *buf;
-	char path[512];
+	char *clif_ifname = NULL;
+	int ret = 0;
 
-	if (!ifname)
+	if (!device_name)
 		return -EINVAL;
 
-	if (!dname)
-		return -EINVAL;
-
-	if (dname[0] == '.')
-		return -EINVAL;
-
-	sprintf(path, "%s/%s/symbolic_name", SYSFS_FCHOST, dname);
-	buf = fcoeadm_read(path);
-	if (!buf)
-		return -EINVAL;
-
-	if (!strstr(buf, ifname)) {
-		free(buf);
-		return -EINVAL;
-	}
-	free(buf);
-	return 0;
-}
-
-static int fcoeadm_find_fchost(char *ifname, char *fchost, int len)
-{
-	int n, dname_len;
-	int found = 0;
-	struct dirent **namelist;
-
-	if (!ifname)
-		return -EINVAL;
-
-	if ((!fchost) || (len <= 0))
-		return -EINVAL;
-
-	memset(fchost, 0, len);
-	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
-	if (n > 0) {
-		while (n--) {
-			/* check symbolic name */
-			if (!fcoeadm_check_fchost(ifname,
-						  namelist[n]->d_name)) {
-				dname_len = strnlen(namelist[n]->d_name, len);
-				if (dname_len != len) {
-					/*
-					 * This assumes that d_name is always
-					 * NULL terminated.
-					 */
-					strncpy(fchost, namelist[n]->d_name,
-						dname_len + 1);
-					found = 1;
-				} else {
-					fprintf(stderr, "scsi_host (%s) is "
-						"too large for a buffer that "
-						"is only %d bytes large\n",
-						namelist[n]->d_name, dname_len);
-					free(namelist[n]);
+	for (;;) {
+		if (clif_ifname == NULL) {
+			struct dirent *dent;
+			DIR *dir = opendir(FCM_SRV_DIR);
+			if (dir) {
+				while ((dent = readdir(dir))) {
+					if (strcmp(dent->d_name, ".") == 0 ||
+						strcmp(dent->d_name, "..") == 0)
+						continue;
+					clif_ifname = strdup(dent->d_name);
+					break;
 				}
+			closedir(dir);
 			}
-			free(namelist[n]);
 		}
-		free(namelist);
+
+		clif_conn = fcoeadm_open_cli(clif_ifname);
+		if (clif_conn) {
+			break;
+		} else {
+			fprintf(stderr, "Failed to connect to fcoemon.\n");
+			free(clif_ifname);
+			return -1;
+		}
 	}
 
-	return found;
-}
+	ret = fcoeadm_request(cmd, device_name);
 
+	free(clif_ifname);
+	fcoeadm_close_cli();
+
+	return ret;
+}
 
 /*
  * Create FCoE instance for this ifname
@@ -259,7 +296,7 @@ static int fcoeadm_create(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_action(FCOE_CREATE, ifname);
+	return fcoeadm_action(FCOE_CREATE_CMD, ifname);
 }
 
 /*
@@ -273,21 +310,7 @@ static int fcoeadm_destroy(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_action(FCOE_DESTROY, ifname);
-}
-
-/*
- * Validate an existing instance for an FC interface
- */
-static int fcoeadm_validate_interface(char *ifname, char *fchost, int len)
-{
-	if (!fcoeadm_find_fchost(ifname, fchost, len)) {
-		fprintf(stderr, "%s: No fc_host found for %s\n",
-			progname, ifname);
-		return -EINVAL;
-	}
-
-	return 0;
+	return fcoeadm_action(FCOE_DESTROY_CMD, ifname);
 }
 
 /*
@@ -295,14 +318,7 @@ static int fcoeadm_validate_interface(char *ifname, char *fchost, int len)
  */
 static int fcoeadm_reset(char *ifname)
 {
-	char fchost[FCHOSTBUFLEN];
-	char path[256];
-
-	if (fcoeadm_validate_interface(ifname, fchost, FCHOSTBUFLEN))
-		return -EINVAL;
-
-	sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
-	return fcoeadm_action(path, "1");
+	return fcoeadm_action(FCOE_RESET_CMD, ifname);
 }
 
 /*
@@ -475,7 +491,7 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeadm_validate_interface(
+				if (fcoeclif_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
 					goto done;
@@ -505,7 +521,7 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeadm_validate_interface(
+				if (fcoeclif_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
 					goto done;
@@ -536,7 +552,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, optarg,
 					sizeof(opt_info->ifname));
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeadm_validate_interface(
+				if (fcoeclif_validate_interface(
 					    opt_info->ifname,
 					    fchost, FCHOSTBUFLEN))
 					goto done;

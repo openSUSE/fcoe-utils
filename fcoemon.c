@@ -152,8 +152,6 @@ static struct fcm_clif fcm_clif_st;
 static struct fcm_clif *fcm_clif = &fcm_clif_st;
 static struct sa_timer fcm_dcbd_timer;
 
-char *fcm_dcbd_cmd = CONFIG_DIR "/scripts/fcoeplumb";
-
 /* Debugging routine */
 static void print_errors(int errors);
 
@@ -1702,18 +1700,12 @@ err_out:
  */
 static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
-	char *debug, *syslog = NULL;
-	char *qos_arg;
-	char qos[64];
 	char *ifname = p->ifname;
 	char fchost[FCHOSTBUFLEN];
 	char path[256];
-	u_int32_t mask;
 	int rc;
-	int fd;
 
 	rc = fcm_success;
-	qos_arg = "--qos-enable";
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		if (p->last_action == FCP_CREATE_IF)
@@ -1724,7 +1716,6 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	case FCP_DESTROY_IF:
 		if (p->last_action == FCP_DESTROY_IF)
 			break;
-		qos_arg = "--qos-disable";
 		FCM_LOG_DBG("OP: DESTROY\n");
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
 		break;
@@ -1752,64 +1743,6 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		return;
 
 	p->last_action = p->action;
-
-	if (p->action && !ff->ff_qos_mask)
-		return;
-	if (fcm_dcbd_cmd == NULL) {
-		FCM_LOG_DEV_DBG(ff, "Should call fcoeplumb per op state");
-		return;
-	}
-
-	/*
-	 * XXX should wait for child status
-	 */
-	rc = fork();
-	if (rc < 0) {
-		FCM_LOG_ERR(errno, "fork error");
-	} else if (rc == 0) {	/* child process */
-		for (fd = ulimit(4 /* __UL_GETOPENMAX */ , 0); fd > 2; fd--)
-			close(fd);
-		snprintf(qos, sizeof(qos), "%s", "0");
-		mask = ff->ff_qos_mask;
-		if (mask) {
-			int off = 0;
-			char *sep = "";
-			u_int32_t bit;
-
-			while (mask != 0 && off < sizeof(qos) - 1) {
-				bit = ffs(mask) - 1;
-				off +=
-					snprintf(qos + off,
-						 sizeof(qos) - off,
-						 "%s%u",
-						 sep, bit);
-				mask &= ~(1 << bit);
-				sep = ",";
-			}
-		}
-
-		if (fcoe_config.use_syslog)
-			syslog = "--syslog";
-
-		if (fcoe_config.debug) {
-			debug = "--debug";
-
-			FCM_LOG_DEV_DBG(ff, "%s %s %s %s\n",
-						fcm_dcbd_cmd, qos_arg, qos,
-						syslog);
-		}
-
-		rc = fork();
-		if (rc < 0)
-			FCM_LOG_ERR(errno, "fork error");
-		else if (rc == 0) {     /* child process */
-			execlp(fcm_dcbd_cmd, fcm_dcbd_cmd, p->real_ifname,
-			       qos_arg, qos, debug, syslog, (char *)NULL);
-		}
-
-		exit(1);
-	} else
-		wait(NULL);
 }
 
 /*
@@ -2348,7 +2281,7 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "fde:hv",
+	while ((c = getopt_long(argc, argv, "fd:hv",
 				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':
@@ -2359,9 +2292,6 @@ int main(int argc, char **argv)
 		case 's':
 			fcoe_config.use_syslog = 1;
 			enable_syslog(1);
-			break;
-		case 'e':
-			fcm_dcbd_cmd = optarg;
 			break;
 		case 'v':
 			printf("%s\n", fcoemon_version);

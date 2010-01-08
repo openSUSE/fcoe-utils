@@ -19,6 +19,6 @@ AS_IF([test "X$with_dcb" != Xno],
 	[PKG_CHECK_MODULES([DCBD], [dcbd])
 	AC_SUBST([DCBD_CFLAGS])])
 
-AC_CONFIG_FILES([Makefile fcoeplumb fcoe-utils.spec fcoe_utils.h])
+AC_CONFIG_FILES([Makefile fcoe-utils.spec fcoe_utils.h])
 AC_OUTPUT
 

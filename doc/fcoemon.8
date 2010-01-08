@@ -12,14 +12,12 @@
 \fBfcoemon\fR [\fB\-d\fR | \fB\-\-debug\fR]
 .P
 \fBfcoemon\fR [\fB\-s\fR | \fB\-\-syslog\fR]
-.P
-\fBfcoemon\fR [\fB\-e\fR | \fB\-\-exec\fR \fI<path\-to\-fcoeplumb\-script>\fR]
 .SH "DESCRIPTION"
 The \fBfcoemon\fR command is a FCoE management tool provided by the \fBfcoe-utils\fR package.
 \fBfcoemon\fR is the daemon of the \fBfcoe\fR system service.  When \fBfcoemon\fR starts, it establishes a socket
 connection with the DCB daemon (\fBdcbd\fR). It then sends commands to, and receives responses
 and events from \fBdcbd\fR.  \fBfcoemon\fR  will process the responses
-and events and will invoke the \fBfcoeplumb\fR script to create and destroy the FCoE interfaces as needed.
+and events and will create or destroy the FCoE interfaces as needed.
 Since \fBfcoemon\fR can depend on \fBdcbd\fR, there may be settings required for \fBdcbd\fR before \fBfcoemon\fR can be started. See the \fIDCB Settings\fR section below.
 
 The \fBfcoe\fR system may or may not depend on the DCB service. \fBfcoemon\fR will be
@@ -38,9 +36,6 @@ Enable debugging messages.
 .TP
 \fB\-s | \-\-syslog\fR
 Use syslogd for logging. The default behavior is to log to stdout and stderr.
-.TP
-\fB\-e | \-\-exec\fR \fI<path\-of\-fcoeplumb\-script>\fR
-Specify the location of the \fBfcoeplumb\fR script.
 .SH "TERMINOLOGY"
 .TP
 \fBPFC\fR \- The DCB Priority Flow Control feature.
@@ -139,7 +134,7 @@ Installation of the fcoe-utils management tools include the following files:
 .TP
 \fI/etc/fcoe/config\fR
 This is the primary configuration file for the \fBfcoe\fR system service. The default options in this file are: \fBDEBUG="no"\fR and \fBUSE_SYSLOG="yes"\fR. The former is used to enable
-debugging messages from the \fBfcoe\fR service script, \fBfcoemon\fR, and the \fBfcoeplumb\fR script. The latter is
+debugging messages from the \fBfcoe\fR service script and \fBfcoemon\fR. The latter is
 to indicate if the log messages are to be output to the system log.  Any changes to this file will require a restart of the \fBfcoe\fR service.
 .TP
 \fI/etc/fcoe/cfg-<ifname>\fR
@@ -159,9 +154,6 @@ This is the \fBfcoemon\fR daemon only invoked by the \fBfcoe\fR system service s
 .TP
 \fI/sbin/fcoeadm\fR
 This is the program used by the \fBfcoe\fR system service to create or destroy FCoE interfaces.
-.TP
-\fI/etc/fcoe/scripts/fcoeplumb\fR
-This is a script only used by the \fBfcoemon\fR daemon.
 .SH "REPORTING BUGS"
 If you have identified a defect please file a bug with your distribution or engage the
 development mailing list at <http://www.Open\-FCoE.org>.

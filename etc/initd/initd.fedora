@@ -27,7 +27,6 @@
 ### END INIT INFO
 
 CONFIG_DIR=/etc/fcoe
-CONFIG_SCRIPT=$CONFIG_DIR/scripts/fcoeplumb
 PID_FILE="/var/run/fcoemon.pid"
 LOG_FILE="/var/log/fcoemon.log"
 FCOEMON=/usr/sbin/fcoemon
@@ -94,14 +93,6 @@ if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
 	FCOEMON_OPTS+=" --debug"
 fi
 
-test -x $CONFIG_SCRIPT || {
-	$LOGGER "$CONFIG_SCRIPT not installed";
-	if [ "$1" = "stop" ]; then exit 0;
-	else
-	    failure
-	fi
-}
-
 test -x $FCOEADM || {
 	$LOGGER "$FCOEADM not installed";
 	if [ "$1" = "stop" ]; then exit 0;
@@ -141,15 +132,6 @@ service_stop()
 	pidof $FCOEMON
 	[ $? -eq 0 ] && kill -TERM `pidof $FCOEMON`
 
-	retry_count=5
-	while true
-	do
-		[ $retry_count -eq 0 ] && break
-		ps | grep -q fcoeplumb
-		[ $? -ne 0 ] && [ ! -f $PID_FILE ] && break
-		sleep 1
-		retry_count=$(($retry_count-1))
-	done
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*
 }

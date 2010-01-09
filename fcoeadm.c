@@ -121,14 +121,11 @@ static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
 		ret = select(clif_conn->s + 1, &rfds, NULL, NULL, &tv);
 		if (FD_ISSET(clif_conn->s, &rfds)) {
 			ret = recv(clif_conn->s, reply, *reply_len, 0);
-			if (ret < 0) {
-				fprintf(stderr, "less then zero\n");
+			if (ret < 0)
 				return ret;
-			}
 			*reply_len = ret;
 			break;
 		} else {
-			fprintf(stderr, "timeout\n");
 			return -2;
 		}
 	}

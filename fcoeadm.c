@@ -104,7 +104,7 @@ static int fcoeadm_check(char *ifname)
 }
 
 static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
-					char *reply, size_t *reply_len)
+				char *reply, size_t *reply_len)
 {
 	struct timeval tv;
 	int ret;

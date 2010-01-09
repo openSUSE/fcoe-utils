@@ -76,27 +76,27 @@ static int fcoeadm_check(char *ifname)
 	/* check if we have sysfs */
 	if (fcoeclif_checkdir(SYSFS_MOUNT)) {
 		fprintf(stderr,
-			"%s: Sysfs mount point %s not found!\n",
+			"%s: Sysfs mount point %s not found\n",
 			progname, SYSFS_MOUNT);
 		status = -EINVAL;
 	}
 
 	/* check target interface */
 	if (!ifname) {
-		fprintf(stderr, "%s: Invalid interface name!\n", progname);
+		fprintf(stderr, "%s: Invalid interface name\n", progname);
 		status = -EINVAL;
 	}
 	sprintf(path, "%s/%s", SYSFS_NET, ifname);
 	if (fcoeclif_checkdir(path)) {
 		fprintf(stderr,
-			"%s: Interface %s not found!\n", progname, ifname);
+			"%s: Interface %s not found\n", progname, ifname);
 		status = -EINVAL;
 	}
 
 	fd = open(CLIF_PID_FILE, O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd < 0) {
 		fprintf(stderr,
-			"%s: fcoemon was not running!\n", progname);
+			"%s: fcoemon was not running\n", progname);
 		status = -EINVAL;
 	}
 
@@ -144,7 +144,7 @@ static int fcoeadm_request(int cmd, char *s)
 	int ret;
 
 	if (clif_conn == NULL) {
-		fprintf(stderr, "Not connected to fcoemon.\n");
+		fprintf(stderr, "Not connected to fcoemon\n");
 		return -EINVAL;
 	}
 
@@ -160,10 +160,10 @@ static int fcoeadm_request(int cmd, char *s)
 
 	ret = fcoeadm_clif_request(data, sizeof(struct clif_data), rbuf, &len);
 	if (ret == -2) {
-		fprintf(stderr, "Command timed out.\n");
+		fprintf(stderr, "Command timed out\n");
 		goto fail;
 	} else if (ret < 0) {
-		fprintf(stderr, "Command failed.\n");
+		fprintf(stderr, "Command failed\n");
 		goto fail;
 	}
 
@@ -271,7 +271,7 @@ static int fcoeadm_action(int cmd, char *device_name)
 		if (clif_conn) {
 			break;
 		} else {
-			fprintf(stderr, "Failed to connect to fcoemon.\n");
+			fprintf(stderr, "Failed to connect to fcoemon\n");
 			free(clif_ifname);
 			return -1;
 		}
@@ -292,7 +292,7 @@ static int fcoeadm_create(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
 		fprintf(stderr,
-			"%s: Failed to create FCoE instance on %s!\n",
+			"%s: Failed to create FCoE instance on %s\n",
 			progname, ifname);
 		return -EINVAL;
 	}
@@ -306,7 +306,7 @@ static int fcoeadm_destroy(char *ifname)
 {
 	if (fcoeadm_check(ifname)) {
 		fprintf(stderr,
-			"%s: Failed to destroy FCoE instance on %s!\n",
+			"%s: Failed to destroy FCoE instance on %s\n",
 			progname, ifname);
 		return -EINVAL;
 	}
@@ -592,7 +592,7 @@ stats:
 		goto done;
 
 error:
-	fprintf(stderr, "%s: Invalid command options!\n", progname);
+	fprintf(stderr, "%s: Invalid command options\n", progname);
 	fcoeadm_help();
 	exit(-EINVAL);
 

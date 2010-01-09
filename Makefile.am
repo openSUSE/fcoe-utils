@@ -57,14 +57,14 @@ dist_man_MANS += doc/fcoemon.8
 endif
 
 ## init script for fcoemon
-dist_noinst_SCRIPTS = etc/initd/initd.fcoe etc/initd/initd.suse etc/initd/initd.fedora
+dist_noinst_SCRIPTS = etc/initd/initd.suse etc/initd/initd.fedora
 
 CLEANFILES = etc/initd/fcoe
 etc/initd/fcoe:
 	mkdir -p etc/initd
 	if [ -f /etc/fedora-release ] || [ -f /etc/redhat-release ]; then \
 		ln -s ${abs_srcdir}/etc/initd/initd.fedora $@; \
-	else [ -f /etc/SuSE-release ]; then \
+	else \
 		ln -s ${abs_srcdir}/etc/initd/initd.suse $@; \
 	fi
 

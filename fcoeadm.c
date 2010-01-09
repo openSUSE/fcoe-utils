@@ -144,7 +144,7 @@ static int fcoeadm_request(int cmd, char *s)
 	int ret;
 
 	if (clif_conn == NULL) {
-		printf("Not connected to fcoemon.\n");
+		fprintf(stderr, "Not connected to fcoemon.\n");
 		return -EINVAL;
 	}
 
@@ -160,10 +160,10 @@ static int fcoeadm_request(int cmd, char *s)
 
 	ret = fcoeadm_clif_request(data, sizeof(struct clif_data), rbuf, &len);
 	if (ret == -2) {
-		printf("%d command timed out.\n", cmd);
+		fprintf(stderr, "Command timed out.\n");
 		goto fail;
 	} else if (ret < 0) {
-		printf("%d command failed.\n", cmd);
+		fprintf(stderr, "Command failed.\n");
 		goto fail;
 	}
 

@@ -1,4 +1,4 @@
-AC_INIT([fcoe-utils], [1.0.9], [devel@open-fcoe.org])
+AC_INIT([fcoe-utils], [1.0.10], [devel@open-fcoe.org])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CC

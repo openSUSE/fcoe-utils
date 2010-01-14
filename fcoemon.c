@@ -272,6 +272,19 @@ static size_t fcm_read_config_variable(char *file, char *val_buf, size_t len,
 	return 0;
 }
 
+static struct fcoe_port *alloc_fcoe_port(char *ifname)
+{
+	struct fcoe_port *p = NULL;
+
+	p = (struct fcoe_port *) calloc(1, sizeof(struct fcoe_port));
+	if (p) {
+		snprintf(p->ifname, sizeof(p->ifname), "%s", ifname);
+		p->action = FCP_WAIT;
+	}
+
+	return p;
+}
+
 static int fcm_read_config_files(void)
 {
 	char file[80];
@@ -299,15 +312,13 @@ static int fcm_read_config_files(void)
 		rc = strncmp(dp->d_name, "cfg-", strlen("cfg-"));
 		if (rc)
 			continue;
-		next = (struct fcoe_port *)
-			calloc(1, sizeof(struct fcoe_port));
+		next = alloc_fcoe_port(dp->d_name + 4);
 
 		if (!next) {
 			FCM_LOG_ERR(errno, "failed to allocate fcoe_port %s",
 				dp->d_name);
 			continue;
 		}
-		strncpy(next->ifname, dp->d_name + 4, sizeof(next->ifname));
 		strncpy(file, CONFIG_DIR "/", sizeof(file));
 		strncat(file, dp->d_name, sizeof(file) - strlen(file));
 		fp = fopen(file, "r");
@@ -317,7 +328,6 @@ static int fcm_read_config_files(void)
 			continue;
 		}
 
-		next->action = FCP_WAIT;
 
 		/* FCOE_ENABLE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
@@ -1983,13 +1993,12 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 		}
 	}
 
-	p = (struct fcoe_port *) calloc(1, sizeof(struct fcoe_port));
+	p = alloc_fcoe_port(ifname);
 	if (!p) {
 		FCM_LOG_ERR(errno, "fail to allocate fcoe_port %s", ifname);
 		return fcm_fail;
 	}
 
-	snprintf(p->ifname, strlen(ifname)+1, "%s", ifname);
 	fcm_vlan_dev_real_dev(ifname, p->real_ifname);
 	if (!strlen(p->real_ifname))
 		snprintf(p->real_ifname, sizeof(p->real_ifname), "%s", ifname);

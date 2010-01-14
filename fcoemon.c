@@ -86,6 +86,8 @@
 
 #define FCOE_CREATE	SYSFS_FCOE "/create"
 #define FCOE_DESTROY	SYSFS_FCOE "/destroy"
+#define FCOE_ENABLE 	SYSFS_FCOE "/enable"
+#define FCOE_DISABLE	SYSFS_FCOE "/disable"
 
 static char *fcoemon_version =
 "fcoemon v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
@@ -280,6 +282,10 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 	if (p) {
 		snprintf(p->ifname, sizeof(p->ifname), "%s", ifname);
 		p->action = FCP_WAIT;
+		/* last_action is initialized to FCP_DESTROY_IF to indicate
+		 * that the interface is not created yet.
+		 */
+		p->last_action = FCP_DESTROY_IF;
 	}
 
 	return p;
@@ -327,7 +333,6 @@ static int fcm_read_config_files(void)
 			free(next);
 			continue;
 		}
-
 
 		/* FCOE_ENABLE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
@@ -518,13 +523,108 @@ int fcm_is_linkinfo_vlan(struct rtattr *ap)
 	return 0;
 }
 
+
+/* fcm_set_next_action - determine the next action for the FCoE interface
+ * @p - pointer to the fcoe_port structure for the FCoE interface
+ * @action - requested next action to take on the FCoE interface
+ *
+ * Based on the last_action taken on the FCoE interface and the requested
+ * next action, the next action field in the FCoE interface's fcoe_port
+ * structure is set.
+ * Notes: last_action is initialized to FCP_DESTROY_IF when the fcoe_port is
+ *        created and it is never set to FCP_WAIT.
+ *        The requested action FCP_ACTIVATE_IF is resolved to either
+ *        FCP_CREATE_IF or FCP_ENABLE_IF as appropriate.
+ */
+static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
+{
+	switch (p->last_action) {
+	case FCP_CREATE_IF:
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_ENABLE_IF:
+		case FCP_DISABLE_IF:
+		case FCP_RESET_IF:
+			p->action = action;
+			break;
+		case FCP_ACTIVATE_IF:
+			p->action = FCP_ENABLE_IF;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	case FCP_DESTROY_IF:
+		switch (action) {
+		case FCP_CREATE_IF:
+			p->action = action;
+			break;
+		case FCP_ACTIVATE_IF:
+			p->action = FCP_CREATE_IF;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	case FCP_ENABLE_IF:
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_DISABLE_IF:
+		case FCP_RESET_IF:
+			p->action = action;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	case FCP_DISABLE_IF:
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_ENABLE_IF:
+		case FCP_RESET_IF:
+			p->action = action;
+			break;
+		case FCP_ACTIVATE_IF:
+			p->action = FCP_ENABLE_IF;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	case FCP_RESET_IF:
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_ENABLE_IF:
+		case FCP_DISABLE_IF:
+		case FCP_RESET_IF:
+			p->action = action;
+			break;
+		case FCP_ACTIVATE_IF:
+			p->action = FCP_ENABLE_IF;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	default:
+		/* last_action is never set to FCP_WAIT */
+		break;
+	}
+}
+
 static void fcp_action_set(char *ifname, enum fcp_action action)
 {
 	struct fcoe_port *p;
 
 	p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
 	while (p) {
-		p->action = action;
+		if (p->fcoe_enable)
+			fcp_set_next_action(p, action);
 		p = fcm_find_next_fcoe_port(p, ifname);
 	}
 }
@@ -596,7 +696,7 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 			ff->ff_operstate = operstate;
 
 		if (!p->fcoe_enable) {
-			p->action = FCP_DESTROY_IF;
+			fcp_set_next_action(p, FCP_DESTROY_IF);
 			return;
 		}
 
@@ -615,11 +715,11 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 					fcm_dcbd_state_set(ff,
 						FCD_GET_DCB_STATE);
 			} else {
-				p->action = FCP_CREATE_IF;
+				fcp_set_next_action(p, FCP_CREATE_IF);
 			}
 		}
 	} else {
-		p->action = FCP_DESTROY_IF;
+		fcp_set_next_action(p, FCP_DESTROY_IF);
 	}
 }
 
@@ -1252,8 +1352,9 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp)
 /*
  * validate_dcbd_info - Validating DCBD configuration and status
  *
- * Returns:  FCP_CREATE_IF - if the dcb netif qualifies for an fcoe interface
+ * Returns:  FCP_ACTIVATE_IF - if the dcb netif qualifies for an fcoe interface
  *           FCP_DESTROY_IF - if the dcb netif should not support fcoe interface
+ *           FCP_ERROR - if dcb configuration has errors
  *           FCP_WAIT - if dcb criteria is inconclusive
  */
 static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
@@ -1301,7 +1402,7 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 		ff->ff_qos_mask =
 			ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg;
 
-		return FCP_CREATE_IF;
+		return FCP_ACTIVATE_IF;
 	}
 
 	/* check if dcb state qualifies to destroy the fcoe interface */
@@ -1324,7 +1425,7 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 				ff->ff_app_info.u.appcfg,
 				ff->ff_pfc_info.u.pfcup);
 
-		return FCP_DESTROY_IF;
+		return FCP_DISABLE_IF;
 	}
 
 	/* The dcbd state does not match the create or destroy criteria.
@@ -1718,19 +1819,23 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	rc = fcm_success;
 	switch (p->action) {
 	case FCP_CREATE_IF:
-		if (p->last_action == FCP_CREATE_IF)
-			break;
-		FCM_LOG_DBG("OP: CREATE\n");
+		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
 		rc = fcm_fcoe_if_action(FCOE_CREATE, ifname);
 		break;
 	case FCP_DESTROY_IF:
-		if (p->last_action == FCP_DESTROY_IF)
-			break;
-		FCM_LOG_DBG("OP: DESTROY\n");
+		FCM_LOG_DBG("OP: DESTROY %s\n", p->ifname);
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
 		break;
+	case FCP_ENABLE_IF:
+		FCM_LOG_DBG("OP: ENABLE %s\n", p->ifname);
+		rc = fcm_fcoe_if_action(FCOE_ENABLE, ifname);
+		break;
+	case FCP_DISABLE_IF:
+		FCM_LOG_DBG("OP: DISABLE %s\n", p->ifname);
+		rc = fcm_fcoe_if_action(FCOE_DISABLE, ifname);
+		break;
 	case FCP_RESET_IF:
-		FCM_LOG_DBG("OP: RESET\n");
+		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);
 		if (fcoeclif_validate_interface(ifname, fchost, FCHOSTBUFLEN)) {
 			fcm_cli_reply(p->sock_reply, CLI_FAIL);
 			return;
@@ -1748,9 +1853,6 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		free(p->sock_reply);
 		p->sock_reply = NULL;
 	}
-
-	if ((p->action != FCP_RESET_IF) && (p->last_action == p->action))
-		return;
 
 	p->last_action = p->action;
 }
@@ -1841,13 +1943,17 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 			fcp_action_set(ff->ifname, FCP_DESTROY_IF);
 			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
-		case FCP_CREATE_IF:
+		case FCP_DISABLE_IF:
+			fcp_action_set(ff->ifname, FCP_DISABLE_IF);
+			fcm_dcbd_state_set(ff, FCD_INIT);
+			break;
+		case FCP_ACTIVATE_IF:
 			if (!old_qos_mask) {
 				FCM_LOG_DEV_DBG(ff, "Initial QOS = 0x%x\n",
 						ff->ff_qos_mask);
-				fcp_action_set(ff->ifname, FCP_CREATE_IF);
+				fcp_action_set(ff->ifname, FCP_ACTIVATE_IF);
 			} else if (old_qos_mask == ff->ff_qos_mask) {
-				fcp_action_set(ff->ifname, FCP_CREATE_IF);
+				fcp_action_set(ff->ifname, FCP_ACTIVATE_IF);
 			} else {
 				FCM_LOG_DEV_DBG(ff, "QOS changed to 0x%x\n",
 						ff->ff_qos_mask);
@@ -1859,7 +1965,7 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 			if (ff->dcbd_retry_cnt < DCBD_MAX_REQ_RETRIES) {
 				fcm_dcbd_state_set(ff, FCD_ERROR);
 			} else {
-				fcp_action_set(ff->ifname, FCP_DESTROY_IF);
+				fcp_action_set(ff->ifname, FCP_DISABLE_IF);
 				fcm_dcbd_state_set(ff, FCD_INIT);
 			}
 			break;
@@ -1914,7 +2020,7 @@ static void fcm_handle_changes()
 
 		fcm_fcoe_action(ff, p);
 
-		p->action = FCP_WAIT;
+		fcp_set_next_action(p, FCP_WAIT);
 next_port:
 		p = p->next;
 	}
@@ -1976,7 +2082,7 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 	if (p) {
 		if (!p->fcoe_enable) {
 			p->fcoe_enable = 1;
-			p->action = cmd;
+			fcp_set_next_action(p, cmd);
 			p->sock_reply = *r;
 			if (p->dcb_required) {
 				ff = fcm_netif_lookup(p->real_ifname);
@@ -1984,13 +2090,13 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 					return fcm_success;
 				fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 				if (ff->ff_dcbd_state == FCD_GET_DCB_STATE)
-					p->action = FCP_WAIT;
+					fcp_set_next_action(p, FCP_WAIT);
 			}
-			return fcm_success;
 		} else {
-			/* no action needed */
-			return CLI_NO_ACTION;
+			p->fcoe_enable = 1;
+			fcp_set_next_action(p, cmd);
 		}
+		return fcm_success;
 	}
 
 	p = alloc_fcoe_port(ifname);
@@ -2004,7 +2110,7 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 		snprintf(p->real_ifname, sizeof(p->real_ifname), "%s", ifname);
 	p->fcoe_enable = 1;
 	p->dcb_required = 0;
-	p->action = cmd;
+	fcp_set_next_action(p, cmd);
 	p->sock_reply = *r;
 	p->next = NULL;
 
@@ -2035,7 +2141,7 @@ static int fcm_cli_destroy(char *ifname, int cmd, struct sock_info **r)
 	if (p) {
 		if (p->fcoe_enable) {
 			p->fcoe_enable = 0;
-			p->action = cmd;
+			fcp_set_next_action(p, cmd);
 			p->sock_reply = *r;
 			return fcm_success;
 		} else {
@@ -2054,7 +2160,7 @@ static int fcm_cli_reset(char *ifname, int cmd, struct sock_info **r)
 
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p) {
-		p->action = cmd;
+		fcp_set_next_action(p, cmd);
 		p->sock_reply = *r;
 		return fcm_success;
 	}

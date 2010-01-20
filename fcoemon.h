@@ -133,7 +133,6 @@ struct fcm_netif {
    struct feature_info   ff_pfc_info;      /* PFC feature info */
    struct feature_info   ff_app_info;      /* App feature info */
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */
-   u_int8_t              ff_qos_mask;      /* 801.p priority mask */
    enum fcm_dcbd_state   ff_dcbd_state;    /* DCB daemon state */
    char                  ifname[IFNAMSIZ]; /* Ethernet interface name */
    int                   response_pending; /* dcbd query in progress */

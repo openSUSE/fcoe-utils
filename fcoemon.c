@@ -70,7 +70,6 @@
 #define CONFIG_MAX_VAL_LEN          (20 + 2)
 #define DCB_APP_0_DEFAULT_ENABLE    1
 #define DCB_APP_0_DEFAULT_WILLING   1
-#define FCM_DEFAULT_QOS_MASK        (1 << 3)
 #define FILE_NAME_LEN               (NAME_MAX + 1)
 
 #define VLAN_DIR                "/proc/net/vlan"
@@ -126,8 +125,6 @@ enum fcoeport_ifname {
 	FCP_CFG_IFNAME = 0,
 	FCP_REAL_IFNAME
 };
-
-static u_int8_t fcm_def_qos_mask = FCM_DEFAULT_QOS_MASK;
 
 /*
  * Interact with DCB daemon.
@@ -930,7 +927,6 @@ static struct fcm_netif *fcm_netif_alloc(void)
 
 	ff = calloc(1, sizeof(*ff));
 	if (ff) {
-		ff->ff_qos_mask = fcm_def_qos_mask;
 		ff->ff_operstate = IF_OPER_UNKNOWN;
 		TAILQ_INSERT_TAIL(&fcm_netif_head, ff, ff_list);
 	} else {
@@ -1399,9 +1395,6 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 		else
 			FCM_LOG_DEV_DBG(ff, "DCB is configured correctly\n");
 
-		ff->ff_qos_mask =
-			ff->ff_pfc_info.u.pfcup & ff->ff_app_info.u.appcfg;
-
 		return FCP_ACTIVATE_IF;
 	}
 
@@ -1864,7 +1857,6 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 static void fcm_netif_advance(struct fcm_netif *ff)
 {
 	char buf[80], params[30];
-	int old_qos_mask;
 
 	ASSERT(ff);
 	ASSERT(fcm_clif);
@@ -1890,10 +1882,9 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_SEND_CONF:
-		snprintf(params, sizeof(params), "%x1%x02%2.2x",
+		snprintf(params, sizeof(params), "%x1%x02",
 			 ff->ff_app_info.enable,
-			 ff->ff_app_info.willing,
-			 ff->ff_qos_mask);
+			 ff->ff_app_info.willing);
 		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
@@ -1936,8 +1927,6 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_DONE:
-		/* keep qos_mask and see if it changed */
-		old_qos_mask = ff->ff_qos_mask;
 		switch (validate_dcbd_info(ff)) {
 		case FCP_DESTROY_IF:
 			fcp_action_set(ff->ifname, FCP_DESTROY_IF);
@@ -1948,17 +1937,7 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
 		case FCP_ACTIVATE_IF:
-			if (!old_qos_mask) {
-				FCM_LOG_DEV_DBG(ff, "Initial QOS = 0x%x\n",
-						ff->ff_qos_mask);
-				fcp_action_set(ff->ifname, FCP_ACTIVATE_IF);
-			} else if (old_qos_mask == ff->ff_qos_mask) {
-				fcp_action_set(ff->ifname, FCP_ACTIVATE_IF);
-			} else {
-				FCM_LOG_DEV_DBG(ff, "QOS changed to 0x%x\n",
-						ff->ff_qos_mask);
-				fcp_action_set(ff->ifname, FCP_RESET_IF);
-			}
+			fcp_action_set(ff->ifname, FCP_ACTIVATE_IF);
 			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
 		case FCP_ERROR:

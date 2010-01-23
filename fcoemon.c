@@ -2159,7 +2159,7 @@ int fcm_save_reply(struct sock_info **r, struct sockaddr_un *f, socklen_t flen,
 		}
 		(*r)->sock = s;
 		(*r)->from.sun_family = f->sun_family;
-		memcpy((*r)->from.sun_path, f->sun_path, strlen(f->sun_path));
+		strncpy((*r)->from.sun_path, f->sun_path, sizeof((*r)->from.sun_path));
 		(*r)->fromlen = flen;
 		return fcm_success;
 	}

@@ -366,18 +366,24 @@ static int parse_fcid(HBA_UINT32 *fcid, const char *input)
 	return rc;
 }
 
+static int fcoeadm_loadhba()
+{
+	if (HBA_STATUS_OK != HBA_LoadLibrary()) {
+		fprintf(stderr, "Failed to load Linux HBAAPI library! Please "
+			"verify the hba.conf file is set up correctly.\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+
 /*
  * Display adapter information
  */
 static int fcoeadm_display_adapter_info(struct opt_info *opt_info)
 {
-	HBA_STATUS retval;
-
-	retval = HBA_LoadLibrary();
-	if (retval != HBA_STATUS_OK) {
-		perror("HBA_LoadLibrary");
+	if (fcoeadm_loadhba())
 		return -EINVAL;
-	}
 
 	display_adapter_info(opt_info);
 
@@ -390,13 +396,8 @@ static int fcoeadm_display_adapter_info(struct opt_info *opt_info)
  */
 static int fcoeadm_display_target_info(struct opt_info *opt_info)
 {
-	HBA_STATUS retval;
-
-	retval = HBA_LoadLibrary();
-	if (retval != HBA_STATUS_OK) {
-		perror("HBA_LoadLibrary");
+	if (fcoeadm_loadhba())
 		return -EINVAL;
-	}
 
 	display_target_info(opt_info);
 
@@ -409,19 +410,14 @@ static int fcoeadm_display_target_info(struct opt_info *opt_info)
  */
 static int fcoeadm_display_port_stats(struct opt_info *opt_info)
 {
-	HBA_STATUS retval;
-
 	if (!opt_info->s_flag)
 		return -EINVAL;
 
 	if (!opt_info->n_flag)
 		opt_info->n_interval = DEFAULT_STATS_INTERVAL;
 
-	retval = HBA_LoadLibrary();
-	if (retval != HBA_STATUS_OK) {
-		perror("HBA_LoadLibrary");
+	if (fcoeadm_loadhba())
 		return -EINVAL;
-	}
 
 	display_port_stats(opt_info);
 

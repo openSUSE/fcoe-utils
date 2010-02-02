@@ -1,7 +1,11 @@
-This document is a quickstart guide for a user connected
-to a Fibre Channel Forwarder (FCF) and not a SW target.
-It covers the installation of Data Center Bridging (DCB),
-the HBA API wrapper library, libhbalinux and fcoe-utils.
+This document is a quickstart guide for a user connected to a Fibre Channel
+Forwarder (FCF) and not a SW target. It covers the configuration of the kernel
+and installation and configuration of Data Center Bridging (DCB), the HBA API
+wrapper library, libhbalinux and fcoe-utils.
+
+This document was written using Fedora 11 as the installed operating system.
+The instructions may need adjustments for them to work on other
+distributions.
 
 ##
 # Dependencies
@@ -10,6 +14,63 @@ the HBA API wrapper library, libhbalinux and fcoe-utils.
 git://open-fcoe.org/openfc/hbaapi_build.git
 git://open-fcoe.org/openfc/libhbalinux.git
 git://open-fcoe.org/openfc/fcoe-utils.git
+
+##
+# Kernel Configuration and Compilation
+######################################
+
+1) Download kernel source
+   There are a number of good choices regarding the most appropriate
+   kernel source for your needs. fcoe-next.git is a repository that may be
+   unstable, but will have the latest code. Downloading a released kernel
+   from kernel.org will give you the most stable kernel, but you'll need to
+   get user space code that matches the kernel version you've chosen. You can
+   get user space code that matches stable kernels on the Open-FCoE.org
+   "Downloads" page or you can pull directly from the git repositories using
+   tags.
+
+2) Configure the kernel
+   # make menuconfig
+
+   Select the following:
+
+   Networking Support -> Networking Options
+	      Data Center Bridging
+	      802.1Q VLAN Support
+	      GVRP (GARP VLAN Registration Protocol) support
+
+   Networking Support -> Networking Options -> QoS and/or fair queuing
+	      Multi Band Priority Queueing (PRIO)
+	      Hardware Multiqueue-aware Multi Band Queuing (MULTIQ)
+	      Elementary classification (BASIC)
+	      Universal 32bit comparisons w/ hashing (U32)
+	      Extended Matches
+			U32 key
+	      Actions
+			SKB Editing
+
+   Device Drivers -> SCSI Device Support -> SCSI Low-level drivers
+	      LibFC
+	      LibFCoE
+	      FCoE
+
+   Device Drivers -> Network Device Support -> Ethernet (10000 Mbit)
+	      Intel(R) 10GbE PCI Express adapters support
+	      Data Center Bridging (DCB) Support
+
+   [ Replace with desired driver if not using Intel adapter. ]
+
+   Exit Saving Changes
+
+3) Compile the kernel
+   # make && make modules_install && make install
+
+   If you're going to build fcoe-utils, you can run 'make headers_install'
+   at this stage to skip a later step.
+
+4) Configure Grub
+   Change the default kernel so that this new kernel is used when booting
+   # reboot
 
 
 ##
@@ -119,13 +180,12 @@ DEPENDENCIES
 PROCESS
 
 1) Ensure correct header files
-   - fcping requires certain kernel header files to be exported
-     or it cannot be compiled. These header files were included
-     in the 2.6.31 Linux kernel. If you are using a distribution
-     kernel that is >= 2.6.31 then you shouldn't have to take
-     this step. If you are building your own kernel or are using
-     a pre-2.6.31 kernel you will need to take this step to
-     export the appropriate header files.
+   - fcping requires certain kernel header files to be exported or it
+   cannot be compiled. These header files were included in the 2.6.31 Linux
+   kernel. If you are using a distribution kernel that is >= 2.6.31 then you
+   shouldn't have to take this step. If you are building your own kernel or
+   are using a pre-2.6.31 kernel you will need to take this step to export
+   the appropriate header files.
 
    # pushd <kernel-src>
    # make headers_install
@@ -139,3 +199,59 @@ PROCESS
    # rpm --eval "%configure" | sh
    # make
    # make install
+
+##
+# Example Configuration
+#######################
+
+This example sets up a VLAN (101) for interface eth3 and configures the
+system to automatically connect to storage over this interface.
+
+1) Create a VLAN
+   # cd /etc/sysconfig/network-scripts/
+   # cp ifcfg-eth3 ifcfg-eth3.101
+   Edit ifcfg-eth3.101 so the file has the following settings,
+
+   DEVICE=eth3.101
+   VLAN=yes
+   ONBOOT=yes
+
+2) Congigure fcoe for the VLAN
+   # cd /etc/fcoe/
+   # cp cfg-ethx cfg-eth3.101
+
+3) Start dcbd and configure the VLAN interface
+   # /etc/init.d/dcbd start
+   # dcbtool sc eth3 dcb on
+   # dcbtool sc eth3 pfc e:1
+   # dcbtool sc eth3 app:fcoe e:1
+
+   As a convenience there is a script that will confirm if DCB has been
+   configured correctly for FCoE. The script is run as follows,
+
+   <fcoe-utils source>/debug/dcbcheck.sh eth3
+   (note: this is on the root device, not the VLAN)
+
+   Follow the suggestions and repeatedly run the script until it states that
+   DCB is configured correctly.
+
+4) Start fcoe
+   # /etc/init.d/fcoe start
+     After a few moments your storage should apear (assuming everything is
+     configured correctly on the fabric)
+
+5) Setup dcbd and fcoe to start when booting
+    # chkconfig dcbd on
+    # chkconfig fcoe on
+
+
+##
+# Reporting Errors
+##################
+
+Most steps cannot be skipped. Resolve issues before moving forward.
+
+Please run '<fcoe-utils-src>/debug/fcoedump.sh eth3.101 2>&1 > dump.out'
+and provide the dump.out file with the bug report. Defects can be filed
+against the distribution used, reported to the Ethernet vendor of the
+card in use, or mailed to devel@open-fcoe.org.

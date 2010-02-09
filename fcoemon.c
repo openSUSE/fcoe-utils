@@ -2009,7 +2009,6 @@ static void fcm_usage(void)
 {
 	printf("%s\n", fcoemon_version);
 	printf("Usage: %s\n"
-	       "\t [-e|--exec <exec>]\n"
 	       "\t [-f|--foreground]\n"
 	       "\t [-d|--debug]\n"
 	       "\t [-s|--syslog]\n"

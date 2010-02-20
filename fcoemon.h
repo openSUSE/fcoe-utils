@@ -154,7 +154,6 @@ struct fcm_srv_info {
 TAILQ_HEAD(fcm_netif_head, fcm_netif);
 
 struct fcm_netif_head fcm_netif_head;
-extern char build_date[];
 
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);

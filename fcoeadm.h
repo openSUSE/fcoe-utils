@@ -67,7 +67,6 @@ struct opt_info {
 };
 
 extern struct opt_info *opt_info;
-extern char build_date[];
 
 extern void display_adapter_info(struct opt_info *opt_info);
 extern void display_target_info(struct opt_info *opt_info);

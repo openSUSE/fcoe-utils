@@ -2192,30 +2192,27 @@ static void fcm_srv_receive(void *arg)
 		goto err;
 
 	switch (cmd) {
-	case FCP_CREATE_IF:
+	case CLIF_CREATE_CMD:
 		FCM_LOG_DBG("FCMON CREATE\n");
 		if (fcm_save_reply(&reply, &from, fromlen, snum))
 			goto err_out;
 		if (fcm_cli_create(ifname, FCP_CREATE_IF, &reply))
 			goto err_out;
 		break;
-	case FCP_DESTROY_IF:
+	case CLIF_DESTROY_CMD:
 		FCM_LOG_DBG("FCMON DESTROY\n");
 		if (fcm_save_reply(&reply, &from, fromlen, snum))
 			goto err_out;
 		if (fcm_cli_destroy(ifname, FCP_DESTROY_IF, &reply))
 			goto err_out;
 		break;
-	case FCP_RESET_IF:
+	case CLIF_RESET_CMD:
 		FCM_LOG_DBG("FCMON RESET\n");
 		if (fcm_save_reply(&reply, &from, fromlen, snum))
 			goto err_out;
 		if (fcm_cli_reset(ifname, FCP_RESET_IF, &reply))
 			goto err_out;
 		break;
-	default:
-		fprintf(stderr, "BAD COMMAND\n");
-		goto err_out;
 	}
 
 	free(ifname);

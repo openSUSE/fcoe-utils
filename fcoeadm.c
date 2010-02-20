@@ -242,7 +242,7 @@ fail:
  * TODO: This is wrong. Which is this routine returning
  * 'enum clif_status' or an -ERROR?
  */
-int fcoeadm_action(int cmd, char *device_name)
+int fcoeadm_action(enum clif_action cmd, char *device_name)
 {
 	char *clif_ifname = NULL;
 	int ret = 0;
@@ -295,7 +295,7 @@ static int fcoeadm_create(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_action(FCOE_CREATE_CMD, ifname);
+	return fcoeadm_action(CLIF_CREATE_CMD, ifname);
 }
 
 /*
@@ -309,7 +309,7 @@ static int fcoeadm_destroy(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_action(FCOE_DESTROY_CMD, ifname);
+	return fcoeadm_action(CLIF_DESTROY_CMD, ifname);
 }
 
 /*
@@ -323,7 +323,7 @@ static int fcoeadm_reset(char *ifname)
 			progname, ifname);
 		return -EINVAL;
 	}
-	return fcoeadm_action(FCOE_RESET_CMD, ifname);
+	return fcoeadm_action(CLIF_RESET_CMD, ifname);
 }
 
 /*

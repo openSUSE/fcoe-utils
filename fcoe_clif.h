@@ -40,10 +40,10 @@ enum clif_status {
 	CLI_NO_ACTION
 };
 
-enum {
-	FCOE_CREATE_CMD = 1,
-	FCOE_DESTROY_CMD,
-	FCOE_RESET_CMD,
+enum clif_action {
+	CLIF_CREATE_CMD = 1,
+	CLIF_DESTROY_CMD,
+	CLIF_RESET_CMD,
 };
 
 /**
@@ -61,10 +61,8 @@ struct clif {
  * Description of fcoemon and fcoeadm socket data structure interface
  */
 struct clif_data {
-	int cmd;
+	enum clif_action cmd;
 	char ifname[IFNAMSIZ];
 };
-
-int fcoeadm_action(int cmd, char *device_name);
 
 #endif /* _FCOE_CLIF_H_ */

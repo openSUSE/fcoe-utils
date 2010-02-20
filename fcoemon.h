@@ -20,6 +20,8 @@
 #ifndef _FCOEMON_H_
 #define _FCOEMON_H_
 
+#include "fcoe_utils.h"
+
 struct fcoe_config {
 	int debug;
 	int use_syslog;

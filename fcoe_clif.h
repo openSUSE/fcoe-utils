@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,15 +20,19 @@
 #ifndef _FCOE_CLIF_H_
 #define _FCOE_CLIF_H_
 
-#define SYSFS_MOUNT	"/sys"
-#define SYSFS_NET	SYSFS_MOUNT "/class/net"
-#define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
-#define SYSFS_FCOE	SYSFS_MOUNT "/module/fcoe/parameters"
+/*
+ * A DCB file is incorrectly including linux/if.h which is redefining
+ * IFF_UP. This makes it so we cannot include net/if.h. We have to
+ * redefine IFNAMSIZ to work around this until DCB is corrected.
+
+*/
+
 #define FCM_SRV_DIR "/var/run/fcm"
 #define CLIF_IFNAME "fcm_clif"
-#define FCHOSTBUFLEN		64
-#define MAX_MSGBUF 512
 #define CLIF_PID_FILE           _PATH_VARRUN "fcoemon.pid"
+
+#define CLIF_CMD_RESPONSE_TIMEOUT 5
+#define MAX_MSGBUF 512
 
 enum clif_status {
 	CLI_SUCCESS = 0,
@@ -42,6 +46,17 @@ enum {
 	FCOE_RESET_CMD,
 };
 
+/**
+ * struct clif - Internal structure for client interface library
+ *
+ * This structure is used by fcoeadm client interface to store internal data.
+ */
+struct clif {
+	int s;
+	struct sockaddr_un local;
+	struct sockaddr_un dest;
+};
+
 /*
  * Description of fcoemon and fcoeadm socket data structure interface
  */
@@ -50,6 +65,6 @@ struct clif_data {
 	char ifname[IFNAMSIZ];
 };
 
-int fcoeclif_validate_interface(char *ifname, char *fchost, int len);
-int fcoeclif_checkdir(char *dir);
+int fcoeadm_action(int cmd, char *device_name);
+
 #endif /* _FCOE_CLIF_H_ */

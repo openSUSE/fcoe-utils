@@ -53,9 +53,6 @@
 #include <dcbd/clif_cmds.h>
 #include <dcbd/common.h>	/* for event msg level definitions */
 
-#include "net_types.h"
-#include "fc_types.h"
-
 #include "fcoe_utils_version.h"
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
@@ -1825,7 +1822,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		break;
 	case FCP_RESET_IF:
 		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);
-		if (fcoeclif_validate_interface(ifname, fchost, FCHOSTBUFLEN)) {
+		if (fcoe_validate_interface(ifname, fchost, FCHOSTBUFLEN)) {
 			fcm_cli_reply(p->sock_reply, CLI_FAIL);
 			return;
 		}
@@ -2436,7 +2433,7 @@ int main(int argc, char **argv)
 	fcm_pidfile_create();
 
 	/* check fcoe module */
-	if (fcoeclif_checkdir(SYSFS_FCOE)) {
+	if (fcoe_checkdir(SYSFS_FCOE)) {
 		FCM_LOG_ERR(errno, "make sure FCoE driver module is loaded!");
 		exit(1);
 	}

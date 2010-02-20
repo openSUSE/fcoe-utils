@@ -45,8 +45,6 @@
 
 #define FCP_TARG_STR "FCP Target"
 
-#define MAX_STR_LEN 512
-
 struct sa_nameval {
 	char        *nv_name;
 	u_int32_t   nv_val;

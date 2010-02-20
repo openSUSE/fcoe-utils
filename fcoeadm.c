@@ -22,11 +22,13 @@
 #endif
 #include <libgen.h>
 #include <paths.h>
+#include <net/if.h>
+#include <sys/un.h>
 #include "fcoe_utils_version.h"
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 
-#define CMD_RESPONSE_TIMEOUT 5
+struct clif *clif_conn;
 
 static struct option fcoeadm_opts[] = {
 	{"create", 1, 0, 'c'},
@@ -43,8 +45,6 @@ static struct option fcoeadm_opts[] = {
 
 struct opt_info _opt_info, *opt_info = &_opt_info;
 char progname[20];
-
-struct clif *clif_conn;
 
 static void fcoeadm_help(void)
 {
@@ -71,7 +71,7 @@ static int fcoeadm_check(char *ifname)
 	int status = 0;
 
 	/* check if we have sysfs */
-	if (fcoeclif_checkdir(SYSFS_MOUNT)) {
+	if (fcoe_checkdir(SYSFS_MOUNT)) {
 		fprintf(stderr,
 			"%s: Sysfs mount point %s not found\n",
 			progname, SYSFS_MOUNT);
@@ -84,7 +84,7 @@ static int fcoeadm_check(char *ifname)
 		status = -EINVAL;
 	}
 	sprintf(path, "%s/%s", SYSFS_NET, ifname);
-	if (fcoeclif_checkdir(path)) {
+	if (fcoe_checkdir(path)) {
 		fprintf(stderr,
 			"%s: Interface %s not found\n", progname, ifname);
 		status = -EINVAL;
@@ -111,7 +111,7 @@ static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
 		return -1;
 
 	for (;;) {
-		tv.tv_sec = CMD_RESPONSE_TIMEOUT;
+		tv.tv_sec = CLIF_CMD_RESPONSE_TIMEOUT;
 		tv.tv_usec = 0;
 		FD_ZERO(&rfds);
 		FD_SET(clif_conn->s, &rfds);
@@ -130,6 +130,9 @@ static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
 	return 0;
 }
 
+/*
+ * TODO: What is this returning? A 'enum clif_status'?
+ */
 static int fcoeadm_request(int cmd, char *s)
 {
 	struct clif_data *data = NULL;
@@ -237,7 +240,11 @@ fail:
 /*
  * Send request to fcoemon
  */
-static int fcoeadm_action(int cmd, char *device_name)
+/*
+ * TODO: This is wrong. Which is this routine returning
+ * 'enum clif_status' or an -ERROR?
+ */
+int fcoeadm_action(int cmd, char *device_name)
 {
 	char *clif_ifname = NULL;
 	int ret = 0;
@@ -487,9 +494,9 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeclif_validate_interface(
-					    opt_info->ifname,
-					    fchost, FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname,
+							    fchost,
+							    FCHOSTBUFLEN))
 					goto done;
 			}
 			opt_info->a_flag = 1;
@@ -517,9 +524,9 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeclif_validate_interface(
-					    opt_info->ifname,
-					    fchost, FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname,
+							    fchost,
+							    FCHOSTBUFLEN))
 					goto done;
 			}
 			opt_info->t_flag = 1;
@@ -548,9 +555,9 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, optarg,
 					sizeof(opt_info->ifname));
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoeclif_validate_interface(
-					    opt_info->ifname,
-					    fchost, FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname,
+							    fchost,
+							    FCHOSTBUFLEN))
 					goto done;
 			}
 			opt_info->s_flag = 1;

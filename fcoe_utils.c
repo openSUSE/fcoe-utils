@@ -17,63 +17,43 @@
  * Maintained at www.Open-FCoE.org
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <libgen.h>
-#include <dirent.h>
-#include <net/if.h>
-#include <errno.h>
-#include "fcoe_clif.h"
+#include "fcoe_utils.h"
 
-static char *fcoeclif_read(const char *path)
+static int fcoe_sysfs_read(char *buf, int size, const char *path)
 {
 	FILE *fp;
-	char *buf;
-	int size = 512;
-
-	buf = malloc(size);
-	if (!buf)
-		return NULL;
-	memset(buf, 0, size);
+	int rc = 0;
 
 	fp = fopen(path, "r");
 	if (fp) {
-		if (fgets(buf, size, fp)) {
-			fclose(fp);
-			return buf;
-		}
+		if (!fgets(buf, size, fp))
+			rc = -EINVAL;
 	}
+
 	fclose(fp);
-	free(buf);
-	return NULL;
+
+	return rc;
 }
 
-static int fcoeclif_check_fchost(const char *ifname, const char *dname)
+static int fcoe_check_fchost(const char *ifname, const char *dname)
 {
-	char *buf;
-	char path[512];
-
-	if (dname[0] == '.')
-		return -EINVAL;
+	char buf[MAX_STR_LEN];
+	char path[MAX_PATH_LEN];
+	char *substr;
+	int rc = -EINVAL;
 
 	sprintf(path, "%s/%s/symbolic_name", SYSFS_FCHOST, dname);
-	buf = fcoeclif_read(path);
-	if (!buf)
-		return -EINVAL;
 
-	if (!strstr(buf, ifname)) {
-		free(buf);
-		return -EINVAL;
+	if (!fcoe_sysfs_read(buf, MAX_STR_LEN, path)) {
+		substr = strstr(buf, ifname);
+		if (substr && strlen(substr) == strlen(ifname))
+			rc = 0;
 	}
-	free(buf);
-	return 0;
+
+	return rc;
 }
 
-static int fcoeclif_find_fchost(char *ifname, char *fchost, int len)
+static int fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
 	int found = 0;
@@ -84,8 +64,7 @@ static int fcoeclif_find_fchost(char *ifname, char *fchost, int len)
 	if (n > 0) {
 		while (n--) {
 			/* check symbolic name */
-			if (!fcoeclif_check_fchost(ifname,
-						  namelist[n]->d_name)) {
+			if (!fcoe_check_fchost(ifname, namelist[n]->d_name)) {
 				dname_len = strnlen(namelist[n]->d_name, len);
 				if (dname_len != len) {
 					/*
@@ -114,24 +93,15 @@ static int fcoeclif_find_fchost(char *ifname, char *fchost, int len)
 /*
  * Validate an existing instance for an FC interface
  */
-int fcoeclif_validate_interface(char *ifname, char *fchost, int len)
+int fcoe_validate_interface(char *ifname, char *fchost, int len)
 {
-	if ((!ifname) || (!fchost) || (len <= 0))
-		return -EINVAL;
-
-	if (!fcoeclif_find_fchost(ifname, fchost, len)) {
-		fprintf(stderr, "No fc_host found for %s\n", ifname);
-		return -EINVAL;
-	}
-
-	return 0;
+	return fcoe_find_fchost(ifname, fchost, len);
 }
-
 
 /*
  * Open and close to check if directory exists
  */
-int fcoeclif_checkdir(char *dir)
+int fcoe_checkdir(char *dir)
 {
 	DIR *d = NULL;
 

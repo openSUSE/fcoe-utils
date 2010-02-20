@@ -23,7 +23,7 @@
 # Required-Stop:
 # Default-Start: 3 5
 # Default-Stop: 3 5
-# Description: Open-FCoE SAN Setup
+# Description: Open-FCoE Initiator
 ### END INIT INFO
 
 CONFIG_DIR=/etc/fcoe
@@ -31,7 +31,6 @@ PID_FILE="/var/run/fcoemon.pid"
 LOG_FILE="/var/log/fcoemon.log"
 FCOEMON=/usr/sbin/fcoemon
 FCOEADM=/usr/sbin/fcoeadm
-DCBD=dcbd
 FCOEMON_OPTS=
 
 . /etc/init.d/functions
@@ -41,9 +40,17 @@ varify_yesno_values()
 	value=$1
 
 	case $value in
-		"yes" | "YES" ) return 1 ;;
-		"no" | "NO" ) return 2 ;;
-		*) return 0 ;;
+	    "yes" | "YES" )
+		return 1
+		;;
+
+	    "no" | "NO" )
+		return 2
+		;;
+
+	    *)
+		return 0
+		;;
 	esac
 }
 
@@ -107,8 +114,9 @@ test -x $FCOEMON || {
 	fi
 }
 
-service_start()
+start()
 {
+	echo -n $"Starting FCoE initiator service: "
 	pidof $FCOEMON
 	if [ $? -eq 0 ]; then
 		echo "Warning: daemon already running."
@@ -122,19 +130,22 @@ service_start()
 
 	daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
-	return
+	echo
 }
 
-service_stop()
+stop()
 {
+	echo -n $"Stopping FCoE initiator service: "
 	pidof $FCOEMON
 	[ $? -eq 0 ] && kill -TERM `pidof $FCOEMON`
 
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*
+
+	echo
 }
 
-service_status()
+status()
 {
 	pidof $FCOEMON
 	if [ $? -eq 0 ]; then
@@ -142,41 +153,46 @@ service_status()
 	else
 		echo "$FCOEMON -- UNUSED"
 	fi
-	IF_LIST=`$FCOEADM -i 2>&1 | \
-		awk '/Symbolic Name:/{print $6}' | \
-		sort | awk '{printf("%s ", $1)}'`
-	if [ -z "$IF_LIST" ]; then
+
+	interfaces=`$FCOEADM -i 2>&1 | \
+		    awk '/Symbolic Name:/{print $6}' | \
+		    sort | awk '{printf("%s ", $1)}'`
+
+	if [ -z "$interfaces" ]; then
 		echo "No interfaces created."
 	else
-		echo "Created interfaces: $IF_LIST"
+		echo "Created interfaces: $interfaces"
 	fi
 }
 
 case "$1" in
 	start)
-		echo "Service starting up"
-		service_start
+		start
 		;;
-	stop)
-		echo "Service shutting down"
-		service_stop
-		;;
-	restart)
-		$0 stop
-		$0 start
 
+	stop)
+		stop
 		;;
+
+	restart)
+		stop
+		start
+		;;
+
 	force-reload)
 		echo "force-reload not yet implemented"
 		failure
 		;;
+
 	reload)
 		echo "reload not yet implemented"
 		failure
 		;;
+
 	status)
-		service_status
+		status
 		;;
+
 	*)
 		echo "Usage: $0 {start|stop|status|restart}"
 		exit 1

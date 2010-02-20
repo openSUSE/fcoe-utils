@@ -36,7 +36,7 @@
 # Required-Stop:
 # Default-Start: 3 5
 # Default-Stop: 3 5
-# Description: Open-FCoE SAN Setup
+# Description: Open-FCoE Initiator
 ### END INIT INFO
 
 CONFIG_DIR=/etc/fcoe
@@ -65,9 +65,15 @@ varify_yesno_values()
 	value=$1
 
 	case $value in
-		"yes" | "YES" ) return 1 ;;
-		"no" | "NO" ) return 2 ;;
-		*) return 0 ;;
+	    "yes" | "YES" )
+		return 1
+		;;
+	    "no" | "NO" )
+		return 2
+		;;
+	    *)
+		return 0
+		;;
 	esac
 }
 
@@ -165,8 +171,10 @@ validate_link_flow_control()
 	return 1
 }
 
-service_start()
+start()
 {
+	echo -n $"Starting FCoE initiator service: "
+
 	checkproc ${FCOEMON}
 	if [ $? -eq 0 ]; then
 		echo "Warning: daemon already running."
@@ -179,11 +187,14 @@ service_start()
 	startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
 	rc_status -v
-	return
+
+	echo
 }
 
-service_stop()
+stop()
 {
+	echo -n $"Stopping FCoE initiator service: "
+
 	checkproc $FCOEMON
 	[ $? -eq 0 ] && killproc -TERM $FCOEMON
 
@@ -191,47 +202,53 @@ service_stop()
 	rm -f /tmp/fcoemon.dcbd.*
 
 	rc_status -v
+
+	echo
 }
 
-service_status()
+status()
 {
 	echo -n "Checking status for fcoe service "
 	checkproc -p ${PID_FILE} ${FCOEMON}
 	rc_status -v
-	IF_LIST=`$FCOEADM -i 2>&1 | \
-		awk '/Symbolic Name:/{print $6}' | \
-		sort | awk '{printf("%s ", $1)}'`
-	if [ -z "$IF_LIST" ]; then
+	interfaces=`$FCOEADM -i 2>&1 | \
+		    awk '/Symbolic Name:/{print $6}' | \
+		    sort | awk '{printf("%s ", $1)}'`
+	if [ -z "$interfaces" ]; then
 		echo "No interfaces created."
 	else
-		echo "Created interfaces: $IF_LIST"
+		echo "Created interfaces: $interfaces"
 	fi
 }
 
 case "$1" in
 	start)
-		echo "Service starting up"
-		service_start
+		start
 		;;
+
 	stop)
-		echo "Service shutting down"
-		service_stop
+		stop
 		;;
+
 	restart)
-		$0 stop
-		$0 start
+		stop
+		start
 		rc_status
 		;;
+
 	force-reload)
 		echo "force-reload not yet implemented"
 		;;
+
 	reload)
 		echo "reload not yet implemented"
 		rc_failed 3
 		;;
+
 	status)
-		service_status
+		status
 		;;
+
 	*)
 		echo "Usage: $0 {start|stop|status|restart}"
 		exit 1

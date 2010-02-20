@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1068,7 +1068,9 @@ display_port_stats(struct opt_info *opt_info)
 			continue;
 		}
 
-		if (strstr(port_attrs.PortSymbolicName, opt_info->ifname)) {
+		if (!check_symbolic_name_for_interface(
+			    port_attrs.PortSymbolicName,
+			    opt_info->ifname)) {
 			found = 1;
 			break;
 		}
@@ -1235,12 +1237,15 @@ display_adapter_info(struct opt_info *opt_info)
 			}
 
 			lp_index++;
-			if (opt_info->ifname &&
-			    !strstr(port_attrs.PortSymbolicName,
-					opt_info->ifname))
-				continue;
-			show_port_info(hba_index, lp_index, &hba_attrs,
-					&port_attrs);
+			if (!valid_ifname(opt_info->ifname)) {
+				if (check_symbolic_name_for_interface(
+					    port_attrs.PortSymbolicName,
+					    opt_info->ifname))
+					continue;
+			}
+
+			show_port_info(hba_index, lp_index,
+				       &hba_attrs, &port_attrs);
 		}
 		HBA_CloseAdapter(hba_handle);
 	}
@@ -1317,10 +1322,12 @@ display_target_info(struct opt_info *opt_info)
 			}
 
 			lp_index++;
-			if (opt_info->ifname &&
-			    !strstr(port_attrs.PortSymbolicName,
-					opt_info->ifname))
-				continue;
+			if (!valid_ifname(opt_info->ifname)) {
+				if (check_symbolic_name_for_interface(
+					    port_attrs.PortSymbolicName,
+					    opt_info->ifname))
+					continue;
+			}
 
 			for (rp_index = 0;
 			     rp_index < port_attrs.NumberofDiscoveredPorts;

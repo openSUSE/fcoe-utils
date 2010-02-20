@@ -22,7 +22,7 @@ fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
 
 ## rules for building fcping
 ## only listed sources get packaged, so must list all headers too
-fcping_SOURCES = fcping.c
+fcping_SOURCES = fcping.c fcoe_utils.c fcoe_utils.h
 
 ## fcping uses HBAAPI, so get the right flags for compiling and linking
 fcping_CFLAGS = $(HBAAPI_CFLAGS)

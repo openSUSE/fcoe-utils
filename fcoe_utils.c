@@ -54,16 +54,12 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 {
 	char buf[MAX_STR_LEN];
 	char path[MAX_PATH_LEN];
-	char *substr;
 	int rc = -EINVAL;
 
 	sprintf(path, "%s/%s/symbolic_name", SYSFS_FCHOST, dname);
 
-	if (!fcoe_sysfs_read(buf, MAX_STR_LEN, path)) {
-		substr = strstr(buf, ifname);
-		if (substr && strlen(substr) == strlen(ifname))
-			rc = 0;
-	}
+	if (!fcoe_sysfs_read(buf, MAX_STR_LEN, path))
+		rc = check_symbolic_name_for_interface(buf, ifname);
 
 	return rc;
 }
@@ -127,4 +123,44 @@ int fcoe_checkdir(char *dir)
 		return -EINVAL;
 	closedir(d);
 	return 0;
+}
+
+char *get_ifname_from_symbolic_name(const char *symbolic_name)
+{
+	int symbolic_name_len = strlen(symbolic_name);
+	int lead_len = strlen(SYMB_NAME_LEAD);
+
+	if (lead_len < symbolic_name_len)
+		return (char *)(symbolic_name + lead_len);
+
+       return NULL;
+}
+
+int check_symbolic_name_for_interface(const char *symbolic_name,
+				      const char *ifname)
+{
+	int rc = -EINVAL;
+	char *symb;
+
+	symb = get_ifname_from_symbolic_name(symbolic_name);
+
+	/*
+	 * It's important to use the length of the ifname
+	 * from the symbolic_name here. If the ifname length
+	 * were used then if the user passed in a substring
+	 * of the the interface name it would match because
+	 * we'd only be looking for the first few characters,
+	 * not the whole string.
+	 */
+	if (symb && !strncmp(ifname, symb, strlen(symb)))
+		rc = 0;
+
+	return rc;
+}
+
+int valid_ifname(const char *ifname)
+{
+	if (strlen(ifname) > 0)
+		return 0;
+	return -EINVAL;
 }

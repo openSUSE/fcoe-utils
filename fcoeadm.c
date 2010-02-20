@@ -17,13 +17,11 @@
  * Maintained at www.Open-FCoE.org
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #include <libgen.h>
 #include <paths.h>
 #include <net/if.h>
 #include <sys/un.h>
+
 #include "fcoe_utils_version.h"
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
@@ -79,7 +77,7 @@ static int fcoeadm_check(char *ifname)
 	}
 
 	/* check target interface */
-	if (!ifname) {
+	if (valid_ifname(ifname)) {
 		fprintf(stderr, "%s: Invalid interface name\n", progname);
 		status = -EINVAL;
 	}

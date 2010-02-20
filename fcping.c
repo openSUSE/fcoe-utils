@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -53,6 +53,8 @@ typedef uint8_t u8;
 #include <scsi/fc/fc_gs.h>
 #include <scsi/fc/fc_els.h>
 #include <scsi/scsi_bsg_fc.h>
+
+#include "fcoe_utils.h"
 
 static const char *cmdname;
 
@@ -547,7 +549,9 @@ fp_find_hba(void)
 			}
 			break;
 		default:
-			if (!strstr(port_attrs.PortSymbolicName, fp_hba)) {
+			if (check_symbolic_name_for_interface(
+				    port_attrs.PortSymbolicName,
+				    fp_hba)) {
 				HBA_CloseAdapter(hba_handle);
 				continue;
 			}

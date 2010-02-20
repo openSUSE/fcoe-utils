@@ -26,9 +26,10 @@
 #include <sys/ioctl.h>
 #include <linux/types.h>
 #include <ctype.h>
-#include <stdlib.h>
+
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <dirent.h>

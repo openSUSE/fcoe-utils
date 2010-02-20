@@ -2227,75 +2227,62 @@ err:
 static int fcm_srv_create(struct fcm_srv_info *srv_info)
 {
 	struct sockaddr_un addr;
-	int s = -1;
-	int retry;
-
-	srv_info->srv_if_gid_set = 0;
-	srv_info->srv_if_gid = 0;
-	srv_info->srv_sock = -1;
+	int rc = 0;
 
 	if (mkdir(FCM_SRV_DIR, S_IRWXU | S_IRWXG) < 0) {
 		if (errno == EEXIST) {
-			FCM_LOG_DBG("fcm_srv_create: directory existed.");
+			FCM_LOG_ERR(errno, "Failed to create socket "
+				    "directory %s, this indicates that "
+				    "fcoemon was not shutdown cleanly",
+				    FCM_SRV_DIR);
 		} else {
-			FCM_LOG_ERR(errno, "fcm_srv_create: mkdir[interface]");
-			goto fail;
+			rc = errno;
+			FCM_LOG_ERR(errno, "Failed to create socket "
+				    "directory %s\n", FCM_SRV_DIR);
+			goto err;
 		}
 	}
 
-	if (srv_info->srv_if_gid_set &&
-	    chown(FCM_SRV_DIR, 0, srv_info->srv_if_gid) < 0) {
-		FCM_LOG_ERR(errno, "fcm_srv_create: chown[srv_interface]");
-		goto fail;
-	}
-
-	s = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (s < 0) {
-		FCM_LOG_ERR(errno, "socket(PF_UNIX)");
-		goto fail;
+	srv_info->srv_sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (srv_info->srv_sock < 0) {
+		FCM_LOG_ERR(errno, "Failed to create socket\n");
+		rc = errno;
+		goto err_rmdir;
 	}
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, CLIF_SOCK_FILE, sizeof(addr.sun_path));
 
-	for (retry = 0; retry < 2; retry++) {
-		if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-			if (errno == EADDRINUSE)
-				unlink(CLIF_SOCK_FILE);
-		} else {
-			break;
-		}
-	}
-	if (retry == 2) {
-		FCM_LOG_ERR(errno, "bind(PF_UNIX)");
-		goto fail;
-	}
+	/*
+	 * If there was a previous socket file unlink. If we don't
+	 * then bind will fail.
+	 */
+	unlink(CLIF_SOCK_FILE);
 
-	if (srv_info->srv_if_gid_set &&
-	    chown(CLIF_SOCK_FILE, 0, srv_info->srv_if_gid) < 0) {
-		FCM_LOG_ERR(errno, "chown[srv_interface/ifname]");
-		goto fail;
+	if (bind(srv_info->srv_sock, (struct sockaddr *)&addr,
+		 sizeof(addr)) < 0) {
+		FCM_LOG_ERR(errno, "Failed to bind socket\n");
+		rc = errno;
+		goto err_close;
 	}
 
-	if (chmod(CLIF_SOCK_FILE, S_IRWXU | S_IRWXG) < 0) {
-		FCM_LOG_ERR(errno, "chmod[srv_interface/ifname]");
-		goto fail;
-	}
+	sa_select_add_fd(srv_info->srv_sock, fcm_srv_receive,
+			 NULL, NULL, srv_info);
 
-	srv_info->srv_sock = s;
-	FCM_LOG_DBG("fcm_srv_create: created");
-	sa_select_add_fd(s, fcm_srv_receive, NULL, NULL, srv_info);
+	FCM_LOG_DBG("Successfully created socket, socket file and binding\n");
 
-	return 0;
+	return rc;
 
-fail:
-	if (s >= 0) {
-		close(s);
-		unlink(CLIF_SOCK_FILE);
-	}
+err_close:
+	close(srv_info->srv_sock);
+	unlink(CLIF_SOCK_FILE);
 
-	return -1;
+err_rmdir:
+	rmdir(FCM_SRV_DIR);
+
+err:
+	return rc;
 }
 
 static void fcm_srv_destroy(struct fcm_srv_info *srv_info)

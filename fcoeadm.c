@@ -131,9 +131,8 @@ static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
 /*
  * TODO: What is this returning? A 'enum clif_status'?
  */
-static int fcoeadm_request(int cmd, char *s)
+static int fcoeadm_request(struct clif_data *data)
 {
-	struct clif_data *data = NULL;
 	char rbuf[MAX_MSGBUF];
 	size_t len;
 	int ret;
@@ -142,14 +141,6 @@ static int fcoeadm_request(int cmd, char *s)
 		fprintf(stderr, "Not connected to fcoemon\n");
 		return -EINVAL;
 	}
-
-	data = (struct clif_data *)malloc(sizeof(struct clif_data));
-	if (data == NULL)
-		return -EINVAL;
-
-	memset(data, 0, sizeof(data));
-	data->cmd = cmd;
-	strcpy(data->ifname, s);
 
 	len = sizeof(rbuf)-1;
 
@@ -164,11 +155,9 @@ static int fcoeadm_request(int cmd, char *s)
 
 	rbuf[len] = '\0';
 	ret = atoi(rbuf);
-	free(data);
 	return ret;
 
 fail:
-	free(data);
 	return -EINVAL;
 }
 
@@ -242,13 +231,14 @@ fail:
  * TODO: This is wrong. Which is this routine returning
  * 'enum clif_status' or an -ERROR?
  */
-int fcoeadm_action(enum clif_action cmd, char *device_name)
+int fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	char *clif_ifname = NULL;
+	struct clif_data data;
 	int ret = 0;
 
-	if (!device_name)
-		return -EINVAL;
+	strncpy(&data.ifname, ifname, sizeof(&data.ifname));
+	data.cmd = cmd;
 
 	for (;;) {
 		if (clif_ifname == NULL) {
@@ -276,7 +266,7 @@ int fcoeadm_action(enum clif_action cmd, char *device_name)
 		}
 	}
 
-	ret = fcoeadm_request(cmd, device_name);
+	ret = fcoeadm_request(&data);
 
 	free(clif_ifname);
 	fcoeadm_close_cli();

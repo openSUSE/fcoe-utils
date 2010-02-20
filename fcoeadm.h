@@ -49,8 +49,6 @@
 
 #include "fcoe_utils.h"
 
-#define FCOE_MAX_LUN	255
-
 struct opt_info {
 	char ifname[IFNAMSIZ];
 	char a_flag;

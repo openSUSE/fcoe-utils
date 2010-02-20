@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,9 +26,6 @@
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 
-static char *fcoeadm_version =
-"fcoeadm v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
-
 #define CMD_RESPONSE_TIMEOUT 5
 
 static struct option fcoeadm_opts[] = {
@@ -51,7 +48,7 @@ struct clif *clif_conn;
 
 static void fcoeadm_help(void)
 {
-	printf("%s\n", fcoeadm_version);
+	printf("Version %s\n", FCOE_UTILS_VERSION);
 	printf("Usage: %s\n"
 	       "\t [-c|--create] <ethX>\n"
 	       "\t [-d|--destroy] <ethX>\n"
@@ -568,7 +565,7 @@ int main(int argc, char *argv[])
 		case 'v':
 			if (argc != 2)
 				goto error;
-			printf("%s\n", fcoeadm_version);
+			printf("%s\n", FCOE_UTILS_VERSION);
 			goto done;
 		case 'h':
 		default:

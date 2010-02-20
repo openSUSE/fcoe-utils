@@ -50,70 +50,7 @@ FCOEMON_OPTS=
 . /etc/rc.status
 rc_reset
 
-test -r $CONFIG_DIR/config || {
-	echo "$CONFIG_DIR/config not installed";
-	if [ "$1" = "stop" ]; then exit 0;
-	else
-		rc_failed
-		rc_status -v
-		rc_exit
-	fi
-}
-
-varify_yesno_values()
-{
-	value=$1
-
-	case $value in
-	    "yes" | "YES" )
-		return 1
-		;;
-	    "no" | "NO" )
-		return 2
-		;;
-	    *)
-		return 0
-		;;
-	esac
-}
-
-verify_configuration()
-{
-	. $CONFIG_DIR/config
-	varify_yesno_values $USE_SYSLOG
-	if [ $? -eq 0 ]; then
-		echo "Invalid USE_SYSLOG in $CONFIG_DIR/config"
-		return 1
-	fi
-	varify_yesno_values $DEBUG
-	if [ $? -eq 0 ]; then
-		echo "Invalid DEBUG in $CONFIG_DIR/config"
-		return 1
-	fi
-
-	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
-	do
-		. $ifcfg_file
-		varify_yesno_values $FCOE_ENABLE
-		if [ $? -eq 0 ]; then
-			echo "Invalid FCOE_ENABLE in $ifcfg_file"
-			return 1
-		fi
-		varify_yesno_values $DCB_REQUIRED
-		if [ $? -eq 0 ]; then
-			echo "Invalid DCB_REQUIRED in $ifcfg_file"
-			return 1
-		fi
-	done
-	return 0
-}
-
-verify_configuration
-if [ $? -ne 0 ]; then
-	rc_failed
-	rc_status -v
-	rc_exit
-fi
+. $CONFIG_DIR/config
 
 if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
     FCOEMON_OPTS+=" --syslog"
@@ -146,29 +83,6 @@ test -x $FCOEMON || {
 startup_fcoe_modules()
 {
 	modprobe fcoe > /dev/null 2>&1
-}
-
-validate_link_flow_control()
-{
-	ifname=$1
-
-	retry_count=1
-	while true
-	do
-		TX_STATUS=`ethtool -a $ifname 2>&1 | awk '/TX:/{print $2}'`
-		RX_STATUS=`ethtool -a $ifname 2>&1 | awk '/RX:/{print $2}'`
-
-		if [ "$TX_STATUS" = "on" ] && [ "$RX_STATUS" = "on" ]; then
-			return 0
-		fi
-
-		ethtool -A $ifname rx on tx on
-		[ $retry_count -eq 0 ] && return 0
-		retry_count=$(($retry_count-1))
-		usleep 500000
-	done
-	$LOGGER "Warning: Failed to bring up link flow control of $ifname."
-	return 1
 }
 
 start()

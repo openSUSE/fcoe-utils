@@ -34,68 +34,14 @@ FCOEADM=/usr/sbin/fcoeadm
 FCOEMON_OPTS=
 
 . /etc/init.d/functions
-
-varify_yesno_values()
-{
-	value=$1
-
-	case $value in
-	    "yes" | "YES" )
-		return 1
-		;;
-
-	    "no" | "NO" )
-		return 2
-		;;
-
-	    *)
-		return 0
-		;;
-	esac
-}
-
-verify_configuration()
-{
-	. $CONFIG_DIR/config
-	varify_yesno_values $USE_SYSLOG
-	if [ $? -eq 0 ]; then
-		echo "Invalid USE_SYSLOG in $CONFIG_DIR/config"
-		return 1
-	fi
-	varify_yesno_values $DEBUG
-	if [ $? -eq 0 ]; then
-		echo "Invalid DEBUG in $CONFIG_DIR/config"
-		return 1
-	fi
-
-	for ifcfg_file in `ls $CONFIG_DIR/cfg-eth*`
-	do
-		. $ifcfg_file
-		varify_yesno_values $FCOE_ENABLE
-		if [ $? -eq 0 ]; then
-			echo "Invalid FCOE_ENABLE in $ifcfg_file"
-			return 1
-		fi
-		varify_yesno_values $DCB_REQUIRED
-		if [ $? -eq 0 ]; then
-			echo "Invalid DCB_REQUIRED in $ifcfg_file"
-			return 1
-		fi
-	done
-	return 0
-}
-
-verify_configuration
-if [ $? -ne 0 ]; then
-    failure
-fi
+. $CONFIG_DIR/config
 
 if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
     FCOEMON_OPTS+=" --syslog"
 fi
 
 if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
-	FCOEMON_OPTS+=" --debug"
+    FCOEMON_OPTS+=" --debug"
 fi
 
 test -x $FCOEADM || {

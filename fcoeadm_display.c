@@ -275,17 +275,19 @@ show_port_info(int hba_index, int lp_index,
 	/* TODO: Display PortSupportedFc4Types and PortActiveFc4Types */
 }
 
-static void
-show_target_info(int hba_index, int lp_index, int rp_index,
-		HBA_ADAPTERATTRIBUTES *hba_info,
-		HBA_PORTATTRIBUTES *rp_info)
+static void show_target_info(const char *symbolic_name, int hba_index,
+			     int lp_index, int rp_index,
+			     HBA_ADAPTERATTRIBUTES *hba_info,
+			     HBA_PORTATTRIBUTES *rp_info)
 {
 	char buf[256];
 	u_int32_t tgt_id;
 	int rc;
+	char *ifname;
 
-	printf("Target #%d @ %s\n",
-				rp_index, hba_info->NodeSymbolicName + 5);
+	ifname = get_ifname_from_symbolic_name(symbolic_name);
+
+	printf("Target #%d @ %s\n", rp_index, ifname);
 
 	rc = sa_sys_read_line(rp_info->OSDeviceName, "roles", buf, sizeof(buf));
 	printf("    Roles:            %s\n", buf);
@@ -1359,9 +1361,9 @@ display_target_info(struct opt_info *opt_info)
 				if (is_fcp_target(&rport_attrs))
 					continue;
 
-				show_target_info(hba_index, lp_index,
-						 rp_index, &hba_attrs,
-						 &rport_attrs);
+				show_target_info(port_attrs.PortSymbolicName,
+						 hba_index, lp_index, rp_index,
+						 &hba_attrs, &rport_attrs);
 
 				scan_device_map(hba_handle, &hba_attrs,
 						&port_attrs, &rport_attrs,

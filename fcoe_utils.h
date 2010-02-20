@@ -40,7 +40,6 @@
 #define FCOE_MODULE_VERSION "v0.1"
 #define SYMB_NAME_LEAD "fcoe " FCOE_MODULE_VERSION " over "
 
-
 #define MAX_STR_LEN 512
 #define MAX_PATH_LEN MAX_STR_LEN
 

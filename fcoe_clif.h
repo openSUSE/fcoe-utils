@@ -43,7 +43,8 @@ enum clif_status {
 };
 
 enum clif_action {
-	CLIF_CREATE_CMD = 1,
+	CLIF_NONE = 0,
+	CLIF_CREATE_CMD,
 	CLIF_DESTROY_CMD,
 	CLIF_RESET_CMD,
 };

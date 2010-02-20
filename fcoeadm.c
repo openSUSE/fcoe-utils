@@ -217,11 +217,11 @@ err_close:
  * TODO: This is wrong. Which is this routine returning
  * 'enum clif_status' or an -ERROR?
  */
-int fcoeadm_action(enum clif_action cmd, char *ifname)
+static int fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	struct clif_data data;
 	struct clif_sock_info clif_info;
-	int rc = 0;
+	int rc;
 
 	strncpy(data.ifname, ifname, sizeof(data.ifname));
 	data.cmd = cmd;
@@ -233,48 +233,6 @@ int fcoeadm_action(enum clif_action cmd, char *ifname)
 	}
 
 	return rc;
-}
-
-/*
- * Create FCoE instance for this ifname
- */
-static int fcoeadm_create(char *ifname)
-{
-	if (fcoeadm_check(ifname)) {
-		fprintf(stderr,
-			"%s: Failed to create FCoE instance on %s\n",
-			progname, ifname);
-		return -EINVAL;
-	}
-	return fcoeadm_action(CLIF_CREATE_CMD, ifname);
-}
-
-/*
- * Remove FCoE instance for this ifname
- */
-static int fcoeadm_destroy(char *ifname)
-{
-	if (fcoeadm_check(ifname)) {
-		fprintf(stderr,
-			"%s: Failed to destroy FCoE instance on %s\n",
-			progname, ifname);
-		return -EINVAL;
-	}
-	return fcoeadm_action(CLIF_DESTROY_CMD, ifname);
-}
-
-/*
- * Reset the fc_host that is associated w/ this ifname
- */
-static int fcoeadm_reset(char *ifname)
-{
-	if (fcoeadm_check(ifname)) {
-		fprintf(stderr,
-			"%s: Failed to reset FCoE instance on %s\n",
-			progname, ifname);
-		return -EINVAL;
-	}
-	return fcoeadm_action(CLIF_RESET_CMD, ifname);
 }
 
 static int fcoeadm_loadhba()
@@ -352,6 +310,7 @@ static int fcoeadm_display_port_stats(struct opt_info *opt_info)
 int main(int argc, char *argv[])
 {
 	int opt, rc = 0;
+	enum clif_action cmd = CLIF_NONE;
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
@@ -360,32 +319,14 @@ int main(int argc, char *argv[])
 	if (opt != -1) {
 		switch (opt) {
 		case 'c':
-			if (argc > 3) {
-				rc = -E2BIG;
-				break;
-			}
-
-			/* Interface validation is done within fcoeadm_create */
-			rc = fcoeadm_create(optarg);
-
-			break;
-
+			cmd = CLIF_CREATE_CMD;
 		case 'd':
-			if (argc > 3) {
-				rc = -E2BIG;
-				break;
-			}
-
-			strncpy(opt_info->ifname, optarg,
-				sizeof(opt_info->ifname));
-
-			rc = fcoe_validate_interface(opt_info->ifname);
-			if (!rc)
-				rc = fcoeadm_destroy(opt_info->ifname);
-
-			break;
-
+			if (cmd == CLIF_NONE)
+				cmd = CLIF_DESTROY_CMD;
 		case 'r':
+			if (cmd == CLIF_NONE)
+				cmd = CLIF_RESET_CMD;
+
 			if (argc > 3) {
 				rc = -E2BIG;
 				break;
@@ -394,10 +335,16 @@ int main(int argc, char *argv[])
 			strncpy(opt_info->ifname, optarg,
 				sizeof(opt_info->ifname));
 
-			rc = fcoe_validate_interface(opt_info->ifname);
-			if (!rc)
-				rc = fcoeadm_reset(opt_info->ifname);
+			if (fcoeadm_check(opt_info->ifname)) {
+				rc = -EINVAL;
+				break;
+			}
 
+			if (opt != 'c')
+				rc = fcoe_validate_interface(opt_info->ifname);
+
+			if (!rc)
+				rc = fcoeadm_action(cmd, opt_info->ifname);
 			break;
 
 		case 'i':
@@ -527,7 +474,7 @@ int main(int argc, char *argv[])
 		case -ENOENT:
 		case -ENODEV:
 			fprintf(stderr, "%s: No connection created on "
-				"interface %s\n", progname, argv[optind]);
+				"interface %s\n", progname, opt_info->ifname);
 			break;
 
 		case -EINVAL:

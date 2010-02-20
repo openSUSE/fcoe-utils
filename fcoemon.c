@@ -292,8 +292,8 @@ static int fcm_read_config_files(void)
 	char val[CONFIG_MAX_VAL_LEN + 1];
 	DIR *dir;
 	struct dirent *dp;
-	struct fcoe_port *curr;
-	struct fcoe_port *next;
+	struct fcoe_port *curr = NULL;
+	struct fcoe_port *next = NULL;
 	int rc;
 
 	dir = opendir(CONFIG_DIR);

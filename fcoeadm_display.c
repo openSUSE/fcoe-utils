@@ -1238,7 +1238,7 @@ display_adapter_info(struct opt_info *opt_info)
 
 			lp_index++;
 
-			if (!valid_ifname(opt_info->ifname)) {
+			if (strlen(opt_info->ifname)) {
 				if (check_symbolic_name_for_interface(
 					    port_attrs.PortSymbolicName,
 					    opt_info->ifname))
@@ -1323,7 +1323,8 @@ display_target_info(struct opt_info *opt_info)
 			}
 
 			lp_index++;
-			if (!valid_ifname(opt_info->ifname)) {
+
+			if (strlen(opt_info->ifname)) {
 				if (check_symbolic_name_for_interface(
 					    port_attrs.PortSymbolicName,
 					    opt_info->ifname))

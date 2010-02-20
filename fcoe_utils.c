@@ -101,13 +101,40 @@ enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len)
 	return rc;
 }
 
+enum fcoe_err fcoe_validate_interface(char *ifname)
+{
+	enum fcoe_err rc = NOERR;
+	char path[MAX_PATH_LEN];
+
+
+	if (!strlen(ifname))
+		rc = ENOETHDEV;
+
+	/*
+	 * TODO: Is there a better way to check if the
+	 * interface name is correct?
+	 */
+	sprintf(path, "%s/%s", SYSFS_NET, ifname);
+	if (!rc && fcoe_checkdir(path))
+		rc = ENOETHDEV;
+
+	return rc;
+}
+
 /*
  * Validate an existing instance for an FC interface
  */
-enum fcoe_err fcoe_validate_interface(char *ifname)
+enum fcoe_err fcoe_validate_fcoe_conn(char *ifname)
 {
 	char fchost[FCHOSTBUFLEN];
-	return fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN);
+	enum fcoe_err rc = NOERR;
+
+	rc = fcoe_validate_interface(ifname);
+
+	if (!rc)
+		rc = fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN);
+
+	return rc;
 }
 
 /*
@@ -158,11 +185,4 @@ int check_symbolic_name_for_interface(const char *symbolic_name,
 		rc = 0;
 
 	return rc;
-}
-
-int valid_ifname(const char *ifname)
-{
-	if (strlen(ifname) > 0)
-		return 0;
-	return -EINVAL;
 }

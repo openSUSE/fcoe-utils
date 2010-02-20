@@ -59,32 +59,17 @@ static void fcoeadm_help(void)
 	       "\t [-h|--help]\n\n", progname);
 }
 
-/*
- * TODO - check this ifname before performing any action
- */
-static enum fcoe_err fcoeadm_check(char *ifname)
+static enum fcoe_err fcoeadm_check_fcoemon()
 {
-	char path[256];
 	int fd;
-	enum fcoe_err rc = NOERR;
-
-	/* check if we have sysfs */
-	if (fcoe_checkdir(SYSFS_MOUNT))
-		rc = ENOSYSFS;
-
-	if (!rc && valid_ifname(ifname))
-		rc = ENOETHDEV;
-
-	sprintf(path, "%s/%s", SYSFS_NET, ifname);
-
-	if (!rc && fcoe_checkdir(path))
-		rc = ENOETHDEV;
 
 	fd = open(CLIF_PID_FILE, O_RDWR, S_IRUSR | S_IWUSR);
 	if (fd < 0)
-		rc = ENOMONCONN;
+		return ENOMONCONN;
 
-	return rc;
+	close(fd);
+
+	return NOERR;
 }
 
 static enum fcoe_err fcoeadm_clif_request(struct clif_sock_info *clif_info,
@@ -290,7 +275,23 @@ int main(int argc, char *argv[])
 	enum clif_action cmd = CLIF_NONE;
 	enum fcoe_err rc = NOERR;
 
+	/*
+	 * This has to be first because the error print macro
+	 * expects progname to be valid.
+	 */
 	strncpy(progname, basename(argv[0]), sizeof(progname));
+
+	/* check if we have sysfs */
+	if (fcoe_checkdir(SYSFS_MOUNT)) {
+		rc = ENOSYSFS;
+		goto err;
+	}
+
+	/* Check if fcoemon is running */
+	rc = fcoeadm_check_fcoemon();
+	if (rc)
+		goto err;
+
 	memset(opt_info, 0, sizeof(*opt_info));
 
 	opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
@@ -316,13 +317,10 @@ int main(int argc, char *argv[])
 			strncpy(opt_info->ifname, optarg,
 				sizeof(opt_info->ifname));
 
-			if (fcoeadm_check(opt_info->ifname)) {
-				rc = -EINVAL;
-				break;
-			}
-
-			if (opt != 'c')
+			if (opt == 'c')
 				rc = fcoe_validate_interface(opt_info->ifname);
+			else
+				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 
 			if (!rc)
 				rc = fcoeadm_action(cmd, opt_info->ifname);
@@ -342,7 +340,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, argv[optind],
 					sizeof(opt_info->ifname));
 
-				rc = fcoe_validate_interface(opt_info->ifname);
+				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 			}
 
 			if (!rc)
@@ -364,7 +362,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, argv[optind],
 					sizeof(opt_info->ifname));
 
-				rc = fcoe_validate_interface(opt_info->ifname);
+				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 			}
 
 			if (!rc) {
@@ -388,7 +386,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, argv[optind],
 					sizeof(opt_info->ifname));
 
-				rc = fcoe_validate_interface(opt_info->ifname);
+				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 			}
 
 			if (!rc) {
@@ -408,7 +406,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, argv[optind],
 					sizeof(opt_info->ifname));
 
-				rc = fcoe_validate_interface(opt_info->ifname);
+				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 			}
 
 			if (!rc && ++optind != argc) {
@@ -450,6 +448,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+err:
 	if (rc) {
 		switch (rc) {
 		case ENOFCOECONN:

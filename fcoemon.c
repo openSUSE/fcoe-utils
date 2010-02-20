@@ -56,7 +56,7 @@
 #include "net_types.h"
 #include "fc_types.h"
 
-#include "fcoe_utils.h"
+#include "fcoe_utils_version.h"
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
 #include "fcoe_clif.h"

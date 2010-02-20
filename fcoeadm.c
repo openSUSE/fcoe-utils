@@ -22,7 +22,7 @@
 #endif
 #include <libgen.h>
 #include <paths.h>
-#include "fcoe_utils.h"
+#include "fcoe_utils_version.h"
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 

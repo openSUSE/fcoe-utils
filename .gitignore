@@ -15,7 +15,7 @@ missing
 # other autoconf generated files
 fcoe-utils.spec
 fcoeplumb
-fcoe_utils.h
+fcoe_utils_version.h
 
 # compile generated files
 *.o

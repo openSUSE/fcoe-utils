@@ -1,0 +1,6 @@
+#ifndef _FCOE_UTILS_VERSION_H_
+#define _FCOE_UTILS_VERSION_H_
+
+#define FCOE_UTILS_VERSION "@VERSION@"
+
+#endif /* _FCOE_UTILS_VERSION_H_ */

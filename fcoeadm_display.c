@@ -203,7 +203,6 @@ static void show_wwn(unsigned char *pWwn)
 static void
 show_hba_info(int hba_index, HBA_ADAPTERATTRIBUTES *hba_info, int flags)
 {
-	printf("\n");
 	printf("HBA #%d\n", hba_index);
 	printf("    Description:      %s\n", hba_info->ModelDescription);
 	printf("    Revision:         %s\n", hba_info->HardwareVersion);
@@ -212,6 +211,7 @@ show_hba_info(int hba_index, HBA_ADAPTERATTRIBUTES *hba_info, int flags)
 	printf("    Driver:           %s %s\n", hba_info->DriverName,
 						hba_info->DriverVersion);
 	printf("    Number of Ports:  %d\n", hba_info->NumberOfPorts);
+	printf("\n");
 }
 
 static void
@@ -222,7 +222,7 @@ show_port_info(int hba_index, int lp_index,
 	char buf[256];
 	int len = sizeof(buf);
 
-	printf("\n    Port #%d\n", lp_index);
+	printf("    Port #%d\n", lp_index);
 
 	printf("        Symbolic Name:     %s\n",
 					lp_info->PortSymbolicName);
@@ -256,7 +256,7 @@ show_port_info(int hba_index, int lp_index,
 
 	sa_enum_decode(buf, sizeof(buf), port_states, lp_info->PortState);
 	printf("        State:             %s\n", buf);
-
+	printf("\n");
 	/* TODO: Display PortSupportedFc4Types and PortActiveFc4Types */
 }
 
@@ -296,8 +296,7 @@ show_target_info(int hba_index, int lp_index, int rp_index,
 
 	sa_enum_decode(buf, sizeof(buf), port_states, rp_info->PortState);
 	printf("    State:            %s\n", buf);
-
-	printf("    \n");
+	printf("\n");
 }
 
 static void
@@ -956,8 +955,11 @@ scan_device_map(HBA_HANDLE hba_handle,
 #endif
 	}
 
+	/* Newline at the end of the short lun report */
+	if (opt_info->t_flag)
+		printf("\n");
+
 	free(map);
-	printf("\n");
 }
 
 static void

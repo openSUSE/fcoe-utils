@@ -88,9 +88,6 @@
 #define FCOE_ENABLE 	SYSFS_FCOE "/enable"
 #define FCOE_DISABLE	SYSFS_FCOE "/disable"
 
-static char *fcoemon_version =
-"fcoemon v" FCOE_UTILS_VERSION "\n Copyright (c) 2009, Intel Corporation.\n";
-
 enum fcm_srv_status {
 	fcm_success = 0,
 	fcm_fail,
@@ -2007,7 +2004,6 @@ next_port:
 
 static void fcm_usage(void)
 {
-	printf("%s\n", fcoemon_version);
 	printf("Usage: %s\n"
 	       "\t [-f|--foreground]\n"
 	       "\t [-d|--debug]\n"
@@ -2387,7 +2383,7 @@ int main(int argc, char **argv)
 			enable_syslog(1);
 			break;
 		case 'v':
-			printf("%s\n", fcoemon_version);
+			printf("%s\n", FCOE_UTILS_VERSION);
 			return 0;
 		case 'h':
 		default:

@@ -44,9 +44,10 @@ static int fcoe_sysfs_read(char *buf, int size, const char *path)
 			}
 			rc = 0;
 		}
+
+		fclose(fp);
 	}
 
-	fclose(fp);
 	return rc;
 }
 

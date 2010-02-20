@@ -2289,6 +2289,8 @@ static void fcm_srv_destroy(struct fcm_srv_info *srv_info)
 {
 	FCM_LOG_DBG("Shutdown fcmon server");
 	close(srv_info->srv_sock);
+	unlink(CLIF_SOCK_FILE);
+	rmdir(FCM_SRV_DIR);
 }
 
 int main(int argc, char **argv)
@@ -2357,19 +2359,20 @@ int main(int argc, char **argv)
 	 */
 	memset(&sig, 0, sizeof(sig));
 	sig.sa_handler = fcm_sig;
+
 	rc = sigaction(SIGINT, &sig, NULL);
 	if (rc < 0) {
-		FCM_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "Failed to register handler for SIGINT");
 		exit(1);
 	}
 	rc = sigaction(SIGTERM, &sig, NULL);
 	if (rc < 0) {
-		FCM_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "Failed to register handler for SIGTERM");
 		exit(1);
 	}
 	rc = sigaction(SIGHUP, &sig, NULL);
 	if (rc < 0) {
-		FCM_LOG_ERR(errno, "sigaction failed");
+		FCM_LOG_ERR(errno, "Failed to register handler for SIGHUP");
 		exit(1);
 	}
 	fcm_pidfile_create();

@@ -531,6 +531,7 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		case FCP_ENABLE_IF:
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
+		case FCP_SCAN_IF:
 			p->action = action;
 			break;
 		case FCP_ACTIVATE_IF:
@@ -559,6 +560,7 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		case FCP_DESTROY_IF:
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
+		case FCP_SCAN_IF:
 			p->action = action;
 			break;
 		default:
@@ -582,11 +584,13 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		}
 		break;
 	case FCP_RESET_IF:
+	case FCP_SCAN_IF:
 		switch (action) {
 		case FCP_DESTROY_IF:
 		case FCP_ENABLE_IF:
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
+		case FCP_SCAN_IF:
 			p->action = action;
 			break;
 		case FCP_ACTIVATE_IF:
@@ -1830,6 +1834,22 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
 		rc = fcm_fcoe_if_action(path, "1");
 		break;
+	case FCP_SCAN_IF:
+		FCM_LOG_DBG("OP: SCAN %s\n", p->ifname);
+		/*
+		 * This call validates that the interface name
+		 * has an active fcoe session by checking for
+		 * the fc_host in sysfs.
+		 */
+		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
+			fcm_cli_reply(p->sock_reply, CLI_FAIL);
+			return;
+		}
+
+		sprintf(path, "%s/%s/device/scsi_host/%s/scan",
+			SYSFS_FCHOST, fchost, fchost);
+		rc = fcm_fcoe_if_action(path, "- - -");
+		break;
 	default:
 		return;
 		break;
@@ -2125,7 +2145,7 @@ static int fcm_cli_destroy(char *ifname, int cmd, struct sock_info **r)
 	return fcm_fail;
 }
 
-static int fcm_cli_reset(char *ifname, int cmd, struct sock_info **r)
+static int fcm_cli_action(char *ifname, int cmd, struct sock_info **r)
 {
 	struct fcoe_port *p;
 
@@ -2208,7 +2228,14 @@ static void fcm_srv_receive(void *arg)
 		FCM_LOG_DBG("FCMON RESET\n");
 		if (fcm_save_reply(&reply, &from, fromlen, snum))
 			goto err_out;
-		if (fcm_cli_reset(ifname, FCP_RESET_IF, &reply))
+		if (fcm_cli_action(ifname, FCP_RESET_IF, &reply))
+			goto err_out;
+		break;
+	case CLIF_SCAN_CMD:
+		FCM_LOG_DBG("FCMON SCAN\n");
+		if (fcm_save_reply(&reply, &from, fromlen, snum))
+			goto err_out;
+		if (fcm_cli_action(ifname, FCP_SCAN_IF, &reply))
 			goto err_out;
 		break;
 	}

@@ -26,7 +26,7 @@
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 
-static const char *optstring = "c:d:r:itlshv";
+static const char *optstring = "c:d:r:S:itlshv";
 static struct option fcoeadm_opts[] = {
 	{"create", required_argument, 0, 'c'},
 	{"destroy", required_argument, 0, 'd'},
@@ -50,6 +50,7 @@ static void fcoeadm_help(void)
 	       "\t [-c|--create] <ethX>\n"
 	       "\t [-d|--destroy] <ethX>\n"
 	       "\t [-r|--reset] <ethX>\n"
+	       "\t [-S|--Scan] <ethX>\n"
 	       "\t [-i|--interface] [<ethX>]\n"
 	       "\t [-t|--target] [<ethX>]\n"
 	       "\t [-l|--lun] [<ethX>]\n"
@@ -326,6 +327,9 @@ int main(int argc, char *argv[])
 		case 'r':
 			if (cmd == CLIF_NONE)
 				cmd = CLIF_RESET_CMD;
+		case 'S':
+			if (cmd == CLIF_NONE)
+				cmd = CLIF_SCAN_CMD;
 
 			if (argc > 3) {
 				rc = -E2BIG;

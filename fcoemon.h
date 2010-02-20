@@ -90,6 +90,7 @@ enum fcp_action {
    FCP_CREATE_IF,       /* create FCoE interface */
    FCP_DESTROY_IF,      /* destroy FCoE interface */
    FCP_RESET_IF,        /* reset FCoE interface */
+   FCP_SCAN_IF,         /* scan FCoE interface */
    FCP_ENABLE_IF,       /* enable FCoE interface */
    FCP_DISABLE_IF,      /* disable FCoE interface */
    FCP_ACTIVATE_IF,     /* create or enable FCoE interface */

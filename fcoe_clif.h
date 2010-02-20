@@ -47,6 +47,7 @@ enum clif_action {
 	CLIF_CREATE_CMD,
 	CLIF_DESTROY_CMD,
 	CLIF_RESET_CMD,
+	CLIF_SCAN_CMD
 };
 
 /**

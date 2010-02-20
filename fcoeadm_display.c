@@ -1365,6 +1365,10 @@ display_target_info(struct opt_info *opt_info)
 						 hba_index, lp_index, rp_index,
 						 &hba_attrs, &rport_attrs);
 
+				/*
+				 * This will print the LUN table
+				 * under the target.
+				 */
 				scan_device_map(hba_handle, &hba_attrs,
 						&port_attrs, &rport_attrs,
 						opt_info);

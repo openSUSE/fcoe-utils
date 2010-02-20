@@ -45,7 +45,7 @@ log.c include/log.h include/list.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe
-dist_fcoe_config_DATA = etc/config etc/cfg-ethx
+dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## man pages for fcoeadm and fcoemon
 dist_man_MANS = doc/fcoeadm.8
@@ -70,3 +70,7 @@ init_d_SCRIPTS = etc/initd/fcoe
 
 dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec
 
+install-data-hook:
+	if [ ! -f ${fcoe_configdir}/config ] ; then \
+		cp etc/config ${fcoe_configdir}/config; \
+	fi

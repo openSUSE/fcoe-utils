@@ -312,6 +312,12 @@ static int fcoeadm_destroy(char *ifname)
  */
 static int fcoeadm_reset(char *ifname)
 {
+	if (fcoeadm_check(ifname)) {
+		fprintf(stderr,
+			"%s: Failed to reset FCoE instance on %s\n",
+			progname, ifname);
+		return -EINVAL;
+	}
 	return fcoeadm_action(FCOE_RESET_CMD, ifname);
 }
 

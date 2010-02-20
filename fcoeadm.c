@@ -477,12 +477,12 @@ int main(int argc, char *argv[])
 		switch (rc) {
 		case -ENOENT:
 		case -ENODEV:
-			fprintf(stderr, "%s: No connection created on "
-				"interface %s\n", progname, opt_info->ifname);
+			FCOE_LOG_ERR("No connection created on "
+				     "interface %s\n", opt_info->ifname);
 			break;
 
 		case -EINVAL:
-			fprintf(stderr, "%s: Invalid argument\n", progname);
+			FCOE_LOG_ERR("Invalid argument\n");
 			break;
 
 		case -E2BIG:
@@ -490,8 +490,7 @@ int main(int argc, char *argv[])
 			 * Overloading E2BIG for too many argumets
 			 * and too few arguments.
 			 */
-			fprintf(stderr, "%s: Incorrect number of arguments\n",
-				progname);
+			FCOE_LOG_ERR("Incorrect number of arguments\n");
 			break;
 
 		case -ENOSYS:
@@ -505,8 +504,7 @@ int main(int argc, char *argv[])
 			/*
 			 * This will catch EOPNOTSUPP which should never happen
 			 */
-			fprintf(stderr, "%s: Unknown error\n",
-				progname);
+			FCOE_LOG_ERR("Unknown error\n");
 			break;
 		}
 

@@ -50,6 +50,15 @@
 
 #define FCHOSTBUFLEN 64
 
+/*
+ * This macro assumes that progname has been set
+ */
+#define FCOE_LOG_ERR(fmt, args...)					\
+	do {								\
+		fprintf(stderr, "%s: " fmt, progname, ##args);		\
+	} while (0)
+
+
 int fcoe_validate_interface(char *ifname);
 int fcoe_find_fchost(char *ifname, char *fchost, int len);
 int fcoe_checkdir(char *dir);

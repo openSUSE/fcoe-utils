@@ -112,8 +112,8 @@ struct fcoe_port {
 	int dcb_required;
 
 	/* following track data required to manage FCoE interface state */
-	u_int32_t action;      /* current state */
-	u_int32_t last_action; /* last action */
+	enum fcp_action action;      /* current state */
+	enum fcp_action last_action; /* last action */
 	int last_msg_type;     /* last rtnetlink msg type received on if name */
 	struct sock_info *sock_reply;
 };

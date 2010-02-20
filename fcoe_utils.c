@@ -68,12 +68,13 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 int fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
-	int rc = -ENOENT;
 	struct dirent **namelist;
+	int rc = -ENOENT;
 
 	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
-	if (n > 0) {
-		while (n--) {
+
+	for (n-- ; n >= 0 ; n--) {
+		if (rc) {
 			/* check symbolic name */
 			if (!fcoe_check_fchost(ifname, namelist[n]->d_name)) {
 				dname_len = strnlen(namelist[n]->d_name, len);
@@ -83,19 +84,19 @@ int fcoe_find_fchost(char *ifname, char *fchost, int len)
 						dname_len + 1);
 					/* rc = 0 indicates found */
 					rc = 0;
-					break;
 				} else {
-					fprintf(stderr, "scsi_host (%s) is "
-						"too large for a buffer that "
-						"is only %d bytes large\n",
-						namelist[n]->d_name, dname_len);
-					break;
+					/*
+					 * The fc_host is too large
+					 * for the buffer.
+					 */
+					rc = -ENOMEM;
 				}
 			}
-			free(namelist[n]);
 		}
-		free(namelist);
+		free(namelist[n]);
+
 	}
+	free(namelist);
 
 	return rc;
 }

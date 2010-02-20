@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,16 +22,31 @@
 static int fcoe_sysfs_read(char *buf, int size, const char *path)
 {
 	FILE *fp;
-	int rc = 0;
+	int i, rc = -EINVAL;
 
 	fp = fopen(path, "r");
 	if (fp) {
-		if (!fgets(buf, size, fp))
-			rc = -EINVAL;
+		if (fgets(buf, size, fp)) {
+			/*
+			 * Strip trailing newline by replacing
+			 * any '\r' or '\n' instances with '\0'.
+			 * It's not as elegant as it could be, but
+			 * we know that the symbolic name won't
+			 * have either of those characters until
+			 * the end of the line.
+			 */
+			for (i = 0; i < strlen(buf); i++) {
+				if (buf[i] == '\n' ||
+				    buf[i] == '\r') {
+					buf[i] = '\0';
+					break;
+				}
+			}
+			rc = 0;
+		}
 	}
 
 	fclose(fp);
-
 	return rc;
 }
 
@@ -56,7 +71,7 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 static int fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
-	int found = 0;
+	int rc = -ENOENT;
 	struct dirent **namelist;
 
 	memset(fchost, 0, len);
@@ -66,20 +81,19 @@ static int fcoe_find_fchost(char *ifname, char *fchost, int len)
 			/* check symbolic name */
 			if (!fcoe_check_fchost(ifname, namelist[n]->d_name)) {
 				dname_len = strnlen(namelist[n]->d_name, len);
-				if (dname_len != len) {
-					/*
-					 * This assumes that d_name is always
-					 * NULL terminated.
-					 */
+
+				if (len > dname_len) {
 					strncpy(fchost, namelist[n]->d_name,
 						dname_len + 1);
-					found = 1;
+					/* rc = 0 indicates found */
+					rc = 0;
+					break;
 				} else {
 					fprintf(stderr, "scsi_host (%s) is "
 						"too large for a buffer that "
 						"is only %d bytes large\n",
 						namelist[n]->d_name, dname_len);
-					free(namelist[n]);
+					break;
 				}
 			}
 			free(namelist[n]);
@@ -87,7 +101,7 @@ static int fcoe_find_fchost(char *ifname, char *fchost, int len)
 		free(namelist);
 	}
 
-	return found;
+	return rc;
 }
 
 /*

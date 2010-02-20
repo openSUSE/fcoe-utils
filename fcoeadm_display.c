@@ -43,6 +43,10 @@
 /* Minimum byte size of the received inquiry data */
 #define MIN_INQ_DATA_SIZE       36
 
+#define FCP_TARG_STR "FCP Target"
+
+#define MAX_STR_LEN 512
+
 struct sa_nameval {
 	char        *nv_name;
 	u_int32_t   nv_val;
@@ -193,6 +197,19 @@ sa_sys_read_u32(const char *dir, const char *file, u_int32_t *vp)
 			*vp = val;
 	}
 	return rc;
+}
+
+static int is_fcp_target(HBA_PORTATTRIBUTES *rp_info)
+{
+	char buf[MAX_STR_LEN];
+
+	if (sa_sys_read_line(rp_info->OSDeviceName, "roles", buf, sizeof(buf)))
+		return -EINVAL;
+
+	if (!strncmp(buf, FCP_TARG_STR, strlen(buf)))
+		return 0;
+
+	return -EINVAL;
 }
 
 static void show_wwn(unsigned char *pWwn)
@@ -1329,6 +1346,12 @@ display_target_info(struct opt_info *opt_info)
 				if (opt_info->l_flag &&
 				    opt_info->l_fcid_present &&
 				    rport_attrs.PortFcId != opt_info->l_fcid)
+					continue;
+
+				/*
+				 * Skip any targets that are not FCP targets
+				 */
+				if (is_fcp_target(&rport_attrs))
 					continue;
 
 				show_target_info(hba_index, lp_index,

@@ -203,7 +203,7 @@ static void show_wwn(unsigned char *pWwn)
 static void
 show_hba_info(int hba_index, HBA_ADAPTERATTRIBUTES *hba_info, int flags)
 {
-	printf("HBA #%d\n", hba_index);
+	printf("Adapter #%d\n", hba_index);
 	printf("    Description:      %s\n", hba_info->ModelDescription);
 	printf("    Revision:         %s\n", hba_info->HardwareVersion);
 	printf("    Manufacturer:     %s\n", hba_info->Manufacturer);

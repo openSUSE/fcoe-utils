@@ -66,8 +66,6 @@ struct opt_info {
 	int n_interval;		/* seconds */
 };
 
-extern struct opt_info *opt_info;
-
 extern void display_adapter_info(struct opt_info *opt_info);
 extern void display_target_info(struct opt_info *opt_info);
 extern void display_port_stats(struct opt_info *opt_info);

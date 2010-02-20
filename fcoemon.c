@@ -88,8 +88,6 @@ enum fcm_srv_status {
 	fcm_no_action
 };
 
-static struct fcm_srv_data *srv_data;
-
 /*
  * fcoe service configuration data
  * Note: These information are read in from the fcoe service
@@ -2166,7 +2164,7 @@ int fcm_save_reply(struct sock_info **r, struct sockaddr_un *f, socklen_t flen,
  */
 static void fcm_srv_receive(void *arg)
 {
-	struct fcm_srv_data *fcm_srv_rdata = arg;
+	struct fcm_srv_info *srv_info = arg;
 	struct clif_data *data;
 	struct sockaddr_un from;
 	socklen_t fromlen = sizeof(struct sockaddr_un);
@@ -2175,7 +2173,7 @@ static void fcm_srv_receive(void *arg)
 	char *ifname;
 	int res, cmd, snum;
 
-	snum = fcm_srv_rdata->srv_sock;
+	snum = srv_info->srv_sock;
 	res = recvfrom(snum, buf, sizeof(buf) - 1,
 			MSG_DONTWAIT, (struct sockaddr *)&from, &fromlen);
 	if (res < 0) {
@@ -2226,7 +2224,7 @@ err:
 	sendto(snum, rbuf, MSG_RBUF, 0, (struct sockaddr *)&from, fromlen);
 }
 
-static int fcm_srv_create(struct fcm_srv_data *srv_data)
+static int fcm_srv_create(struct fcm_srv_info *srv_info)
 {
 	struct sockaddr_un addr;
 	int s = -1;
@@ -2234,12 +2232,12 @@ static int fcm_srv_create(struct fcm_srv_data *srv_data)
 	int retry;
 	size_t len;
 
-	srv_data->srv_sock = -1;
+	strncpy(srv_info->iface, CLIF_IFNAME, sizeof(CLIF_IFNAME)+1);
+	srv_info->srv_if_gid_set = 0;
+	srv_info->srv_if_gid = 0;
+	srv_info->srv_sock = -1;
 
-	if (srv_data->srv_interface == NULL)
-		return -1;
-
-	if (mkdir(srv_data->srv_interface, S_IRWXU | S_IRWXG) < 0) {
+	if (mkdir(FCM_SRV_DIR, S_IRWXU | S_IRWXG) < 0) {
 		if (errno == EEXIST) {
 			FCM_LOG_DBG("fcm_srv_create: directory existed.");
 		} else {
@@ -2248,14 +2246,13 @@ static int fcm_srv_create(struct fcm_srv_data *srv_data)
 		}
 	}
 
-	if (srv_data->srv_if_gid_set &&
-	    chown(srv_data->srv_interface, 0,
-		  srv_data->srv_if_gid) < 0) {
+	if (srv_info->srv_if_gid_set &&
+	    chown(FCM_SRV_DIR, 0, srv_info->srv_if_gid) < 0) {
 		FCM_LOG_ERR(errno, "fcm_srv_create: chown[srv_interface]");
 		goto fail;
 	}
 
-	if (strlen(srv_data->srv_interface) + 1 + strlen(srv_data->iface)
+	if (strlen(FCM_SRV_DIR) + 1 + strlen(srv_info->iface)
 	    >= sizeof(addr.sun_path))
 		goto fail;
 
@@ -2268,14 +2265,13 @@ static int fcm_srv_create(struct fcm_srv_data *srv_data)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 
-	len = strlen(srv_data->srv_interface) + strlen(srv_data->iface) + 2;
+	len = strlen(FCM_SRV_DIR) + strlen(srv_info->iface) + 2;
 	fname = malloc(len);
 	memset(fname, 0, len);
 	if (fname == NULL)
 		goto fail;
 
-	snprintf(fname, len, "%s/%s",
-		 srv_data->srv_interface, srv_data->iface);
+	snprintf(fname, len, "%s/%s", FCM_SRV_DIR, srv_info->iface);
 	fname[len - 1] = '\0';
 
 	strncpy(addr.sun_path, fname, sizeof(addr.sun_path));
@@ -2292,8 +2288,8 @@ static int fcm_srv_create(struct fcm_srv_data *srv_data)
 		goto fail;
 	}
 
-	if (srv_data->srv_if_gid_set &&
-	    chown(fname, 0, srv_data->srv_if_gid) < 0) {
+	if (srv_info->srv_if_gid_set &&
+	    chown(fname, 0, srv_info->srv_if_gid) < 0) {
 		FCM_LOG_ERR(errno, "chown[srv_interface/ifname]");
 		goto fail;
 	}
@@ -2304,9 +2300,9 @@ static int fcm_srv_create(struct fcm_srv_data *srv_data)
 	}
 	free(fname);
 
-	srv_data->srv_sock = s;
+	srv_info->srv_sock = s;
 	FCM_LOG_DBG("fcm_srv_create: created");
-	sa_select_add_fd(s, fcm_srv_receive, NULL, NULL, srv_data);
+	sa_select_add_fd(s, fcm_srv_receive, NULL, NULL, srv_info);
 
 	return 0;
 
@@ -2320,38 +2316,15 @@ fail:
 	return -1;
 }
 
-/*
- * Create fcoemon server interface
- */
-static void fcm_srv_init(void)
-{
-	if (!srv_data) {
-		srv_data = malloc(sizeof(struct fcm_srv_data));
-		if (srv_data == NULL) {
-			FCM_LOG_ERR(errno, "srv_data malloc error\n");
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	srv_data->srv_interface = (char *)FCM_SRV_DIR;
-	strncpy(srv_data->iface, CLIF_IFNAME, sizeof(CLIF_IFNAME)+1);
-	srv_data->srv_if_gid_set = 0;
-	srv_data->srv_if_gid = 0;
-
-	if (fcm_srv_create(srv_data))
-		FCM_LOG_ERR(errno, "fcm_srv_init : fcm_srv_create() failed");
-
-}
-
-static void fcm_srv_shutdown(void)
+static void fcm_srv_destroy(struct fcm_srv_info *srv_info)
 {
 	FCM_LOG_DBG("Shutdown fcmon server");
-	close(srv_data->srv_sock);
-	free(srv_data);
+	close(srv_info->srv_sock);
 }
 
 int main(int argc, char **argv)
 {
+	struct fcm_srv_info srv_info;
 	struct sigaction sig;
 	int fcm_fg = 0;
 	int rc;
@@ -2441,7 +2414,7 @@ int main(int argc, char **argv)
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
-	fcm_srv_init();
+	fcm_srv_create(&srv_info);
 	sa_select_set_callback(fcm_handle_changes);
 
 	rc = sa_select_loop();
@@ -2450,7 +2423,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	fcm_dcbd_shutdown();
-	fcm_srv_shutdown();
+	fcm_srv_destroy(&srv_info);
 	fcm_cleanup();
 	return 0;
 }

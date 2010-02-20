@@ -145,9 +145,8 @@ struct fcm_netif {
 /*
  * Description of fcoe socket server interface
  */
-struct fcm_srv_data {
+struct fcm_srv_info {
 	char iface[IFNAMSIZ+1];
-	char *srv_interface;
 	gid_t srv_if_gid;
 	int srv_if_gid_set;
 	int srv_sock;
@@ -161,8 +160,6 @@ extern char build_date[];
 static void fcm_dcbd_init(void);
 static void fcm_dcbd_shutdown(void);
 static void fcm_fcoe_init(void);
-static void fcm_srv_init(void);
-static void fcm_srv_shutdown(void);
 static struct fcm_netif *fcm_netif_lookup(char *);
 static struct fcm_netif *fcm_netif_lookup_create(char *);
 static int fcm_link_init(void);

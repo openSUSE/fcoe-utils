@@ -117,13 +117,6 @@ test -x $FCOEMON || {
 start()
 {
 	echo -n $"Starting FCoE initiator service: "
-	pidof $FCOEMON
-	if [ $? -eq 0 ]; then
-		echo "Warning: daemon already running."
-		return
-	fi
-
-	rm -f /var/run/fcoemon.*
 
 	modprobe -q libfc
 	modprobe -q fcoe
@@ -136,8 +129,8 @@ start()
 stop()
 {
 	echo -n $"Stopping FCoE initiator service: "
-	pidof $FCOEMON
-	[ $? -eq 0 ] && kill -TERM `pidof $FCOEMON`
+
+	killproc $FCOEMON
 
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*

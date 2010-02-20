@@ -175,13 +175,6 @@ start()
 {
 	echo -n $"Starting FCoE initiator service: "
 
-	checkproc ${FCOEMON}
-	if [ $? -eq 0 ]; then
-		echo "Warning: daemon already running."
-		return
-	fi
-	rm -f /var/run/fcoemon.*
-
 	startup_fcoe_modules
 
 	startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
@@ -195,8 +188,7 @@ stop()
 {
 	echo -n $"Stopping FCoE initiator service: "
 
-	checkproc $FCOEMON
-	[ $? -eq 0 ] && killproc -TERM $FCOEMON
+	killproc -TERM $FCOEMON
 
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*

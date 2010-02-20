@@ -41,7 +41,8 @@
 
 #define FCHOSTBUFLEN 64
 
-int fcoe_validate_interface(char *ifname, char *fchost, int len);
+int fcoe_validate_interface(char *ifname);
+int fcoe_find_fchost(char *ifname, char *fchost, int len);
 int fcoe_checkdir(char *dir);
 
 #endif /* _FCOE_UTILS_H_ */

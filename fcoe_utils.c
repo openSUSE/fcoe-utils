@@ -68,13 +68,12 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 	return rc;
 }
 
-static int fcoe_find_fchost(char *ifname, char *fchost, int len)
+int fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
 	int rc = -ENOENT;
 	struct dirent **namelist;
 
-	memset(fchost, 0, len);
 	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 	if (n > 0) {
 		while (n--) {
@@ -107,9 +106,10 @@ static int fcoe_find_fchost(char *ifname, char *fchost, int len)
 /*
  * Validate an existing instance for an FC interface
  */
-int fcoe_validate_interface(char *ifname, char *fchost, int len)
+int fcoe_validate_interface(char *ifname)
 {
-	return fcoe_find_fchost(ifname, fchost, len);
+	char fchost[FCHOSTBUFLEN];
+	return fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN);
 }
 
 /*

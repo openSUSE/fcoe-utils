@@ -1822,10 +1822,16 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		break;
 	case FCP_RESET_IF:
 		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);
-		if (fcoe_validate_interface(ifname, fchost, FCHOSTBUFLEN)) {
+		/*
+		 * This call validates that the interface name
+		 * has an active fcoe session by checking for
+		 * the fc_host in sysfs.
+		 */
+		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
 			fcm_cli_reply(p->sock_reply, CLI_FAIL);
 			return;
 		}
+
 		sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
 		rc = fcm_fcoe_if_action(path, "1");
 		break;

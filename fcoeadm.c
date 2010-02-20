@@ -439,7 +439,7 @@ static int fcoeadm_display_port_stats(struct opt_info *opt_info)
 
 int main(int argc, char *argv[])
 {
-	char fchost[FCHOSTBUFLEN], *s;
+	char *s;
 	int opt, rc = -1;
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
@@ -494,9 +494,7 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname,
-							    fchost,
-							    FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname))
 					goto done;
 			}
 			opt_info->a_flag = 1;
@@ -524,9 +522,7 @@ int main(int argc, char *argv[])
 					sizeof(opt_info->ifname));
 			}
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname,
-							    fchost,
-							    FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname))
 					goto done;
 			}
 			opt_info->t_flag = 1;
@@ -555,9 +551,7 @@ int main(int argc, char *argv[])
 				strncpy(opt_info->ifname, optarg,
 					sizeof(opt_info->ifname));
 			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname,
-							    fchost,
-							    FCHOSTBUFLEN))
+				if (fcoe_validate_interface(opt_info->ifname))
 					goto done;
 			}
 			opt_info->s_flag = 1;

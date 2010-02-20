@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright(c) 2009 Intel Corporation. All rights reserved.
+# Copyright(c) 2010 Intel Corporation. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -45,14 +45,13 @@ LOG_FILE="/var/log/fcoemon.log"
 FCOEMON=/usr/sbin/fcoemon
 FCOEADM=/usr/sbin/fcoeadm
 DCBD=dcbd
-LOGGER="echo"
 FCOEMON_OPTS=
 
 . /etc/rc.status
 rc_reset
 
 test -r $CONFIG_DIR/config || {
-	$LOGGER "$CONFIG_DIR/config not installed";
+	echo "$CONFIG_DIR/config not installed";
 	if [ "$1" = "stop" ]; then exit 0;
 	else
 		rc_failed
@@ -111,7 +110,6 @@ if [ $? -ne 0 ]; then
 fi
 
 if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
-    LOGGER="logger -t fcoe"
     FCOEMON_OPTS+=" --syslog"
 fi
 
@@ -120,7 +118,7 @@ if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then
 fi
 
 test -x $FCOEADM || {
-	$LOGGER "$FCOEADM not installed";
+	echo "$FCOEADM not installed";
 	if [ "$1" = "stop" ]; then exit 0;
 	else
 		rc_failed
@@ -130,7 +128,7 @@ test -x $FCOEADM || {
 }
 
 test -x $FCOEMON || {
-	$LOGGER "$FCOEMON not installed";
+	echo "$FCOEMON not installed";
 	if [ "$1" = "stop" ]; then exit 0;
 	else
 		rc_failed
@@ -171,7 +169,7 @@ service_start()
 {
 	checkproc ${FCOEMON}
 	if [ $? -eq 0 ]; then
-		$LOGGER "Warning: daemon already running."
+		echo "Warning: daemon already running."
 		return
 	fi
 	rm -f /var/run/fcoemon.*
@@ -212,17 +210,17 @@ service_status()
 
 case "$1" in
 	start)
-		$LOGGER "Service starting up"
+		echo "Service starting up"
 		service_start
 		;;
 	stop)
-		$LOGGER "Service shutting down"
+		echo "Service shutting down"
 		service_stop
 		;;
 	try-restart|condrestart)
 		if test "$1" = "condrestart"; then
-			$LOGGER "${attn} Use try-restart ${done}(LSB)${attn} " \
-				"rather than condrestart ${warn}(RH)${norm}"
+			echo "${attn} Use try-restart ${done}(LSB)${attn} " \
+			     "rather than condrestart ${warn}(RH)${norm}"
 		fi
 		$0 status
 		if test $? = 0; then
@@ -242,7 +240,7 @@ case "$1" in
 		rc_status
 		;;
 	reload)
-		$LOGGER "Service reloading"
+		echo "Service reloading"
 		rc_failed 3
 		rc_status -v
 		;;

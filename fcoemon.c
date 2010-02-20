@@ -2228,11 +2228,8 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 {
 	struct sockaddr_un addr;
 	int s = -1;
-	char *fname = NULL;
 	int retry;
-	size_t len;
 
-	strncpy(srv_info->iface, CLIF_IFNAME, sizeof(CLIF_IFNAME)+1);
 	srv_info->srv_if_gid_set = 0;
 	srv_info->srv_if_gid = 0;
 	srv_info->srv_sock = -1;
@@ -2252,10 +2249,6 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 		goto fail;
 	}
 
-	if (strlen(FCM_SRV_DIR) + 1 + strlen(srv_info->iface)
-	    >= sizeof(addr.sun_path))
-		goto fail;
-
 	s = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (s < 0) {
 		FCM_LOG_ERR(errno, "socket(PF_UNIX)");
@@ -2264,21 +2257,12 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, CLIF_SOCK_FILE, sizeof(addr.sun_path));
 
-	len = strlen(FCM_SRV_DIR) + strlen(srv_info->iface) + 2;
-	fname = malloc(len);
-	memset(fname, 0, len);
-	if (fname == NULL)
-		goto fail;
-
-	snprintf(fname, len, "%s/%s", FCM_SRV_DIR, srv_info->iface);
-	fname[len - 1] = '\0';
-
-	strncpy(addr.sun_path, fname, sizeof(addr.sun_path));
 	for (retry = 0; retry < 2; retry++) {
 		if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 			if (errno == EADDRINUSE)
-				unlink(fname);
+				unlink(CLIF_SOCK_FILE);
 		} else {
 			break;
 		}
@@ -2289,16 +2273,15 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 	}
 
 	if (srv_info->srv_if_gid_set &&
-	    chown(fname, 0, srv_info->srv_if_gid) < 0) {
+	    chown(CLIF_SOCK_FILE, 0, srv_info->srv_if_gid) < 0) {
 		FCM_LOG_ERR(errno, "chown[srv_interface/ifname]");
 		goto fail;
 	}
 
-	if (chmod(fname, S_IRWXU | S_IRWXG) < 0) {
+	if (chmod(CLIF_SOCK_FILE, S_IRWXU | S_IRWXG) < 0) {
 		FCM_LOG_ERR(errno, "chmod[srv_interface/ifname]");
 		goto fail;
 	}
-	free(fname);
 
 	srv_info->srv_sock = s;
 	FCM_LOG_DBG("fcm_srv_create: created");
@@ -2307,12 +2290,11 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 	return 0;
 
 fail:
-	if (s >= 0)
+	if (s >= 0) {
 		close(s);
-	if (fname) {
-		unlink(fname);
-		free(fname);
+		unlink(CLIF_SOCK_FILE);
 	}
+
 	return -1;
 }
 

@@ -146,7 +146,6 @@ struct fcm_netif {
  * Description of fcoe socket server interface
  */
 struct fcm_srv_info {
-	char iface[IFNAMSIZ+1];
 	gid_t srv_if_gid;
 	int srv_if_gid_set;
 	int srv_sock;

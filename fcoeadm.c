@@ -166,17 +166,10 @@ static void fcoeadm_close_cli(struct clif_sock_info *clif_info)
 /*
  * Create fcoeadm client interface
  */
-static int fcoeadm_open_cli(struct clif_sock_info *clif_info,
-			    const char *ifname)
+static int fcoeadm_open_cli(struct clif_sock_info *clif_info)
 {
-	char fcmon_file[MAX_STR_LEN];
-	int len;
 	int counter;
 	int rc = 0;
-
-	/* Add 1 for the '/' and 1 for the '\0'*/
-	len = strlen(FCM_SRV_DIR) + strlen(ifname) + 2;
-	snprintf(fcmon_file, len, "%s/%s", FCM_SRV_DIR, ifname);
 
 	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (clif_info->socket_fd < 0) {
@@ -197,8 +190,8 @@ static int fcoeadm_open_cli(struct clif_sock_info *clif_info,
 	}
 
 	clif_info->dest.sun_family = AF_UNIX;
-	snprintf(clif_info->dest.sun_path, sizeof(clif_info->dest.sun_path),
-		 "%s", fcmon_file);
+	strncpy(clif_info->dest.sun_path, CLIF_SOCK_FILE,
+		sizeof(clif_info->dest.sun_path));
 
 	if (!connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
 		     sizeof(clif_info->dest)) < 0) {
@@ -225,45 +218,20 @@ err_close:
  */
 int fcoeadm_action(enum clif_action cmd, char *ifname)
 {
-	char *clif_ifname = NULL;
 	struct clif_data data;
 	struct clif_sock_info clif_info;
-	int ret = 0;
+	int rc = 0;
 
 	strncpy(data.ifname, ifname, sizeof(data.ifname));
 	data.cmd = cmd;
 
-	for (;;) {
-		if (clif_ifname == NULL) {
-			struct dirent *dent;
-			DIR *dir = opendir(FCM_SRV_DIR);
-			if (dir) {
-				while ((dent = readdir(dir))) {
-					if (strcmp(dent->d_name, ".") == 0 ||
-						strcmp(dent->d_name, "..") == 0)
-						continue;
-					clif_ifname = strdup(dent->d_name);
-					break;
-				}
-			closedir(dir);
-			}
-		}
-
-		if (!fcoeadm_open_cli(&clif_info, clif_ifname)) {
-			break;
-		} else {
-			fprintf(stderr, "Failed to connect to fcoemon\n");
-			free(clif_ifname);
-			return -1;
-		}
+	rc = fcoeadm_open_cli(&clif_info);
+	if (!rc) {
+		rc = fcoeadm_request(&clif_info, &data);
+		fcoeadm_close_cli(&clif_info);
 	}
 
-	ret = fcoeadm_request(&clif_info, &data);
-
-	free(clif_ifname);
-	fcoeadm_close_cli(&clif_info);
-
-	return ret;
+	return rc;
 }
 
 /*

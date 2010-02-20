@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1757,7 +1757,6 @@ static void fcm_dcbd_event(char *msg, size_t len)
 			FCM_LOG_DEV_DBG(ff,
 					"Operational config changed");
 	}
-	return;
 }
 
 static void fcm_cli_reply(struct sock_info *r, int status)
@@ -2228,7 +2227,6 @@ err_out:
 err:
 	snprintf(rbuf, MSG_RBUF, "%d", CLI_FAIL);
 	sendto(snum, rbuf, MSG_RBUF, 0, (struct sockaddr *)&from, fromlen);
-	return;
 }
 
 static int fcm_srv_create(struct fcm_srv_data *srv_data)
@@ -2353,7 +2351,6 @@ static void fcm_srv_shutdown(void)
 	FCM_LOG_DBG("Shutdown fcmon server");
 	close(srv_data->srv_sock);
 	free(srv_data);
-	return;
 }
 
 int main(int argc, char **argv)

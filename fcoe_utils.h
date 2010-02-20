@@ -59,8 +59,22 @@
 	} while (0)
 
 
-int fcoe_validate_interface(char *ifname);
-int fcoe_find_fchost(char *ifname, char *fchost, int len);
+enum fcoe_err {
+	NOERR = 0,    /* No error */
+	ENOFCOECONN,  /* No FCoE connection on interface */
+	EINTERR,      /* Internal error */
+	EINVALARG,    /* Invalid argument */
+	EBADNUMARGS,  /* Invalid number of arguments */
+	EIGNORE,      /* Ignore this error value */
+	ENOSYSFS,     /* sysfs is not present */
+	ENOETHDEV,    /* Not a valid Ethernet interface */
+	ENOMONCONN,   /* Not connected to fcoemon */
+	ECONNTMOUT,   /* Connection to fcoemon timed out */
+	EHBAAPIERR,   /* Error using HBAAPI/libhbalinux */
+};
+
+enum fcoe_err fcoe_validate_interface(char *ifname);
+enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len);
 int fcoe_checkdir(char *dir);
 int check_symbolic_name_for_interface(const char *symbolic_name,
 				      const char *ifname);

@@ -65,11 +65,11 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 	return rc;
 }
 
-int fcoe_find_fchost(char *ifname, char *fchost, int len)
+enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
 	struct dirent **namelist;
-	int rc = -ENOENT;
+	int rc = ENOFCOECONN;
 
 	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 
@@ -83,13 +83,13 @@ int fcoe_find_fchost(char *ifname, char *fchost, int len)
 					strncpy(fchost, namelist[n]->d_name,
 						dname_len + 1);
 					/* rc = 0 indicates found */
-					rc = 0;
+					rc = NOERR;
 				} else {
 					/*
 					 * The fc_host is too large
 					 * for the buffer.
 					 */
-					rc = -ENOMEM;
+					rc = EINTERR;
 				}
 			}
 		}
@@ -104,7 +104,7 @@ int fcoe_find_fchost(char *ifname, char *fchost, int len)
 /*
  * Validate an existing instance for an FC interface
  */
-int fcoe_validate_interface(char *ifname)
+enum fcoe_err fcoe_validate_interface(char *ifname)
 {
 	char fchost[FCHOSTBUFLEN];
 	return fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN);

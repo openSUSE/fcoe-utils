@@ -62,52 +62,42 @@ static void fcoeadm_help(void)
 /*
  * TODO - check this ifname before performing any action
  */
-static int fcoeadm_check(char *ifname)
+static enum fcoe_err fcoeadm_check(char *ifname)
 {
 	char path[256];
 	int fd;
-	int status = 0;
+	enum fcoe_err rc = NOERR;
 
 	/* check if we have sysfs */
-	if (fcoe_checkdir(SYSFS_MOUNT)) {
-		fprintf(stderr,
-			"%s: Sysfs mount point %s not found\n",
-			progname, SYSFS_MOUNT);
-		status = -EINVAL;
-	}
+	if (fcoe_checkdir(SYSFS_MOUNT))
+		rc = ENOSYSFS;
 
-	/* check target interface */
-	if (valid_ifname(ifname)) {
-		fprintf(stderr, "%s: Invalid interface name\n", progname);
-		status = -EINVAL;
-	}
+	if (!rc && valid_ifname(ifname))
+		rc = ENOETHDEV;
+
 	sprintf(path, "%s/%s", SYSFS_NET, ifname);
-	if (fcoe_checkdir(path)) {
-		fprintf(stderr,
-			"%s: Interface %s not found\n", progname, ifname);
-		status = -EINVAL;
-	}
+
+	if (!rc && fcoe_checkdir(path))
+		rc = ENOETHDEV;
 
 	fd = open(CLIF_PID_FILE, O_RDWR, S_IRUSR | S_IWUSR);
-	if (fd < 0) {
-		fprintf(stderr,
-			"%s: fcoemon was not running\n", progname);
-		status = -EINVAL;
-	}
+	if (fd < 0)
+		rc = ENOMONCONN;
 
-	return status;
+	return rc;
 }
 
-static int fcoeadm_clif_request(struct clif_sock_info *clif_info,
-				const struct clif_data *cmd, size_t cmd_len,
-				char *reply, size_t *reply_len)
+static enum fcoe_err fcoeadm_clif_request(struct clif_sock_info *clif_info,
+					  const struct clif_data *cmd,
+					  size_t cmd_len, char *reply,
+					  size_t *reply_len)
 {
 	struct timeval tv;
 	int ret;
 	fd_set rfds;
 
 	if (send(clif_info->socket_fd, cmd, cmd_len, 0) < 0)
-		return -1;
+		return ENOMONCONN;
 
 	for (;;) {
 		tv.tv_sec = CLIF_CMD_RESPONSE_TIMEOUT;
@@ -118,45 +108,41 @@ static int fcoeadm_clif_request(struct clif_sock_info *clif_info,
 		if (FD_ISSET(clif_info->socket_fd, &rfds)) {
 			ret = recv(clif_info->socket_fd, reply, *reply_len, 0);
 			if (ret < 0)
-				return ret;
+				return EINTERR;
+
 			*reply_len = ret;
 			break;
 		} else {
-			return -2;
+			return EINTERR;
 		}
 	}
 
-	return 0;
+	return NOERR;
 }
 
-/*
- * TODO: What is this returning? A 'enum clif_status'?
- */
-static int fcoeadm_request(struct clif_sock_info *clif_info,
-			   struct clif_data *data)
+static enum fcoe_err fcoeadm_request(struct clif_sock_info *clif_info,
+				     struct clif_data *data)
 {
 	char rbuf[MAX_MSGBUF];
 	size_t len;
-	int ret;
+	int rc = NOERR;
 
-	len = sizeof(rbuf)-1;
+	/*
+	 * TODO: This is odd that we read the response code back as a
+	 * string. We should just write the error code into a member
+	 * of clif_data and then just read it directly.
+	 */
 
-	ret = fcoeadm_clif_request(clif_info, data, sizeof(struct clif_data),
-				   rbuf, &len);
-	if (ret == -2) {
-		fprintf(stderr, "Command timed out\n");
-		goto fail;
-	} else if (ret < 0) {
-		fprintf(stderr, "Command failed\n");
-		goto fail;
+	len = MAX_MSGBUF - 1;
+	rc = fcoeadm_clif_request(clif_info, data, sizeof(struct clif_data),
+				  rbuf, &len);
+
+	if (!rc) {
+		rbuf[len] = '\0';
+		rc = atoi(rbuf);
 	}
 
-	rbuf[len] = '\0';
-	ret = atoi(rbuf);
-	return ret;
-
-fail:
-	return -EINVAL;
+	return rc;
 }
 
 static void fcoeadm_close_cli(struct clif_sock_info *clif_info)
@@ -168,15 +154,14 @@ static void fcoeadm_close_cli(struct clif_sock_info *clif_info)
 /*
  * Create fcoeadm client interface
  */
-static int fcoeadm_open_cli(struct clif_sock_info *clif_info)
+static enum fcoe_err fcoeadm_open_cli(struct clif_sock_info *clif_info)
 {
 	int counter;
-	int rc = 0;
+	enum fcoe_err rc = NOERR;
 
 	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (clif_info->socket_fd < 0) {
-		/* Error code is returned through errno */
-		rc = errno;
+		rc = ENOMONCONN;
 		goto err;
 	}
 
@@ -186,8 +171,7 @@ static int fcoeadm_open_cli(struct clif_sock_info *clif_info)
 
 	if (bind(clif_info->socket_fd, (struct sockaddr *)&clif_info->local,
 		 sizeof(clif_info->local)) < 0) {
-		/* Error code is returned through errno */
-		rc = errno;
+		rc = ENOMONCONN;
 		goto err_close;
 	}
 
@@ -197,32 +181,27 @@ static int fcoeadm_open_cli(struct clif_sock_info *clif_info)
 
 	if (!connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
 		     sizeof(clif_info->dest)) < 0) {
-		/* Error code is returned through errno */
-		rc = errno;
+		rc = ENOMONCONN;
 		unlink(clif_info->local.sun_path);
 		goto err_close;
 	}
 
-err:
 	return rc;
 
 err_close:
 	close(clif_info->socket_fd);
+err:
 	return rc;
 }
 
 /*
  * Send request to fcoemon
  */
-/*
- * TODO: This is wrong. Which is this routine returning
- * 'enum clif_status' or an -ERROR?
- */
-static int fcoeadm_action(enum clif_action cmd, char *ifname)
+static enum fcoe_err fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	struct clif_data data;
 	struct clif_sock_info clif_info;
-	int rc;
+	enum fcoe_err rc;
 
 	strncpy(data.ifname, ifname, sizeof(data.ifname));
 	data.cmd = cmd;
@@ -236,43 +215,40 @@ static int fcoeadm_action(enum clif_action cmd, char *ifname)
 	return rc;
 }
 
-static int fcoeadm_loadhba()
+static enum fcoe_err fcoeadm_loadhba()
 {
-	if (HBA_STATUS_OK != HBA_LoadLibrary()) {
-		fprintf(stderr, "Failed to load Linux HBAAPI library! Please "
-			"verify the hba.conf file is set up correctly.\n");
-		return -EINVAL;
-	}
-	return 0;
-}
+	if (HBA_STATUS_OK != HBA_LoadLibrary())
+		return EHBAAPIERR;
 
+	return NOERR;
+}
 
 /*
  * Display adapter information
  */
-static int fcoeadm_display_adapter_info(struct opt_info *opt_info)
+static enum fcoe_err fcoeadm_display_adapter_info(struct opt_info *opt_info)
 {
 	if (fcoeadm_loadhba())
-		return -EINVAL;
+		return EHBAAPIERR;
 
 	display_adapter_info(opt_info);
 
 	HBA_FreeLibrary();
-	return 0;
+	return NOERR;
 }
 
 /*
  * Display target information
  */
-static int fcoeadm_display_target_info(struct opt_info *opt_info)
+static enum fcoe_err fcoeadm_display_target_info(struct opt_info *opt_info)
 {
 	if (fcoeadm_loadhba())
-		return -EINVAL;
+		return EHBAAPIERR;
 
 	display_target_info(opt_info);
 
 	HBA_FreeLibrary();
-	return 0;
+	return NOERR;
 }
 
 /*
@@ -310,8 +286,9 @@ static int fcoeadm_display_port_stats(struct opt_info *opt_info)
  */
 int main(int argc, char *argv[])
 {
-	int opt, rc = 0;
+	int opt;
 	enum clif_action cmd = CLIF_NONE;
+	enum fcoe_err rc = NOERR;
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
@@ -332,7 +309,7 @@ int main(int argc, char *argv[])
 				cmd = CLIF_SCAN_CMD;
 
 			if (argc > 3) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -353,7 +330,7 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			if (argc > 3) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -375,7 +352,7 @@ int main(int argc, char *argv[])
 
 		case 't':
 			if (argc > 3) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -399,7 +376,7 @@ int main(int argc, char *argv[])
 
 		case 'l':
 			if (argc > 3) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -423,7 +400,7 @@ int main(int argc, char *argv[])
 
 		case 's':
 			if (argc > 4) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -437,7 +414,7 @@ int main(int argc, char *argv[])
 			if (!rc && ++optind != argc) {
 				opt_info->n_interval = atoi(argv[optind]);
 				if (opt_info->n_interval <= 0)
-					rc = -EINVAL;
+					rc = EINVALARG;
 				else
 					opt_info->n_flag = 1;
 			}
@@ -451,7 +428,7 @@ int main(int argc, char *argv[])
 
 		case 'v':
 			if (argc > 2) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -460,7 +437,7 @@ int main(int argc, char *argv[])
 
 		case 'h':
 			if (argc > 2) {
-				rc = -E2BIG;
+				rc = EBADNUMARGS;
 				break;
 			}
 
@@ -468,24 +445,23 @@ int main(int argc, char *argv[])
 			break;
 
 		case '?':
-			rc = -ENOSYS;
+			rc = EIGNORE;
 			break;
 		}
 	}
 
 	if (rc) {
 		switch (rc) {
-		case -ENOENT:
-		case -ENODEV:
+		case ENOFCOECONN:
 			FCOE_LOG_ERR("No connection created on "
 				     "interface %s\n", opt_info->ifname);
 			break;
 
-		case -EINVAL:
+		case EINVALARG:
 			FCOE_LOG_ERR("Invalid argument\n");
 			break;
 
-		case -E2BIG:
+		case EBADNUMARGS:
 			/*
 			 * Overloading E2BIG for too many argumets
 			 * and too few arguments.
@@ -493,11 +469,32 @@ int main(int argc, char *argv[])
 			FCOE_LOG_ERR("Incorrect number of arguments\n");
 			break;
 
-		case -ENOSYS:
+		case EIGNORE:
 			/*
 			 * getopt_long will print the initial error, just break
 			 * through to get the --help suggestion.
 			 */
+			break;
+
+		case ENOETHDEV:
+			FCOE_LOG_ERR("Invalid interface name %s\n",
+				     opt_info->ifname);
+			break;
+
+		case ENOSYSFS:
+			FCOE_LOG_ERR("sysfs not mounted\n");
+			break;
+
+		case ENOMONCONN:
+			FCOE_LOG_ERR("Could not connect to fcoemon\n");
+			break;
+
+		case ECONNTMOUT:
+			FCOE_LOG_ERR("Connection to fcoemon timed out\n");
+			break;
+
+		case EINTERR:
+			FCOE_LOG_ERR("Internal error\n");
 			break;
 
 		default:

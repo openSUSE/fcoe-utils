@@ -26,16 +26,17 @@
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 
+static const char *optstring = "c:d:r:itlshv";
 static struct option fcoeadm_opts[] = {
-	{"create", 1, 0, 'c'},
-	{"destroy", 1, 0, 'd'},
-	{"reset", 1, 0, 'r'},
-	{"interface", 1, 0, 'i'},
-	{"target", 1, 0, 't'},
-	{"lun", 2, 0, 'l'},
-	{"stats", 1, 0, 's'},
-	{"help", 0, 0, 'h'},
-	{"version", 0, 0, 'v'},
+	{"create", required_argument, 0, 'c'},
+	{"destroy", required_argument, 0, 'd'},
+	{"reset", required_argument, 0, 'r'},
+	{"interface", no_argument, 0, 'i'},
+	{"target", no_argument, 0, 't'},
+	{"lun", no_argument, 0, 'l'},
+	{"stats", no_argument, 0, 's'},
+	{"help", no_argument, 0, 'h'},
+	{"version", no_argument, 0, 'v'},
 	{0, 0, 0, 0}
 };
 
@@ -51,8 +52,8 @@ static void fcoeadm_help(void)
 	       "\t [-r|--reset] <ethX>\n"
 	       "\t [-i|--interface] [<ethX>]\n"
 	       "\t [-t|--target] [<ethX>]\n"
-	       "\t [-l|--lun] [<target port_id> [<lun_id>]]\n"
-	       "\t [-s|--stats] <ethX> [-n <interval>]\n"
+	       "\t [-l|--lun] [<ethX>]\n"
+	       "\t [-s|--stats] <ethX> [<interval>]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
 }
@@ -276,54 +277,6 @@ static int fcoeadm_reset(char *ifname)
 	return fcoeadm_action(CLIF_RESET_CMD, ifname);
 }
 
-/*
- * Parse a user-entered hex field.
- * Format may be xx-xx-xx OR xxxxxx OR xx:xx:xx for len bytes (up to 8).
- * Leading zeros may be omitted.
- */
-static int parse_hex_ll(unsigned long long *hexp, const char *input, u_int len)
-{
-	int i;
-	unsigned long long hex = 0;
-	unsigned long long byte;
-	char *endptr = "";
-	int error = EINVAL;
-	char sep = 0;
-
-	for (i = 0; i < len; i++) {
-		byte = strtoull(input, &endptr, 16);
-		if (i == 0 && *endptr == '\0') {
-			hex = byte;
-			if (len == 8 || hex < (1ULL << (8 * len)))
-				error = 0;
-			break;
-		}
-		if (sep == 0 && (*endptr == ':' || *endptr == '-'))
-			sep = *endptr;
-		if ((*endptr == '\0' || *endptr == sep) && byte < 256)
-			hex = (hex << 8) | byte;
-		else
-			break;
-		input = endptr + 1;
-	}
-	if (i == len && *endptr == '\0')
-		error = 0;
-	if (error == 0)
-		*hexp = hex;
-	return error;
-}
-
-static int parse_fcid(HBA_UINT32 *fcid, const char *input)
-{
-	int rc;
-	unsigned long long hex;
-
-	rc = parse_hex_ll(&hex, input, 3);
-	if (rc == 0)
-		*fcid = (HBA_UINT32) hex;
-	return rc;
-}
-
 static int fcoeadm_loadhba()
 {
 	if (HBA_STATUS_OK != HBA_LoadLibrary()) {
@@ -385,162 +338,230 @@ static int fcoeadm_display_port_stats(struct opt_info *opt_info)
 
 #define MAX_ARG_LEN 32
 
+/*
+ * getopts_long(3) does not handle optional arguments
+ * correctly. It will not allow a ' ' between the option
+ * and its argument. For required arguments the user can
+ * specify, '-i X' or '-iX' but with optional arguments
+ * only the first style is valid.
+ *
+ * This is being worked around by making '-i/-t/-l' have
+ * no arguments, but then process any following argv
+ * elements.
+ */
 int main(int argc, char *argv[])
 {
-	char *s;
-	int opt, rc = -1;
+	int opt, rc = 0;
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
 	memset(opt_info, 0, sizeof(*opt_info));
 
-	while ((opt = getopt_long(argc, argv, "c:d:r:itls:n:hv",
-				  fcoeadm_opts, NULL)) != -1) {
+	opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
+	if (opt != -1) {
 		switch (opt) {
 		case 'c':
-			if ((argc < 2 || argc > 3) ||
-			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
-			     argv[1][1] != '-'))
-				goto error;
-			rc = fcoeadm_create(optarg);
-			goto done;
-		case 'd':
-			if ((argc < 2 || argc > 3) ||
-			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
-			     argv[1][1] != '-'))
-				goto error;
-			rc = fcoeadm_destroy(optarg);
-			goto done;
-		case 'r':
-			if ((argc < 2 || argc > 3) ||
-			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1) ||
-			    ((argc == 3) && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
-			     argv[1][1] != '-'))
-				goto error;
-			rc = fcoeadm_reset(optarg);
-			goto done;
-		case 'i':
-			if (argc < 2 || argc > 3 ||
-			    (argc == 3 && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
-			     (argv[1][1] != '-' || strchr(argv[1], '=')
-			      != NULL)))
-				goto error;
-			s = NULL;
-			if (argc == 2) {
-				if (argv[1][1] == '-')
-					s = strchr(argv[1], '=')+1;
-				else
-					s = argv[1]+2;
-			} else
-				s = argv[2];
-
-			if (s) {
-				if (strnlen(s, MAX_ARG_LEN) > (IFNAMSIZ - 1))
-					goto error;
-				strncpy(opt_info->ifname, s,
-					sizeof(opt_info->ifname));
-			}
-			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname))
-					goto done;
-			}
-			opt_info->a_flag = 1;
-			rc = fcoeadm_display_adapter_info(opt_info);
-			goto done;
-		case 't':
-			if (argc < 2 || argc > 3 ||
-			    (argc == 3 && strnlen(argv[1], MAX_ARG_LEN) > 2 &&
-			     (argv[1][1] != '-' || strchr(argv[1], '=')
-			      != NULL)))
-				goto error;
-			s = NULL;
-			if (argc == 2) {
-				if (argv[1][1] == '-')
-					s = strchr(argv[1], '=')+1;
-				else
-					s = argv[1]+2;
-			} else {
-				s = argv[2];
-			}
-			if (s) {
-				if (strnlen(s, MAX_ARG_LEN) > (IFNAMSIZ - 1))
-					goto error;
-				strncpy(opt_info->ifname, s,
-					sizeof(opt_info->ifname));
-			}
-			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname))
-					goto done;
-			}
-			opt_info->t_flag = 1;
-			rc = fcoeadm_display_target_info(opt_info);
-			goto done;
-		case 'l':
-			if (argc < 2 || argc > 4)
-				goto error;
-			if (optarg) {
-				if (parse_fcid(&opt_info->l_fcid, optarg))
-					goto error;
-				opt_info->l_fcid_present = 1;
-				if (argv[optind]) {
-					opt_info->l_lun_id = atoi(argv[optind]);
-					opt_info->l_lun_id_present = 1;
-				}
-			}
-			opt_info->l_flag = 1;
-			rc = fcoeadm_display_target_info(opt_info);
-			goto done;
-		case 's':
-			if ((argc < 2 || argc > 5) ||
-			    strnlen(optarg, MAX_ARG_LEN) > (IFNAMSIZ - 1))
-				goto error;
-			if (optarg)
-				strncpy(opt_info->ifname, optarg,
-					sizeof(opt_info->ifname));
-			if (strnlen(opt_info->ifname, IFNAMSIZ - 1)) {
-				if (fcoe_validate_interface(opt_info->ifname))
-					goto done;
-			}
-			opt_info->s_flag = 1;
-			if (argv[optind] && !strncmp(argv[optind], "-n", 2))
+			if (argc > 3) {
+				rc = -E2BIG;
 				break;
-			goto stats;
-		case 'n':
-			if (!opt_info->s_flag)
-				goto error;
-			opt_info->n_interval = atoi(optarg);
-			if (opt_info->n_interval <= 0)
-				goto error;
-			if (argv[optind] &&
-			    strnlen(argv[optind], MAX_ARG_LEN<<1) > MAX_ARG_LEN)
-				goto error;
-			opt_info->n_flag = 1;
-			goto stats;
+			}
+
+			/* Interface validation is done within fcoeadm_create */
+			rc = fcoeadm_create(optarg);
+
+			break;
+
+		case 'd':
+			if (argc > 3) {
+				rc = -E2BIG;
+				break;
+			}
+
+			strncpy(opt_info->ifname, optarg,
+				sizeof(opt_info->ifname));
+
+			rc = fcoe_validate_interface(opt_info->ifname);
+			if (!rc)
+				rc = fcoeadm_destroy(opt_info->ifname);
+
+			break;
+
+		case 'r':
+			if (argc > 3) {
+				rc = -E2BIG;
+				break;
+			}
+
+			strncpy(opt_info->ifname, optarg,
+				sizeof(opt_info->ifname));
+
+			rc = fcoe_validate_interface(opt_info->ifname);
+			if (!rc)
+				rc = fcoeadm_reset(opt_info->ifname);
+
+			break;
+
+		case 'i':
+			if (argc > 3) {
+				rc = -E2BIG;
+				break;
+			}
+
+			/*
+			 * If there's an aditional argument
+			 * treat it as the interface name.
+			 */
+			if (optind != argc) {
+				strncpy(opt_info->ifname, argv[optind],
+					sizeof(opt_info->ifname));
+
+				rc = fcoe_validate_interface(opt_info->ifname);
+			}
+
+			if (!rc)
+				rc = fcoeadm_display_adapter_info(opt_info);
+
+			break;
+
+		case 't':
+			if (argc > 3) {
+				rc = -E2BIG;
+				break;
+			}
+
+			/*
+			 * If there's an aditional argument
+			 * treat it as the interface name.
+			 */
+			if (optind != argc) {
+				strncpy(opt_info->ifname, argv[optind],
+					sizeof(opt_info->ifname));
+
+				rc = fcoe_validate_interface(opt_info->ifname);
+			}
+
+			if (!rc) {
+				opt_info->t_flag = 1;
+				rc = fcoeadm_display_target_info(opt_info);
+			}
+
+			break;
+
+		case 'l':
+			if (argc > 3) {
+				rc = -E2BIG;
+				break;
+			}
+
+			/*
+			 * If there's an aditional argument
+			 * treat it as the interface name.
+			 */
+			if (optind != argc) {
+				strncpy(opt_info->ifname, argv[optind],
+					sizeof(opt_info->ifname));
+
+				rc = fcoe_validate_interface(opt_info->ifname);
+			}
+
+			if (!rc) {
+				opt_info->l_flag = 1;
+				rc = fcoeadm_display_target_info(opt_info);
+			}
+
+			break;
+
+		case 's':
+			if (argc > 4) {
+				rc = -E2BIG;
+				break;
+			}
+
+			if (optind != argc) {
+				strncpy(opt_info->ifname, argv[optind],
+					sizeof(opt_info->ifname));
+
+				rc = fcoe_validate_interface(opt_info->ifname);
+			}
+
+			if (!rc && ++optind != argc) {
+				opt_info->n_interval = atoi(argv[optind]);
+				if (opt_info->n_interval <= 0)
+					rc = -EINVAL;
+				else
+					opt_info->n_flag = 1;
+			}
+
+			if (!rc) {
+				opt_info->s_flag = 1;
+				rc = fcoeadm_display_port_stats(opt_info);
+			}
+
+			break;
+
 		case 'v':
-			if (argc != 2)
-				goto error;
+			if (argc > 2) {
+				rc = -E2BIG;
+				break;
+			}
+
 			printf("%s\n", FCOE_UTILS_VERSION);
-			goto done;
+			break;
+
 		case 'h':
-		default:
-			if (argc != 2)
-				goto error;
+			if (argc > 2) {
+				rc = -E2BIG;
+				break;
+			}
+
 			fcoeadm_help();
-			exit(-EINVAL);
+			break;
+
+		case '?':
+			rc = -ENOSYS;
+			break;
 		}
 	}
-	goto error;
 
-stats:
-	if (!fcoeadm_display_port_stats(opt_info))
-		goto done;
+	if (rc) {
+		switch (rc) {
+		case -ENOENT:
+		case -ENODEV:
+			fprintf(stderr, "%s: No connection created on "
+				"interface %s\n", progname, argv[optind]);
+			break;
 
-error:
-	fprintf(stderr, "%s: Invalid command options\n", progname);
-	fcoeadm_help();
-	exit(-EINVAL);
+		case -EINVAL:
+			fprintf(stderr, "%s: Invalid argument\n", progname);
+			break;
 
-done:
+		case -E2BIG:
+			/*
+			 * Overloading E2BIG for too many argumets
+			 * and too few arguments.
+			 */
+			fprintf(stderr, "%s: Incorrect number of arguments\n",
+				progname);
+			break;
+
+		case -ENOSYS:
+			/*
+			 * getopt_long will print the initial error, just break
+			 * through to get the --help suggestion.
+			 */
+			break;
+
+		default:
+			/*
+			 * This will catch EOPNOTSUPP which should never happen
+			 */
+			fprintf(stderr, "%s: Unknown error\n",
+				progname);
+			break;
+		}
+
+		fprintf(stderr, "Try \'%s --help\' for more information.\n",
+			progname);
+	}
+
 	return rc;
 }

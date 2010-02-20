@@ -922,7 +922,6 @@ scan_device_map(HBA_HANDLE hba_handle,
 		    opt_info->l_lun_id_present &&
 		    ep->ScsiId.ScsiOSLun != opt_info->l_lun_id)
 			continue;
-
 		dev = ep->ScsiId.OSDeviceName;
 		if (strstr(dev, "/dev/") == dev)
 			dev += 5;
@@ -950,7 +949,6 @@ scan_device_map(HBA_HANDLE hba_handle,
 #endif
 		if (status != HBA_STATUS_OK)
 			continue;
-
 		if (opt_info->t_flag) {
 			if (!print_header) {
 				show_short_lun_info_header();
@@ -1230,7 +1228,7 @@ display_adapter_info(struct opt_info *opt_info)
 
 		for (j = 0; j < lport_cnt_per_hba; j++) {
 			retval = HBA_GetAdapterPortAttributes(
-					hba_handle, j, &port_attrs);
+				hba_handle, j, &port_attrs);
 			if (retval != HBA_STATUS_OK) {
 				fprintf(stderr,
 					"HBA_GetAdapterPortAttributes failed, "
@@ -1239,6 +1237,7 @@ display_adapter_info(struct opt_info *opt_info)
 			}
 
 			lp_index++;
+
 			if (!valid_ifname(opt_info->ifname)) {
 				if (check_symbolic_name_for_interface(
 					    port_attrs.PortSymbolicName,

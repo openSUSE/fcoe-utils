@@ -12,9 +12,9 @@
 .P
 \fBfcoeadm\fR [\fB\-t\fR|\fB\-\-target\fR] [\fI<ethX>\fR]
 .P
-\fBfcoeadm\fR [\fB\-l\fR|\fB\-\-lun\fR] [\fI<target_port_id>\fR [\fI<lun_id>\fR]]
+\fBfcoeadm\fR [\fB\-l\fR|\fB\-\-lun\fR] [\fI<ethX>\fR]
 .P
-\fBfcoeadm\fR [\fB\-s\fR|\fB\-\-stats\fR] [\fI<ethX>\fR [\fB\-n\fR \fI<interval>\fR]]
+\fBfcoeadm\fR [\fB\-s\fR|\fB\-\-stats\fR \fI<ethX>\fR [\fI<interval>\fR]]
 .P
 \fBfcoeadm\fR [\fB\-v\fR|\fB\-\-version\fR]
 .P
@@ -44,21 +44,21 @@ Destroys an FCoE instance based on the given \fI<ethX>\fR.
 Resets the fc_host associated with the FCoE interface given by \fI<ethX>\fR.
 .TP
 \fB\-i\fR, \fB\-\-interface\fR \fI<ethX>\fR
-Show the information of the FCoE instances created at \fI<ethX>\fR.
+Show the information of the FCoE instance created at \fI<ethX>\fR.
 If \fI<ethX>\fR is not specified the command will show the information of all the
 FCoE instances created on the system.
 .TP
 \fB\-t\fR, \fB\-\-target\fR \fI<ethX>\fR
-Show the information of all the discovered targets from the FCoE instances created
+Show the information of all the discovered targets from the FCoE instance created
 at \fI<ethX>\fR.  If \fI<ethX>\fR is not specified the command will
 show the information of all the discovered targets from all the FCoE instances created.
 .TP
-\fB\-l\fR, \fB\-\-lun\fR \fI<target_port_id>\fR \fI<lun_id>\fR
-Show the detailed information of a specific LUN with \fI<lun_id>\fR at the target
-with port id \fI<target_port_id>\fR. port id is also known as FC\-ID. If \fI<lun_id>\fR
-is not specified, all the LUNs associated with the target will be shown.
+\fB\-l\fR, \fB\-\-lun\fR \fI<ethX>\fR
+Show the information of all the discovered LUNs from the FCoE instance created
+at \fI<ethX>\fR.  If \fI<ethX>\fR is not specified the command will
+show the information of all the discovered LUNs from all the FCoE instances created.
 .TP
-\fB\-s\fR, \fB\-\-stats\fR \fI<ethX>\fR \fB\-n\fR \fI<interval>\fR
+\fB\-s\fR, \fB\-\-stats\fR \fI<ethX>\fR \fI<interval>\fR
 Show the statistics (including FC4 statistics) of the FCoE instances created at \fI<ethX>\fR.
 The information will be display in one line on the screen per given time interval. \fI<interval>\fR should
 be specified in whole intergers greater than 0. It specifies the time interval in the unit of second.
@@ -104,37 +104,22 @@ created. A brief listing of discovered LUNs are listed after each target they ar
 .IP
 $ \fBfcoeadm\fR \-t eth3
 .P
-Show the detailed information of all the LUNs associated with a specific target.
-The target is identified by its port id (aka FC\-ID) 0xD700EF.
+Show the detailed information of all the LUNs discovered on all FCoE connections.
 .IP
-$ \fBfcoeadm\fR \-l 0xD700EF
+$ \fBfcoeadm\fR \-l
 .P
+Show the detailed information of all the LUNs associated with a specific interface.
 .IP
-$ \fBfcoeadm\fR \-l D700EF
-.P
-.IP
-$ \fBfcoeadm\fR \-l 0xd700ef
-.P
-.IP
-$ \fBfcoeadm\fR \-l d700ef
-.P
-Show the detailed information of a LUN associated with a specific target.
-The target is identified by its port id (aka FC\-ID) 0xD700EF and the LUN
-is identified by its LUN id.
-.IP
-$ \fBfcoeadm\fR \-l 0xD700EF 1
+$ \fBfcoeadm\fR \-l eth3.101
 .P
 Show the statistics information of a specific port eth3 having FCoE instances created.
 The statistics are displayed one line per time interval. The default interval is one
-second if \-n option is not specified.
+second if an interval is not specified.
 .IP
 $ \fBfcoeadm\fR \-s eth3
 .P
 .IP
-$ \fBfcoeadm\fR \-s eth3 \-n 3
-.P
-.IP
-$ \fBfcoeadm\fR \-s eth3 \-n3
+$ \fBfcoeadm\fR \-s eth3 3
 .SH "REPORTING BUGS"
 If you have identified a
 defect please either file a bug or engage the development mailing list at

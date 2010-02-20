@@ -26,8 +26,6 @@
 #include "fcoeadm.h"
 #include "fcoe_clif.h"
 
-struct clif *clif_conn;
-
 static struct option fcoeadm_opts[] = {
 	{"create", 1, 0, 'c'},
 	{"destroy", 1, 0, 'd'},
@@ -98,24 +96,25 @@ static int fcoeadm_check(char *ifname)
 	return status;
 }
 
-static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
+static int fcoeadm_clif_request(struct clif_sock_info *clif_info,
+				const struct clif_data *cmd, size_t cmd_len,
 				char *reply, size_t *reply_len)
 {
 	struct timeval tv;
 	int ret;
 	fd_set rfds;
 
-	if (send(clif_conn->s, cmd, cmd_len, 0) < 0)
+	if (send(clif_info->socket_fd, cmd, cmd_len, 0) < 0)
 		return -1;
 
 	for (;;) {
 		tv.tv_sec = CLIF_CMD_RESPONSE_TIMEOUT;
 		tv.tv_usec = 0;
 		FD_ZERO(&rfds);
-		FD_SET(clif_conn->s, &rfds);
-		ret = select(clif_conn->s + 1, &rfds, NULL, NULL, &tv);
-		if (FD_ISSET(clif_conn->s, &rfds)) {
-			ret = recv(clif_conn->s, reply, *reply_len, 0);
+		FD_SET(clif_info->socket_fd, &rfds);
+		ret = select(clif_info->socket_fd + 1, &rfds, NULL, NULL, &tv);
+		if (FD_ISSET(clif_info->socket_fd, &rfds)) {
+			ret = recv(clif_info->socket_fd, reply, *reply_len, 0);
 			if (ret < 0)
 				return ret;
 			*reply_len = ret;
@@ -131,20 +130,17 @@ static int fcoeadm_clif_request(const struct clif_data *cmd, size_t cmd_len,
 /*
  * TODO: What is this returning? A 'enum clif_status'?
  */
-static int fcoeadm_request(struct clif_data *data)
+static int fcoeadm_request(struct clif_sock_info *clif_info,
+			   struct clif_data *data)
 {
 	char rbuf[MAX_MSGBUF];
 	size_t len;
 	int ret;
 
-	if (clif_conn == NULL) {
-		fprintf(stderr, "Not connected to fcoemon\n");
-		return -EINVAL;
-	}
-
 	len = sizeof(rbuf)-1;
 
-	ret = fcoeadm_clif_request(data, sizeof(struct clif_data), rbuf, &len);
+	ret = fcoeadm_clif_request(clif_info, data, sizeof(struct clif_data),
+				   rbuf, &len);
 	if (ret == -2) {
 		fprintf(stderr, "Command timed out\n");
 		goto fail;
@@ -161,67 +157,63 @@ fail:
 	return -EINVAL;
 }
 
-static void fcoeadm_close_cli(void)
+static void fcoeadm_close_cli(struct clif_sock_info *clif_info)
 {
-	if (clif_conn == NULL)
-		return;
-
-	unlink(clif_conn->local.sun_path);
-	close(clif_conn->s);
-	free(clif_conn);
-	clif_conn = NULL;
+	unlink(clif_info->local.sun_path);
+	close(clif_info->socket_fd);
 }
 
 /*
  * Create fcoeadm client interface
  */
-static struct clif *fcoeadm_open_cli(const char *ifname)
+static int fcoeadm_open_cli(struct clif_sock_info *clif_info,
+			    const char *ifname)
 {
-	char *fcmon_file = NULL;
-	int flen;
-	static int counter;
+	char fcmon_file[MAX_STR_LEN];
+	int len;
+	int counter;
+	int rc = 0;
 
-	flen = strlen(FCM_SRV_DIR) + strlen(ifname) + 2;
-	fcmon_file = malloc(flen);
-	if (fcmon_file == NULL)
-		goto fail;
-	snprintf(fcmon_file, flen, "%s/%s", FCM_SRV_DIR, ifname);
+	/* Add 1 for the '/' and 1 for the '\0'*/
+	len = strlen(FCM_SRV_DIR) + strlen(ifname) + 2;
+	snprintf(fcmon_file, len, "%s/%s", FCM_SRV_DIR, ifname);
 
-	clif_conn = malloc(sizeof(*clif_conn));
-	if (clif_conn == NULL)
-		goto fail;
-	memset(clif_conn, 0, sizeof(*clif_conn));
-
-	clif_conn->s = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (clif_conn->s < 0)
-		goto fail;
-
-	clif_conn->local.sun_family = AF_UNIX;
-	snprintf(clif_conn->local.sun_path, sizeof(clif_conn->local.sun_path),
-		    "/tmp/fcadm_clif_%d-%d", getpid(), counter++);
-	if (bind(clif_conn->s, (struct sockaddr *) &clif_conn->local,
-		    sizeof(clif_conn->local)) < 0) {
-		close(clif_conn->s);
-		goto fail;
+	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (clif_info->socket_fd < 0) {
+		/* Error code is returned through errno */
+		rc = errno;
+		goto err;
 	}
 
-	clif_conn->dest.sun_family = AF_UNIX;
-	snprintf(clif_conn->dest.sun_path, sizeof(clif_conn->dest.sun_path),
-			"%s", fcmon_file);
-	if (connect(clif_conn->s, (struct sockaddr *) &clif_conn->dest,
-		    sizeof(clif_conn->dest)) < 0) {
-		close(clif_conn->s);
-		unlink(clif_conn->local.sun_path);
-		goto fail;
+	clif_info->local.sun_family = AF_UNIX;
+	snprintf(clif_info->local.sun_path, sizeof(clif_info->local.sun_path),
+		 "/tmp/fcadm_clif_%d-%d", getpid(), counter++);
+
+	if (bind(clif_info->socket_fd, (struct sockaddr *)&clif_info->local,
+		 sizeof(clif_info->local)) < 0) {
+		/* Error code is returned through errno */
+		rc = errno;
+		goto err_close;
 	}
 
-	free(fcmon_file);
-	return clif_conn;
+	clif_info->dest.sun_family = AF_UNIX;
+	snprintf(clif_info->dest.sun_path, sizeof(clif_info->dest.sun_path),
+		 "%s", fcmon_file);
 
-fail:
-	free(fcmon_file);
-	free(clif_conn);
-	return NULL;
+	if (!connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
+		     sizeof(clif_info->dest)) < 0) {
+		/* Error code is returned through errno */
+		rc = errno;
+		unlink(clif_info->local.sun_path);
+		goto err_close;
+	}
+
+err:
+	return rc;
+
+err_close:
+	close(clif_info->socket_fd);
+	return rc;
 }
 
 /*
@@ -235,9 +227,10 @@ int fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	char *clif_ifname = NULL;
 	struct clif_data data;
+	struct clif_sock_info clif_info;
 	int ret = 0;
 
-	strncpy(&data.ifname, ifname, sizeof(&data.ifname));
+	strncpy(data.ifname, ifname, sizeof(data.ifname));
 	data.cmd = cmd;
 
 	for (;;) {
@@ -256,8 +249,7 @@ int fcoeadm_action(enum clif_action cmd, char *ifname)
 			}
 		}
 
-		clif_conn = fcoeadm_open_cli(clif_ifname);
-		if (clif_conn) {
+		if (!fcoeadm_open_cli(&clif_info, clif_ifname)) {
 			break;
 		} else {
 			fprintf(stderr, "Failed to connect to fcoemon\n");
@@ -266,10 +258,10 @@ int fcoeadm_action(enum clif_action cmd, char *ifname)
 		}
 	}
 
-	ret = fcoeadm_request(&data);
+	ret = fcoeadm_request(&clif_info, &data);
 
 	free(clif_ifname);
-	fcoeadm_close_cli();
+	fcoeadm_close_cli(&clif_info);
 
 	return ret;
 }

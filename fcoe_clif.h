@@ -51,8 +51,8 @@ enum clif_action {
  *
  * This structure is used by fcoeadm client interface to store internal data.
  */
-struct clif {
-	int s;
+struct clif_sock_info {
+	int socket_fd;
 	struct sockaddr_un local;
 	struct sockaddr_un dest;
 };

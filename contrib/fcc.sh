@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.2 10/07/2009"
+VERSION="fcc v1.0.3 02/19/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -41,6 +41,7 @@ cmd:
 	luns		Show LUN list and status
 	stats		Show HBA statistics
 	reset		Reset the HBA
+	scan		Scan the HBA
 	version		Show version
 USAGE
 }
@@ -366,22 +367,33 @@ fcoe_ctl() {
 
 fc_host_ctl() {
 	local hba=$1
+	local host=$1
 	local cmd=$2
-	local value=$3
+	local value
 	local file
 	local dir
 
-	dir=$fdir/$hba
+	dir=$fdir/$host
 	if [ ! -d "$dir" ]
 	then
-		dir=$fdir/`hba_name $hba`
+		host=`hba_name $hba`
+		dir=$fdir/$host
 		if [ $? != 0 ]
 		then
 			echo "$cmdname: hba $hba not found" >&2
 			exit 1
 		fi
 	fi
-	file=$dir/$cmd
+
+	case "$cmd" in
+		reset)
+			file=$dir/issue_lip
+			value=1
+		;;
+		scan)
+			file=$dir/device/scsi_host/$host/scan
+			value="- - -"
+	esac
 
 	if [ -w "$file" ]
 	then
@@ -478,16 +490,15 @@ case "$cmd" in
 	realname)
 		hba_name $hba
 		;;
-	reset)
+	reset | scan)
 		if [ "$hba_spec" != y ]
 		then
-			echo "$cmdname: reset requires hba name" >&2
+			echo "$cmdname: $cmd requires hba name" >&2
 			exit 2
 		fi
 		for hba in $hbas
 		do
-			(fc_host_ctl $hba issue_lip 1 &&
-				 echo "reset $hba") || break
+			fc_host_ctl $hba $cmd || break
 		done
 		;;
 	version)

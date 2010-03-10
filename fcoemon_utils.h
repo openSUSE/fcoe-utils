@@ -230,21 +230,6 @@ int sa_select_loop(void);
 void sa_select_set_callback(void (*)(void));
 
 /*
- * Add a deferred function call.  The function is called at the start
- * of the next select loop cycle.
- * Returns a handle to the deferred call object on success, or NULL on memory
- * allocation failure.
- */
-void *sa_select_add_deferred_callback(void (*func)(void *), void *arg);
-
-/*
- * Delete a deferred function call.
- * Takes the handle returned by sa_select_add_deferred_callback as an argument.
- */
-void sa_select_del_deferred_callback(void *handle);
-
-
-/*
  * Add a callback to handle files which are ready for receive, transmit,
  * or to handle exceptions.
  */

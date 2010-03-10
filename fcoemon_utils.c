@@ -469,23 +469,6 @@ static struct sa_sel_state {
 	TAILQ_HEAD(, sa_defer_ent) ts_defer_list;
 } sa_sel_state;
 
-static void
-sa_select_call_deferred_funcs(void)
-{
-	struct sa_sel_state *ss = &sa_sel_state;
-	struct sa_defer_ent *de, *de_next;
-
-	de = ss->ts_defer_list.tqh_first;
-	TAILQ_INIT(&ss->ts_defer_list);
-
-	for (; de != NULL; de = de_next) {
-		de_next = de->de_next.tqe_next;
-		if (de->de_func != NULL)
-			(*de->de_func)(de->de_arg);
-		free(de);
-	}
-}
-
 int sa_select_loop(void)
 {
 	struct sa_sel_state *ss = &sa_sel_state;
@@ -502,14 +485,7 @@ int sa_select_loop(void)
 		sa_timer_check(&tval);
 		if (ss->ts_exit)
 			break;
-		if (ss->ts_defer_list.tqh_first != NULL) {
-			/*
-			 * If a timer or deferred function added a new deferred
-			 * function, just poll through select (zero-timeout).
-			 */
-			tval.tv_sec = tval.tv_usec = 0;
-			tvp = &tval;
-		} else if (tval.tv_sec == 0 && tval.tv_usec == 0)
+		if (tval.tv_sec == 0 && tval.tv_usec == 0)
 			tvp = NULL;
 		else
 			tvp = &tval;
@@ -552,8 +528,6 @@ int sa_select_loop(void)
 		}
 		if (ss->ts_callback != NULL)
 			(*ss->ts_callback)();
-		if (ss->ts_defer_list.tqh_first != NULL)
-			sa_select_call_deferred_funcs();
 	}
 	return 0;
 }
@@ -651,40 +625,6 @@ void
 sa_select_set_callback(void (*cb)(void))
 {
 	sa_sel_state.ts_callback = cb;
-}
-
-/*
- * Add a deferred function call.
- */
-void *
-sa_select_add_deferred_callback(void (*func)(void *), void *arg)
-{
-	struct sa_sel_state *ss = &sa_sel_state;
-	struct sa_defer_ent *de;
-
-	ASSERT(func != NULL);
-
-	de = malloc(sizeof(*de));
-	if (de != NULL) {
-		de->de_func = func;
-		de->de_arg = arg;
-		if (ss->ts_defer_list.tqh_first == NULL)
-			TAILQ_INIT(&ss->ts_defer_list);
-		TAILQ_INSERT_TAIL(&ss->ts_defer_list, de, de_next);
-	}
-
-	return de;
-}
-
-/*
- * Delete (cancel) a deferred function call.
- */
-void
-sa_select_del_deferred_callback(void *handle)
-{
-	struct sa_defer_ent *de = handle;
-
-	de->de_func = NULL;
 }
 
 /*

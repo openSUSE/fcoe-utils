@@ -75,11 +75,11 @@ enum fcoe_err {
 };
 
 enum fcoe_err fcoe_validate_interface(char *ifname);
+enum fcoe_err fcoe_validate_fcoe_conn(char *ifname);
 enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len);
 int fcoe_checkdir(char *dir);
 int check_symbolic_name_for_interface(const char *symbolic_name,
 				      const char *ifname);
 char *get_ifname_from_symbolic_name(const char *symbolic_name);
-int valid_ifname(const char *ifname);
 
 #endif /* _FCOE_UTILS_H_ */

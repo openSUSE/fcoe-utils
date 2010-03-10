@@ -48,23 +48,17 @@
 #include "hbaapi.h"
 #include "fcoe_utils.h"
 
-struct opt_info {
-	char ifname[IFNAMSIZ];
-	char a_flag;
-	char t_flag;
-	char l_flag;
-	char l_fcid_present;
-	HBA_UINT32 l_fcid;
-	char l_lun_id_present;
-	u_int32_t l_lun_id;
-	char s_flag;
-	char n_flag;
-	#define DEFAULT_STATS_INTERVAL	1
-	int n_interval;		/* seconds */
+#define DEFAULT_STATS_INTERVAL	1
+
+enum disp_style {
+	DISP_LUN = 0,
+	DISP_TARG,
 };
 
-enum fcoe_err display_adapter_info(struct opt_info *opt_info);
-enum fcoe_err display_target_info(struct opt_info *opt_info);
-enum fcoe_err display_port_stats(struct opt_info *opt_info);
+enum fcoe_err display_adapter_info(const char *ifname);
+enum fcoe_err display_target_info(const char *ifname,
+				  enum disp_style style);
+enum fcoe_err display_port_stats(const char *ifname,
+				 int stat_interval);
 
 #endif /* _FCOEADM_H_ */

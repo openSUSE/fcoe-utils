@@ -905,7 +905,8 @@ scan_device_map(HBA_HANDLE hba_handle,
 		HBA_ADAPTERATTRIBUTES *hba_info,
 		HBA_PORTATTRIBUTES *lp_info,
 		HBA_PORTATTRIBUTES *rp_info,
-		struct opt_info *opt_info)
+		const char *ifname,
+		enum disp_style style)
 {
 	HBA_STATUS status;
 	HBA_FCP_TARGET_MAPPING *map = NULL;
@@ -929,11 +930,6 @@ scan_device_map(HBA_HANDLE hba_handle,
 		if (ep->FcpId.FcId != rp_info->PortFcId)
 			continue;
 
-		if (opt_info->l_flag &&
-		    opt_info->l_fcid_present &&
-		    opt_info->l_lun_id_present &&
-		    ep->ScsiId.ScsiOSLun != opt_info->l_lun_id)
-			continue;
 		dev = ep->ScsiId.OSDeviceName;
 		if (strstr(dev, "/dev/") == dev)
 			dev += 5;
@@ -961,15 +957,19 @@ scan_device_map(HBA_HANDLE hba_handle,
 #endif
 		if (status != HBA_STATUS_OK)
 			continue;
-		if (opt_info->t_flag) {
+		switch (style) {
+		case DISP_TARG:
 			if (!print_header) {
 				show_short_lun_info_header();
 				print_header = 1;
 			}
 			show_short_lun_info(ep, inqbuf, &rcap_resp);
-		} else if (opt_info->l_flag)
+			break;
+		case DISP_LUN:
 			show_full_lun_info(hba_handle, hba_info, lp_info,
-				rp_info, ep, inqbuf, &rcap_resp);
+					   rp_info, ep, inqbuf, &rcap_resp);
+			break;
+		}
 
 #ifdef TEST_REPORT_LUNS
 		if (i == 0) {	/* only issue report luns to the first LUN */
@@ -983,25 +983,24 @@ scan_device_map(HBA_HANDLE hba_handle,
 	}
 
 	/* Newline at the end of the short lun report */
-	if (opt_info->t_flag)
+	if (style == DISP_TARG)
 		printf("\n");
 
 	free(map);
 }
 
-static void
-show_port_stats_header(struct opt_info *opt_info)
+static void show_port_stats_header(const char *ifname, int interval)
 {
 	printf("\n");
 	printf("%-7s interval: %-2d                                    Err  Inv  "
-		"IvTx Link Cntl Input     Input     Output    Output\n",
-		 opt_info->ifname, opt_info->n_interval);
+	       "IvTx Link Cntl Input     Input     Output    Output\n",
+	       ifname, interval);
 	printf("Seconds TxFrames  TxBytes      RxFrames  RxBytes        "
-		"Frms CRC  Byte Fail Reqs Requests  MBytes    "
-		"Requests  MBytes\n");
+	       "Frms CRC  Byte Fail Reqs Requests  MBytes    "
+	       "Requests  MBytes\n");
 	printf("------- --------- ------------ --------- -------------- "
-		"---- ---- ---- ---- ---- --------- --------- "
-		"--------- ---------\n");
+	       "---- ---- ---- ---- ---- --------- --------- "
+	       "--------- ---------\n");
 }
 
 static void
@@ -1135,7 +1134,7 @@ static int get_index_for_ifname(struct hba_name_table *hba_table,
 	return -EINVAL;
 }
 
-enum fcoe_err display_port_stats(struct opt_info *opt_info)
+enum fcoe_err display_port_stats(const char *ifname, int interval)
 {
 	HBA_STATUS retval;
 	HBA_HANDLE hba_handle;
@@ -1152,8 +1151,7 @@ enum fcoe_err display_port_stats(struct opt_info *opt_info)
 
 	num_hbas = hba_table_init(hba_table);
 
-	i = get_index_for_ifname(hba_table, num_hbas,
-				 opt_info->ifname);
+	i = get_index_for_ifname(hba_table, num_hbas, ifname);
 
 	/*
 	 * Return error code if a valid index wasn't returned.
@@ -1183,7 +1181,7 @@ enum fcoe_err display_port_stats(struct opt_info *opt_info)
 		if (retval == HBA_STATUS_ERROR_NOT_SUPPORTED) {
 			fprintf(stderr,
 				"Port Statistics not supported by %s\n",
-				opt_info->ifname);
+				ifname);
 			break;
 		}
 
@@ -1203,16 +1201,16 @@ enum fcoe_err display_port_stats(struct opt_info *opt_info)
 		if (retval == HBA_STATUS_ERROR_NOT_SUPPORTED) {
 			fprintf(stderr,
 				"Port FC4 Statistics not supported by %s\n",
-				opt_info->ifname);
+				ifname);
 			break;
 		}
 		if (!(i % 52))
-			show_port_stats_header(opt_info);
+			show_port_stats_header(ifname, interval);
 		show_port_stats_in_row(start_time, &port_stats, &port_fc4stats);
 		i++;
 
 		/* wait for the requested time interval in seconds */
-		secs_left = opt_info->n_interval;
+		secs_left = interval;
 		do {
 			secs_left = sleep(secs_left);
 		} while (secs_left);
@@ -1223,7 +1221,7 @@ enum fcoe_err display_port_stats(struct opt_info *opt_info)
 	return rc;
 }
 
-enum fcoe_err display_adapter_info(struct opt_info *opt_info)
+enum fcoe_err display_adapter_info(const char *ifname)
 {
 	struct hba_name_table hba_table[MAX_HBA_COUNT];
 	enum fcoe_err rc = NOERR;
@@ -1244,10 +1242,9 @@ enum fcoe_err display_adapter_info(struct opt_info *opt_info)
 		    hba_table[i].displayed)
 			continue;
 
-		if (strlen(opt_info->ifname) &&
-		    check_symbolic_name_for_interface(
+		if (ifname && check_symbolic_name_for_interface(
 			    hba_table[i].port_attrs.PortSymbolicName,
-			    opt_info->ifname)) {
+			    ifname)) {
 			/*
 			 * Overloading 'displayed' to indicate
 			 * that the HBA/Port should be skipped.
@@ -1265,10 +1262,9 @@ enum fcoe_err display_adapter_info(struct opt_info *opt_info)
 		 * Loop through HBAs again to print sub-ports.
 		 */
 		for (j = 0; j < num_hbas ; j++) {
-			if (strlen(opt_info->ifname) &&
-			    check_symbolic_name_for_interface(
+			if (ifname && check_symbolic_name_for_interface(
 				    hba_table[j].port_attrs.PortSymbolicName,
-				    opt_info->ifname)) {
+				    ifname)) {
 				/*
 				 * Overloading 'displayed' to indicate
 				 * that the HBA/Port should be skipped.
@@ -1294,7 +1290,8 @@ enum fcoe_err display_adapter_info(struct opt_info *opt_info)
 	return rc;
 }
 
-enum fcoe_err display_target_info(struct opt_info *opt_info)
+enum fcoe_err display_target_info(const char *ifname,
+				  enum disp_style style)
 {
 	HBA_STATUS retval;
 	HBA_PORTATTRIBUTES rport_attrs;
@@ -1317,10 +1314,9 @@ enum fcoe_err display_target_info(struct opt_info *opt_info)
 		    hba_table[i].displayed)
 			continue;
 
-		if (strlen(opt_info->ifname) &&
-		    check_symbolic_name_for_interface(
+		if (ifname && check_symbolic_name_for_interface(
 			    hba_table[i].port_attrs.PortSymbolicName,
-			    opt_info->ifname)) {
+			    ifname)) {
 			/*
 			 * Overloading 'displayed' to indicate
 			 * that the HBA/Port should be skipped.
@@ -1349,16 +1345,6 @@ enum fcoe_err display_target_info(struct opt_info *opt_info)
 			}
 
 			/*
-			 * If -l option and fcid are specified in the
-			 * command, filter out the targets do not have
-			 * port ID equals to fcid.
-			 */
-			if (opt_info->l_flag &&
-			    opt_info->l_fcid_present &&
-			    rport_attrs.PortFcId != opt_info->l_fcid)
-				continue;
-
-			/*
 			 * Skip any targets that are not FCP targets
 			 */
 			if (is_fcp_target(&rport_attrs))
@@ -1377,7 +1363,7 @@ enum fcoe_err display_target_info(struct opt_info *opt_info)
 			scan_device_map(hba_table[i].hba_handle,
 					&hba_table[i].hba_attrs,
 					&hba_table[i].port_attrs,
-					&rport_attrs, opt_info);
+					&rport_attrs, ifname, style);
 		}
 	}
 

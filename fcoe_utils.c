@@ -171,7 +171,7 @@ int check_symbolic_name_for_interface(const char *symbolic_name,
 	int rc = -EINVAL;
 	char *symb;
 
-	if (!strlen(ifname))
+	if (!ifname)
 		return rc;
 
 	symb = get_ifname_from_symbolic_name(symbolic_name);

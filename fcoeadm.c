@@ -40,7 +40,6 @@ static struct option fcoeadm_opts[] = {
 	{0, 0, 0, 0}
 };
 
-struct opt_info _opt_info, *opt_info = &_opt_info;
 char progname[20];
 
 static void fcoeadm_help(void)
@@ -214,9 +213,10 @@ static enum fcoe_err fcoeadm_action(enum clif_action cmd, char *ifname)
  */
 int main(int argc, char *argv[])
 {
-	int opt;
 	enum clif_action cmd = CLIF_NONE;
 	enum fcoe_err rc = NOERR;
+	int opt, stat_interval;
+	char *ifname = NULL;
 
 	/*
 	 * This has to be first because the error print macro
@@ -234,8 +234,6 @@ int main(int argc, char *argv[])
 	rc = fcoeadm_check_fcoemon();
 	if (rc)
 		goto err;
-
-	memset(opt_info, 0, sizeof(*opt_info));
 
 	opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
 	if (opt != -1) {
@@ -257,19 +255,18 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			strncpy(opt_info->ifname, optarg,
-				sizeof(opt_info->ifname));
+			ifname = optarg;
 
 			if (opt == 'c') {
-				rc = fcoe_validate_interface(opt_info->ifname);
+				rc = fcoe_validate_interface(ifname);
 				if (!rc &&
-				    !fcoe_validate_fcoe_conn(opt_info->ifname))
+				    !fcoe_validate_fcoe_conn(ifname))
 					rc = EFCOECONN;
 			} else
-				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
+				rc = fcoe_validate_fcoe_conn(ifname);
 
 			if (!rc)
-				rc = fcoeadm_action(cmd, opt_info->ifname);
+				rc = fcoeadm_action(cmd, ifname);
 			break;
 
 		case 'i':
@@ -283,14 +280,12 @@ int main(int argc, char *argv[])
 			 * treat it as the interface name.
 			 */
 			if (optind != argc) {
-				strncpy(opt_info->ifname, argv[optind],
-					sizeof(opt_info->ifname));
-
-				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
 			}
 
 			if (!rc)
-				rc = display_adapter_info(opt_info);
+				rc = display_adapter_info(ifname);
 
 			break;
 
@@ -305,16 +300,12 @@ int main(int argc, char *argv[])
 			 * treat it as the interface name.
 			 */
 			if (optind != argc) {
-				strncpy(opt_info->ifname, argv[optind],
-					sizeof(opt_info->ifname));
-
-				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
 			}
 
-			if (!rc) {
-				opt_info->t_flag = 1;
-				rc = display_target_info(opt_info);
-			}
+			if (!rc)
+				rc = display_target_info(ifname, DISP_TARG);
 
 			break;
 
@@ -329,16 +320,12 @@ int main(int argc, char *argv[])
 			 * treat it as the interface name.
 			 */
 			if (optind != argc) {
-				strncpy(opt_info->ifname, argv[optind],
-					sizeof(opt_info->ifname));
-
-				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
 			}
 
-			if (!rc) {
-				opt_info->l_flag = 1;
-				rc = display_target_info(opt_info);
-			}
+			if (!rc)
+				rc = display_target_info(ifname, DISP_LUN);
 
 			break;
 
@@ -349,26 +336,19 @@ int main(int argc, char *argv[])
 			}
 
 			if (optind != argc) {
-				strncpy(opt_info->ifname, argv[optind],
-					sizeof(opt_info->ifname));
-
-				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
 			}
 
 			if (!rc && ++optind != argc) {
-				opt_info->n_interval = atoi(argv[optind]);
-				if (opt_info->n_interval <= 0)
+				stat_interval = atoi(argv[optind]);
+				if (stat_interval <= 0)
 					rc = EINVALARG;
-				else
-					opt_info->n_flag = 1;
 			} else if (!rc && optind == argc)
-				opt_info->n_interval = DEFAULT_STATS_INTERVAL;
+				stat_interval = DEFAULT_STATS_INTERVAL;
 
-			if (!rc) {
-				opt_info->s_flag = 1;
-				rc = display_port_stats(opt_info);
-			}
-
+			if (!rc)
+				rc = display_port_stats(ifname, stat_interval);
 			break;
 
 		case 'v':
@@ -400,12 +380,12 @@ err:
 		switch (rc) {
 		case EFCOECONN:
 			FCOE_LOG_ERR("Connection already created on "
-				     "interface %s\n", opt_info->ifname);
+				     "interface %s\n", ifname);
 			break;
 
 		case ENOFCOECONN:
 			FCOE_LOG_ERR("No connection created on "
-				     "interface %s\n", opt_info->ifname);
+				     "interface %s\n", ifname);
 			break;
 
 		case EINVALARG:
@@ -428,8 +408,7 @@ err:
 			break;
 
 		case ENOETHDEV:
-			FCOE_LOG_ERR("Invalid interface name %s\n",
-				     opt_info->ifname);
+			FCOE_LOG_ERR("Invalid interface name %s\n", ifname);
 			break;
 
 		case ENOSYSFS:

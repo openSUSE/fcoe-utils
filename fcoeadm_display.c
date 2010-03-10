@@ -17,7 +17,29 @@
  * Maintained at www.Open-FCoE.org
  */
 
-#include "fcoeadm.h"
+#include <sys/param.h>
+#include <sys/ioctl.h>
+#include <linux/types.h>
+#include <ctype.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <time.h>
+#include <malloc.h>
+#include <pthread.h>
+#include <limits.h>
+#include <scsi/sg.h>
+#include <byteswap.h>
+#include <net/if.h>
+#include <unistd.h>
+
+#include "net_types.h"
+#include "fc_types.h"
+#include "fc_scsi.h"
+#include "hbaapi.h"
+#include "fcoeadm_display.h"
+#include "fcoe_utils.h"
 
 /* #define TEST_HBAAPI_V1 */
 #ifdef TEST_HBAAPI_V1

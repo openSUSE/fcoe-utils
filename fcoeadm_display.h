@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,36 +17,8 @@
  * Maintained at www.Open-FCoE.org
  */
 
-#ifndef _FCOEADM_H_
-#define _FCOEADM_H_
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/param.h>
-#include <sys/ioctl.h>
-#include <linux/types.h>
-#include <ctype.h>
-
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <time.h>
-#include <fcntl.h>
-#include <malloc.h>
-#include <pthread.h>
-#include <limits.h>
-#include <scsi/sg.h>
-#include <getopt.h>
-#include <byteswap.h>
-#include <net/if.h>
-#include "net_types.h"
-#include "fc_types.h"
-#include "fc_scsi.h"
-#include "hbaapi.h"
-#include "fcoe_utils.h"
+#ifndef _FCOEADM_DISPLAY_H_
+#define _FCOEADM_DISPLAY_H_
 
 #define DEFAULT_STATS_INTERVAL	1
 
@@ -61,4 +33,4 @@ enum fcoe_err display_target_info(const char *ifname,
 enum fcoe_err display_port_stats(const char *ifname,
 				 int stat_interval);
 
-#endif /* _FCOEADM_H_ */
+#endif /* _FCOEADM_DISPLAY_H_ */

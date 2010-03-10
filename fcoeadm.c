@@ -21,10 +21,17 @@
 #include <paths.h>
 #include <net/if.h>
 #include <sys/un.h>
+#include <getopt.h>
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
+#include "fcoe_utils.h"
 #include "fcoe_utils_version.h"
-#include "fcoeadm.h"
 #include "fcoe_clif.h"
+#include "fcoeadm_display.h"
 
 static const char *optstring = "c:d:r:S:itlshv";
 static struct option fcoeadm_opts[] = {

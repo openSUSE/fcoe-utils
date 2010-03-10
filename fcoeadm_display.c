@@ -50,6 +50,18 @@ struct sa_nameval {
 	u_int32_t   nv_val;
 };
 
+/*
+ * HBA and port objects are one-to-one since there
+ * is one host created per Ethernet port (vlan).
+ */
+struct hba_name_table {
+	HBA_HANDLE            hba_handle;
+	HBA_ADAPTERATTRIBUTES hba_attrs;
+	HBA_PORTATTRIBUTES    port_attrs;
+	int                   failed;
+	int                   displayed;
+};
+
 struct sa_nameval port_states[] = {
 	{ "Not Present",    HBA_PORTSTATE_UNKNOWN },
 	{ "Online",         HBA_PORTSTATE_ONLINE },
@@ -1014,44 +1026,66 @@ show_port_stats_in_row(HBA_INT64 start_time,
 	printf("\n");
 }
 
+static void hba_table_destroy(struct hba_name_table *hba_table)
+{
+	int i;
 
-void
-display_port_stats(struct opt_info *opt_info)
+	/*
+	 * This is inefficiant as is closes adapter handles
+	 * (presumedly 0) that weren't open. However, it allows
+	 * us to avoid maintaining a count.
+	 */
+	for (i = 0 ; i < MAX_HBA_COUNT ; i++)
+		HBA_CloseAdapter(hba_table[i].hba_handle);
+}
+
+/*
+ * This routine leaves all adapters fd's open.
+ */
+static int hba_table_init(struct hba_name_table *hba_table)
 {
 	HBA_STATUS retval;
-	HBA_UINT32 hba_cnt;
-	HBA_HANDLE hba_handle;
-	HBA_ADAPTERATTRIBUTES hba_attrs;
-	HBA_PORTATTRIBUTES port_attrs;
-	HBA_PORTSTATISTICS port_stats;
-	HBA_FC4STATISTICS port_fc4stats;
-	HBA_INT64 start_time = 0;
-	char namebuf[1028];
-	int i = 0, found = 0;
+	char namebuf[1024];
+	int i, j, num_hbas = 0;
 
-	hba_cnt = HBA_GetNumberOfAdapters();
-	if (!hba_cnt) {
-		fprintf(stderr, "No FCoE interfaces created.\n");
-		return;
+	/*
+	 * Initialize the table.
+	 */
+	for (i = 0 ; i < MAX_HBA_COUNT ; i++) {
+		memset(&hba_table[i], 0,
+		       sizeof(struct hba_name_table));
 	}
 
-	for (i = 0; i < hba_cnt; i++) {
+	num_hbas = HBA_GetNumberOfAdapters();
+	if (!num_hbas) {
+		fprintf(stderr, "No FCoE interfaces created.\n");
+		return num_hbas;
+	}
+
+	/*
+	 * Fill out the HBA table.
+	 */
+	for (i = 0; i < num_hbas ; i++) {
 		retval = HBA_GetAdapterName(i, namebuf);
 		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr, "Failure of HBA_GetAdapterName: %d\n",
-				retval);
+			fprintf(stderr,
+				"Failure of HBA_GetAdapterName: %d\n", retval);
 			continue;
 		}
 
-		hba_handle = HBA_OpenAdapter(namebuf);
-		if (!hba_handle) {
+		hba_table[i].hba_handle = HBA_OpenAdapter(namebuf);
+		if (!hba_table[i].hba_handle) {
+			hba_table[i].failed = 1;
 			fprintf(stderr, "HBA_OpenAdapter failed\n");
 			perror("HBA_OpenAdapter");
 			continue;
 		}
 
-		retval = HBA_GetAdapterAttributes(hba_handle, &hba_attrs);
+		retval = HBA_GetAdapterAttributes(hba_table[i].hba_handle,
+						  &hba_table[i].hba_attrs);
 		if (retval != HBA_STATUS_OK) {
+			HBA_CloseAdapter(hba_table[i].hba_handle);
+			hba_table[i].failed = 1;
 			fprintf(stderr,
 				"HBA_GetAdapterAttributes failed, retval=%d\n",
 				retval);
@@ -1059,34 +1093,73 @@ display_port_stats(struct opt_info *opt_info)
 			continue;
 		}
 
-		retval = HBA_GetAdapterPortAttributes(
-					hba_handle, 0, &port_attrs);
+		retval = HBA_GetAdapterPortAttributes(hba_table[i].hba_handle,
+						      0,
+						      &hba_table[i].port_attrs);
 		if (retval != HBA_STATUS_OK) {
+			HBA_CloseAdapter(hba_table[i].hba_handle);
+			hba_table[i].failed = 1;
 			fprintf(stderr,
 				"HBA_GetAdapterPortAttributes failed, "
-				"status=%d\n", retval);
+				"j=%d, status=%d\n", j, retval);
 			continue;
 		}
+	}
 
+	return num_hbas;
+}
+
+/*
+ * This routine expects a valid interface name.
+ */
+static int get_index_for_ifname(struct hba_name_table *hba_table,
+				int num_hbas, const char *ifname)
+{
+	int i;
+
+	for (i = 0 ; i < num_hbas ; i++) {
 		if (!check_symbolic_name_for_interface(
-			    port_attrs.PortSymbolicName,
-			    opt_info->ifname)) {
-			found = 1;
-			break;
-		}
+			    hba_table[i].port_attrs.PortSymbolicName,
+			    ifname))
+			return i;
 	}
 
-	if (!found) {
-		fprintf(stderr, "Cannot find attributes for %s\n",
-			opt_info->ifname);
-		return;
-	}
+	return -EINVAL;
+}
+
+int display_port_stats(struct opt_info *opt_info)
+{
+	HBA_STATUS retval;
+	HBA_HANDLE hba_handle;
+	HBA_PORTATTRIBUTES *port_attrs;
+	HBA_PORTSTATISTICS port_stats;
+	HBA_FC4STATISTICS port_fc4stats;
+	HBA_INT64 start_time = 0;
+	int i, num_hbas;
+
+	struct hba_name_table hba_table[MAX_HBA_COUNT];
+
+	num_hbas = hba_table_init(hba_table);
+
+	i = get_index_for_ifname(hba_table, num_hbas,
+				 opt_info->ifname);
+
+
+	/*
+	 * Return error code if a valid index wasn't returned.
+	 */
+	if (i < 0)
+		return i;
+
+	hba_handle = hba_table[i].hba_handle;
+	port_attrs = &hba_table[i].port_attrs;
 
 	i = 0;
 	while (1) {
 		unsigned int secs_left;
 
-		retval = HBA_GetPortStatistics(hba_handle, 0, &port_stats);
+		retval = HBA_GetPortStatistics(hba_handle,
+					       0, &port_stats);
 		if (retval != HBA_STATUS_OK &&
 		    retval != HBA_STATUS_ERROR_NOT_SUPPORTED) {
 			fprintf(stderr,
@@ -1105,7 +1178,7 @@ display_port_stats(struct opt_info *opt_info)
 			start_time = port_stats.SecondsSinceLastReset;
 
 		retval = HBA_GetFC4Statistics(hba_handle,
-					      port_attrs.PortWWN,
+					      port_attrs->PortWWN,
 					      FC_TYPE_FCP,
 					      &port_fc4stats);
 		if (retval != HBA_STATUS_OK &&
@@ -1132,248 +1205,158 @@ display_port_stats(struct opt_info *opt_info)
 		} while (secs_left);
 	}
 
-	HBA_CloseAdapter(hba_handle);
-	return;
+	hba_table_destroy(hba_table);
+	return 0;
 }
 
-static struct hba_name_table {
-	char  SerialNumber[64];
-	int   index;
-} hba_name_table[MAX_HBA_COUNT];
-
-static int
-find_hba_index(char *serial_number, int *hba_index)
+void display_adapter_info(struct opt_info *opt_info)
 {
-	int i, j;
+	int i, j, num_hbas = 0;
 
-	j = sizeof(hba_name_table[0].SerialNumber) - 1;
-	for (i = 0; i < MAX_HBA_COUNT; i++) {
-		if (hba_name_table[i].index == -1) {
-			/* not found */
-			hba_name_table[i].index = i;
-			/* TODO: change to sa_strncpy_safe */
-			strncpy(hba_name_table[i].SerialNumber,
-				serial_number, j);
-			*hba_index = i;
-			return 1;    /* print hba info */
-		}
-		if (!strncmp(serial_number,
-		    hba_name_table[i].SerialNumber, j)) {
-			*hba_index = hba_name_table[i].index;
-			return 0;    /* do not print hba info */
-		}
-	}
-	/* table full */
-	return -1;
-}
+	struct hba_name_table hba_table[MAX_HBA_COUNT];
 
-void
-display_adapter_info(struct opt_info *opt_info)
-{
-	HBA_STATUS retval;
-	HBA_UINT32 hba_cnt;
-	HBA_UINT32 lport_cnt_per_hba = 1;  /* always one port per hba */
-	HBA_HANDLE hba_handle;
-	HBA_ADAPTERATTRIBUTES hba_attrs;
-	HBA_PORTATTRIBUTES port_attrs;
-	char namebuf[1028];
-	int i, j, rc;
-	int hba_index = -1;
-	int lp_index = -1;
+	num_hbas = hba_table_init(hba_table);
 
-	for (i = 0; i < MAX_HBA_COUNT; i++) {
-		hba_name_table[i].index = -1;
-		memset(hba_name_table[i].SerialNumber, 0,
-			sizeof(hba_name_table[i].SerialNumber));
-	}
+	/*
+	 * Loop through each HBA entry and for each serial number
+	 * not already printed print the header and each sub-port
+	 * on that adapter.
+	 */
+	for (i = 0 ; i < num_hbas ; i++) {
+		if (hba_table[i].failed ||
+		    hba_table[i].displayed)
+			continue;
 
-	hba_cnt = HBA_GetNumberOfAdapters();
-	if (!hba_cnt) {
-		fprintf(stderr, "No FCoE interfaces created.\n");
-		return;
-	}
-
-	for (i = 0; i < hba_cnt; i++) {
-		retval = HBA_GetAdapterName(i, namebuf);
-		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr,
-				"Failure of HBA_GetAdapterName: %d\n", retval);
+		if (strlen(opt_info->ifname) &&
+		    check_symbolic_name_for_interface(
+			    hba_table[i].port_attrs.PortSymbolicName,
+			    opt_info->ifname)) {
+			/*
+			 * Overloading 'displayed' to indicate
+			 * that the HBA/Port should be skipped.
+			 */
+			hba_table[i].displayed = 1;
 			continue;
 		}
 
-		hba_handle = HBA_OpenAdapter(namebuf);
-		if (!hba_handle) {
-			fprintf(stderr, "HBA_OpenAdapter failed\n");
-			perror("HBA_OpenAdapter");
-			continue;
-		}
+		/*
+		 * Display the adapter header.
+		 */
+		show_hba_info(i, &hba_table[i].hba_attrs, 0);
 
-		retval = HBA_GetAdapterAttributes(hba_handle, &hba_attrs);
-		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr,
-				"HBA_GetAdapterAttributes failed, retval=%d\n",
-				retval);
-			perror("HBA_GetAdapterAttributes");
-			continue;
-		}
-
-		rc = find_hba_index(hba_attrs.SerialNumber, &hba_index);
-		if (rc == -1) {
-			fprintf(stderr,
-				"Too many adapters. Maximum %d\n",
-				MAX_HBA_COUNT);
-			return;
-		} else if (rc == 1)
-			show_hba_info(hba_index, &hba_attrs, 0);
-
-		for (j = 0; j < lport_cnt_per_hba; j++) {
-			retval = HBA_GetAdapterPortAttributes(
-				hba_handle, j, &port_attrs);
-			if (retval != HBA_STATUS_OK) {
-				fprintf(stderr,
-					"HBA_GetAdapterPortAttributes failed, "
-					"j=%d, status=%d\n", j, retval);
+		/*
+		 * Loop through HBAs again to print sub-ports.
+		 */
+		for (j = 0; j < num_hbas ; j++) {
+			if (strlen(opt_info->ifname) &&
+			    check_symbolic_name_for_interface(
+				    hba_table[j].port_attrs.PortSymbolicName,
+				    opt_info->ifname)) {
+				/*
+				 * Overloading 'displayed' to indicate
+				 * that the HBA/Port should be skipped.
+				 */
+				hba_table[i].displayed = 1;
 				continue;
 			}
 
-			lp_index++;
-
-			if (strlen(opt_info->ifname)) {
-				if (check_symbolic_name_for_interface(
-					    port_attrs.PortSymbolicName,
-					    opt_info->ifname))
-					continue;
+			if (!strncmp(hba_table[i].hba_attrs.SerialNumber,
+				     hba_table[j].hba_attrs.SerialNumber,
+				     strlen(hba_table[i].hba_attrs.SerialNumber))) {
+				show_port_info(i, j,
+					       &hba_table[j].hba_attrs,
+					       &hba_table[j].port_attrs);
+				hba_table[j].displayed = 1;
 			}
-
-			show_port_info(hba_index, lp_index,
-				       &hba_attrs, &port_attrs);
 		}
-		HBA_CloseAdapter(hba_handle);
 	}
+
+	hba_table_destroy(hba_table);
 }
 
-void
-display_target_info(struct opt_info *opt_info)
+void display_target_info(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
-	HBA_UINT32 hba_cnt;
-	HBA_UINT32 lport_cnt_per_hba = 1;  /* always one port per hba */
-	HBA_HANDLE hba_handle;
-	HBA_ADAPTERATTRIBUTES hba_attrs;
-	HBA_PORTATTRIBUTES port_attrs;
 	HBA_PORTATTRIBUTES rport_attrs;
-	char namebuf[1028];
-	int i, j, rc;
-	int hba_index = -1;
-	int lp_index = -1;
-	int rp_index = -1;
+	int i, target_index, num_hbas = 0;
 
-	for (i = 0; i < MAX_HBA_COUNT; i++) {
-		hba_name_table[i].index = -1;
-		memset(hba_name_table[i].SerialNumber, 0,
-			sizeof(hba_name_table[i].SerialNumber));
-	}
+	struct hba_name_table hba_table[MAX_HBA_COUNT];
 
-	hba_cnt = HBA_GetNumberOfAdapters();
-	if (!hba_cnt) {
-		fprintf(stderr, "No FCoE interfaces created.\n");
-		return;
-	}
+	num_hbas = hba_table_init(hba_table);
 
-	for (i = 0; i < hba_cnt; i++) {
-		retval = HBA_GetAdapterName(i, namebuf);
-		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr,
-				"Failure of HBA_GetAdapterName: %d\n", retval);
+	/*
+	 * Loop through each HBA entry and for each serial number
+	 * not already printed print the header and each sub-port
+	 * on that adapter.
+	 */
+	for (i = 0 ; i < num_hbas ; i++) {
+		if (hba_table[i].failed ||
+		    hba_table[i].displayed)
+			continue;
+
+		if (strlen(opt_info->ifname) &&
+		    check_symbolic_name_for_interface(
+			    hba_table[i].port_attrs.PortSymbolicName,
+			    opt_info->ifname)) {
+			/*
+			 * Overloading 'displayed' to indicate
+			 * that the HBA/Port should be skipped.
+			 */
+			hba_table[i].displayed = 1;
 			continue;
 		}
 
-		hba_handle = HBA_OpenAdapter(namebuf);
-		if (!hba_handle) {
-			fprintf(stderr, "HBA_OpenAdapter failed\n");
-			perror("HBA_OpenAdapter");
-			continue;
-		}
+		for (target_index = 0;
+		     target_index < hba_table[i].port_attrs.NumberofDiscoveredPorts;
+		     target_index++) {
 
-		retval = HBA_GetAdapterAttributes(hba_handle, &hba_attrs);
-		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr,
-				"HBA_GetAdapterAttributes failed, retval=%d\n",
-				retval);
-			perror("HBA_GetAdapterAttributes");
-			continue;
-		}
+			/* TODO: Second arg might be incorrect */
+			retval = HBA_GetDiscoveredPortAttributes(
+				hba_table[i].hba_handle,
+				0, target_index,
+				&rport_attrs);
 
-		rc = find_hba_index(hba_attrs.SerialNumber, &hba_index);
-		if (rc == -1) {
-			fprintf(stderr,
-				"Too many adapters. Maximum %d\n",
-				MAX_HBA_COUNT);
-			return;
-		}
-
-		for (j = 0; j < lport_cnt_per_hba; j++) {
-			retval = HBA_GetAdapterPortAttributes(
-					hba_handle, j, &port_attrs);
 			if (retval != HBA_STATUS_OK) {
 				fprintf(stderr,
-					"HBA_GetAdapterPortAttributes failed, "
-					"j=%d, status=%d\n", j, retval);
+					"HBA_GetDiscoveredPortAttributes "
+					"failed for target_index=%d, "
+					"status=%d\n", target_index, retval);
+				hba_table[i].failed = 1;
 				continue;
 			}
 
-			lp_index++;
+			/*
+			 * If -l option and fcid are specified in the
+			 * command, filter out the targets do not have
+			 * port ID equals to fcid.
+			 */
+			if (opt_info->l_flag &&
+			    opt_info->l_fcid_present &&
+			    rport_attrs.PortFcId != opt_info->l_fcid)
+				continue;
 
-			if (strlen(opt_info->ifname)) {
-				if (check_symbolic_name_for_interface(
-					    port_attrs.PortSymbolicName,
-					    opt_info->ifname))
-					continue;
-			}
+			/*
+			 * Skip any targets that are not FCP targets
+			 */
+			if (is_fcp_target(&rport_attrs))
+				continue;
 
-			for (rp_index = 0;
-			     rp_index < port_attrs.NumberofDiscoveredPorts;
-			     rp_index++) {
-				retval = HBA_GetDiscoveredPortAttributes(
-						hba_handle, j, rp_index,
-						&rport_attrs);
-				if (retval != HBA_STATUS_OK) {
-					fprintf(stderr,
-					"HBA_GetDiscoveredPortAttributes "
-					"failed, j=%d, for rp_index=%d, "
-					"status=%d\n", j, rp_index, retval);
-					continue;
-				}
+			show_target_info(
+				hba_table[i].port_attrs.PortSymbolicName,
+				i, 0, target_index,
+				&hba_table[i].hba_attrs,
+				&rport_attrs);
 
-				/*
-				 * If -l option and fcid are specified in the
-				 * command, filter out the targets do not have
-				 * port ID equals to fcid.
-				 */
-				if (opt_info->l_flag &&
-				    opt_info->l_fcid_present &&
-				    rport_attrs.PortFcId != opt_info->l_fcid)
-					continue;
-
-				/*
-				 * Skip any targets that are not FCP targets
-				 */
-				if (is_fcp_target(&rport_attrs))
-					continue;
-
-				show_target_info(port_attrs.PortSymbolicName,
-						 hba_index, lp_index, rp_index,
-						 &hba_attrs, &rport_attrs);
-
-				/*
-				 * This will print the LUN table
-				 * under the target.
-				 */
-				scan_device_map(hba_handle, &hba_attrs,
-						&port_attrs, &rport_attrs,
-						opt_info);
-			}
+			/*
+			 * This will print the LUN table
+			 * under the target.
+			 */
+			scan_device_map(hba_table[i].hba_handle,
+					&hba_table[i].hba_attrs,
+					&hba_table[i].port_attrs,
+					&rport_attrs, opt_info);
 		}
-		HBA_CloseAdapter(hba_handle);
 	}
+
+	hba_table_destroy(hba_table);
 }

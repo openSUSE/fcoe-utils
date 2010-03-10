@@ -2348,6 +2348,7 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'f':
 			fcm_fg = 1;
+			break;
 		case 'd':
 			fcoe_config.debug = 1;
 			break;

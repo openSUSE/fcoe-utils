@@ -249,10 +249,8 @@ static void show_wwn(unsigned char *pWwn)
 	sa_dump_wwn(pWwn, 8, 0);
 }
 
-static void
-show_hba_info(int hba_index, HBA_ADAPTERATTRIBUTES *hba_info, int flags)
+static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info, int flags)
 {
-	printf("Adapter #%d\n", hba_index);
 	printf("    Description:      %s\n", hba_info->ModelDescription);
 	printf("    Revision:         %s\n", hba_info->HardwareVersion);
 	printf("    Manufacturer:     %s\n", hba_info->Manufacturer);
@@ -263,15 +261,11 @@ show_hba_info(int hba_index, HBA_ADAPTERATTRIBUTES *hba_info, int flags)
 	printf("\n");
 }
 
-static void
-show_port_info(int hba_index, int lp_index,
-		HBA_ADAPTERATTRIBUTES *hba_info,
-		HBA_PORTATTRIBUTES *lp_info)
+static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
+			   HBA_PORTATTRIBUTES *lp_info)
 {
 	char buf[256];
 	int len = sizeof(buf);
-
-	printf("    Port #%d\n", lp_index);
 
 	printf("        Symbolic Name:     %s\n",
 					lp_info->PortSymbolicName);
@@ -309,8 +303,7 @@ show_port_info(int hba_index, int lp_index,
 	/* TODO: Display PortSupportedFc4Types and PortActiveFc4Types */
 }
 
-static void show_target_info(const char *symbolic_name, int hba_index,
-			     int lp_index, int rp_index,
+static void show_target_info(const char *symbolic_name,
 			     HBA_ADAPTERATTRIBUTES *hba_info,
 			     HBA_PORTATTRIBUTES *rp_info)
 {
@@ -321,9 +314,8 @@ static void show_target_info(const char *symbolic_name, int hba_index,
 
 	ifname = get_ifname_from_symbolic_name(symbolic_name);
 
-	printf("Target #%d @ %s\n", rp_index, ifname);
-
 	rc = sa_sys_read_line(rp_info->OSDeviceName, "roles", buf, sizeof(buf));
+	printf("    Interface:        %s\n", ifname);
 	printf("    Roles:            %s\n", buf);
 
 	printf("    Node Name:        0x");
@@ -1278,7 +1270,7 @@ enum fcoe_err display_adapter_info(const char *ifname)
 		/*
 		 * Display the adapter header.
 		 */
-		show_hba_info(i, &hba_table[i].hba_attrs, 0);
+		show_hba_info(&hba_table[i].hba_attrs, 0);
 
 		/*
 		 * Loop through HBAs again to print sub-ports.
@@ -1298,8 +1290,7 @@ enum fcoe_err display_adapter_info(const char *ifname)
 			if (!strncmp(hba_table[i].hba_attrs.SerialNumber,
 				     hba_table[j].hba_attrs.SerialNumber,
 				     strlen(hba_table[i].hba_attrs.SerialNumber))) {
-				show_port_info(i, j,
-					       &hba_table[j].hba_attrs,
+				show_port_info(&hba_table[j].hba_attrs,
 					       &hba_table[j].port_attrs);
 				hba_table[j].displayed = 1;
 			}
@@ -1374,7 +1365,6 @@ enum fcoe_err display_target_info(const char *ifname,
 
 			show_target_info(
 				hba_table[i].port_attrs.PortSymbolicName,
-				i, 0, target_index,
 				&hba_table[i].hba_attrs,
 				&rport_attrs);
 

@@ -65,6 +65,7 @@
 #define DCB_APP_0_DEFAULT_ENABLE    1
 #define DCB_APP_0_DEFAULT_WILLING   1
 #define FILE_NAME_LEN               (NAME_MAX + 1)
+#define CFG_FILE_PREFIX             "cfg-"
 
 #define VLAN_DIR                "/proc/net/vlan"
 
@@ -301,7 +302,8 @@ static int fcm_read_config_files(void)
 		    (dp->d_name[1] == '\0' ||
 		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 			continue;
-		rc = strncmp(dp->d_name, "cfg-", strlen("cfg-"));
+		rc = strncmp(dp->d_name, CFG_FILE_PREFIX,
+			     strlen(CFG_FILE_PREFIX));
 		if (rc)
 			continue;
 		next = alloc_fcoe_port(dp->d_name + 4);

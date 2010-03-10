@@ -500,6 +500,10 @@ err:
 			FCOE_LOG_ERR("Connection to fcoemon timed out\n");
 			break;
 
+		case EHBAAPIERR:
+			FCOE_LOG_ERR("libHBAAPI or libhbalinux error\n");
+			break;
+
 		case EINTERR:
 			FCOE_LOG_ERR("Internal error\n");
 			break;

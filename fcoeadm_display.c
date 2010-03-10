@@ -249,7 +249,7 @@ static void show_wwn(unsigned char *pWwn)
 	sa_dump_wwn(pWwn, 8, 0);
 }
 
-static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info, int flags)
+static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info)
 {
 	printf("    Description:      %s\n", hba_info->ModelDescription);
 	printf("    Revision:         %s\n", hba_info->HardwareVersion);
@@ -1270,7 +1270,7 @@ enum fcoe_err display_adapter_info(const char *ifname)
 		/*
 		 * Display the adapter header.
 		 */
-		show_hba_info(&hba_table[i].hba_attrs, 0);
+		show_hba_info(&hba_table[i].hba_attrs);
 
 		/*
 		 * Loop through HBAs again to print sub-ports.

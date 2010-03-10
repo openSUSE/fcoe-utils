@@ -61,6 +61,7 @@
 
 enum fcoe_err {
 	NOERR = 0,    /* No error */
+	EFCOECONN,    /* FCoE connection already exists */
 	ENOFCOECONN,  /* No FCoE connection on interface */
 	EINTERR,      /* Internal error */
 	EINVALARG,    /* Invalid argument */

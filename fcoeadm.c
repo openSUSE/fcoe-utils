@@ -317,9 +317,12 @@ int main(int argc, char *argv[])
 			strncpy(opt_info->ifname, optarg,
 				sizeof(opt_info->ifname));
 
-			if (opt == 'c')
+			if (opt == 'c') {
 				rc = fcoe_validate_interface(opt_info->ifname);
-			else
+				if (!rc &&
+				    !fcoe_validate_fcoe_conn(opt_info->ifname))
+					rc = EFCOECONN;
+			} else
 				rc = fcoe_validate_fcoe_conn(opt_info->ifname);
 
 			if (!rc)
@@ -451,6 +454,11 @@ int main(int argc, char *argv[])
 err:
 	if (rc) {
 		switch (rc) {
+		case EFCOECONN:
+			FCOE_LOG_ERR("Connection already created on "
+				     "interface %s\n", opt_info->ifname);
+			break;
+
 		case ENOFCOECONN:
 			FCOE_LOG_ERR("No connection created on "
 				     "interface %s\n", opt_info->ifname);

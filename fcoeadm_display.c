@@ -1039,6 +1039,14 @@ static void hba_table_destroy(struct hba_name_table *hba_table)
 		HBA_CloseAdapter(hba_table[i].hba_handle);
 }
 
+static enum fcoe_err fcoeadm_loadhba()
+{
+	if (HBA_STATUS_OK != HBA_LoadLibrary())
+		return EHBAAPIERR;
+
+	return NOERR;
+}
+
 /*
  * This routine leaves all adapters fd's open.
  */
@@ -1127,7 +1135,7 @@ static int get_index_for_ifname(struct hba_name_table *hba_table,
 	return -EINVAL;
 }
 
-int display_port_stats(struct opt_info *opt_info)
+enum fcoe_err display_port_stats(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
 	HBA_HANDLE hba_handle;
@@ -1135,21 +1143,26 @@ int display_port_stats(struct opt_info *opt_info)
 	HBA_PORTSTATISTICS port_stats;
 	HBA_FC4STATISTICS port_fc4stats;
 	HBA_INT64 start_time = 0;
+	struct hba_name_table hba_table[MAX_HBA_COUNT];
+	enum fcoe_err rc = NOERR;
 	int i, num_hbas;
 
-	struct hba_name_table hba_table[MAX_HBA_COUNT];
+	if (fcoeadm_loadhba())
+		return EHBAAPIERR;
 
 	num_hbas = hba_table_init(hba_table);
 
 	i = get_index_for_ifname(hba_table, num_hbas,
 				 opt_info->ifname);
 
-
 	/*
 	 * Return error code if a valid index wasn't returned.
 	 */
-	if (i < 0)
-		return i;
+	if (i < 0) {
+		hba_table_destroy(hba_table);
+		HBA_FreeLibrary();
+		return EHBAAPIERR;
+	}
 
 	hba_handle = hba_table[i].hba_handle;
 	port_attrs = &hba_table[i].port_attrs;
@@ -1206,14 +1219,18 @@ int display_port_stats(struct opt_info *opt_info)
 	}
 
 	hba_table_destroy(hba_table);
-	return 0;
+	HBA_FreeLibrary();
+	return rc;
 }
 
-void display_adapter_info(struct opt_info *opt_info)
+enum fcoe_err display_adapter_info(struct opt_info *opt_info)
 {
+	struct hba_name_table hba_table[MAX_HBA_COUNT];
+	enum fcoe_err rc = NOERR;
 	int i, j, num_hbas = 0;
 
-	struct hba_name_table hba_table[MAX_HBA_COUNT];
+	if (fcoeadm_loadhba())
+		return EHBAAPIERR;
 
 	num_hbas = hba_table_init(hba_table);
 
@@ -1272,15 +1289,21 @@ void display_adapter_info(struct opt_info *opt_info)
 	}
 
 	hba_table_destroy(hba_table);
+	HBA_FreeLibrary();
+
+	return rc;
 }
 
-void display_target_info(struct opt_info *opt_info)
+enum fcoe_err display_target_info(struct opt_info *opt_info)
 {
 	HBA_STATUS retval;
 	HBA_PORTATTRIBUTES rport_attrs;
-	int i, target_index, num_hbas = 0;
-
 	struct hba_name_table hba_table[MAX_HBA_COUNT];
+	int i, target_index, num_hbas = 0;
+	enum fcoe_err rc = NOERR;
+
+	if (fcoeadm_loadhba())
+		return EHBAAPIERR;
 
 	num_hbas = hba_table_init(hba_table);
 
@@ -1359,4 +1382,7 @@ void display_target_info(struct opt_info *opt_info)
 	}
 
 	hba_table_destroy(hba_table);
+	HBA_FreeLibrary();
+
+	return rc;
 }

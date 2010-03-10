@@ -42,11 +42,10 @@
 #include <getopt.h>
 #include <byteswap.h>
 #include <net/if.h>
-#include "hbaapi.h"
 #include "net_types.h"
 #include "fc_types.h"
 #include "fc_scsi.h"
-
+#include "hbaapi.h"
 #include "fcoe_utils.h"
 
 struct opt_info {
@@ -64,8 +63,8 @@ struct opt_info {
 	int n_interval;		/* seconds */
 };
 
-void display_adapter_info(struct opt_info *opt_info);
-void display_target_info(struct opt_info *opt_info);
-int display_port_stats(struct opt_info *opt_info);
+enum fcoe_err display_adapter_info(struct opt_info *opt_info);
+enum fcoe_err display_target_info(struct opt_info *opt_info);
+enum fcoe_err display_port_stats(struct opt_info *opt_info);
 
 #endif /* _FCOEADM_H_ */

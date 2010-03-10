@@ -199,62 +199,6 @@ static enum fcoe_err fcoeadm_action(enum clif_action cmd, char *ifname)
 	return rc;
 }
 
-static enum fcoe_err fcoeadm_loadhba()
-{
-	if (HBA_STATUS_OK != HBA_LoadLibrary())
-		return EHBAAPIERR;
-
-	return NOERR;
-}
-
-/*
- * Display adapter information
- */
-static enum fcoe_err fcoeadm_display_adapter_info(struct opt_info *opt_info)
-{
-	if (fcoeadm_loadhba())
-		return EHBAAPIERR;
-
-	display_adapter_info(opt_info);
-
-	HBA_FreeLibrary();
-	return NOERR;
-}
-
-/*
- * Display target information
- */
-static enum fcoe_err fcoeadm_display_target_info(struct opt_info *opt_info)
-{
-	if (fcoeadm_loadhba())
-		return EHBAAPIERR;
-
-	display_target_info(opt_info);
-
-	HBA_FreeLibrary();
-	return NOERR;
-}
-
-/*
- * Display port statistics
- */
-static int fcoeadm_display_port_stats(struct opt_info *opt_info)
-{
-	if (!opt_info->s_flag)
-		return -EINVAL;
-
-	if (!opt_info->n_flag)
-		opt_info->n_interval = DEFAULT_STATS_INTERVAL;
-
-	if (fcoeadm_loadhba())
-		return -EINVAL;
-
-	display_port_stats(opt_info);
-
-	HBA_FreeLibrary();
-	return 0;
-}
-
 #define MAX_ARG_LEN 32
 
 /*
@@ -346,7 +290,7 @@ int main(int argc, char *argv[])
 			}
 
 			if (!rc)
-				rc = fcoeadm_display_adapter_info(opt_info);
+				rc = display_adapter_info(opt_info);
 
 			break;
 
@@ -369,7 +313,7 @@ int main(int argc, char *argv[])
 
 			if (!rc) {
 				opt_info->t_flag = 1;
-				rc = fcoeadm_display_target_info(opt_info);
+				rc = display_target_info(opt_info);
 			}
 
 			break;
@@ -393,7 +337,7 @@ int main(int argc, char *argv[])
 
 			if (!rc) {
 				opt_info->l_flag = 1;
-				rc = fcoeadm_display_target_info(opt_info);
+				rc = display_target_info(opt_info);
 			}
 
 			break;
@@ -417,11 +361,12 @@ int main(int argc, char *argv[])
 					rc = EINVALARG;
 				else
 					opt_info->n_flag = 1;
-			}
+			} else if (!rc && optind == argc)
+				opt_info->n_interval = DEFAULT_STATS_INTERVAL;
 
 			if (!rc) {
 				opt_info->s_flag = 1;
-				rc = fcoeadm_display_port_stats(opt_info);
+				rc = display_port_stats(opt_info);
 			}
 
 			break;

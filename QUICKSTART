@@ -88,8 +88,8 @@ DEPENDENCIES
 
 PROCESS
 
-1) Obtain the source tarball from sourceforge
-   http://sourceforge.net/projects/e1000/files/DCB%20Tools/0.9.19/dcbd-0.9.19.tar.gz/download
+1) Obtain the latest source tarball from sourceforge
+   http://sourceforge.net/projects/e1000/files/DCB%20Tools/
 
 2) Untar the tarball and change into it's directory
    # tar -xvzf dcbd-x.y.z.tar.gz
@@ -169,7 +169,7 @@ PROCESS
 DEPENDENCIES
 
 * libhbalinux
-* dcbd (optional configure flag to build without)
+* dcbd v0.9.24 or greater (optional configure flag to build without)
 
 * autoconf
 * autotools

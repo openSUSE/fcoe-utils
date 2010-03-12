@@ -9,7 +9,7 @@ their corresponding manual pages.
 DEPENDENCIES
 
 * libhbalinux
-* dcbd (optional configure flag to build without)
+* dcbd v0.9.24 or greater (optional configure flag to build without)
 
 * autoconf
 * autotools

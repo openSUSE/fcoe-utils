@@ -70,7 +70,6 @@
 
 #define VLAN_DIR                "/proc/net/vlan"
 
-#define CLIF_NAME_PATH          _PATH_VARRUN "dcbd/clif"
 #define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
 #define DCBD_CONNECT_TIMEOUT    (10 * 1000 * 1000)	/* 10 seconds */
 #define DCBD_CONNECT_RETRY_TIMEOUT   (1 * 1000 * 1000)	/* 1 seconds */
@@ -1018,7 +1017,7 @@ static int fcm_dcbd_connect(void)
 	memset(&dest, 0, sizeof(dest));
 	dest.sun_family = PF_UNIX;
 	snprintf(dest.sun_path, sizeof(dest.sun_path),
-		 CLIF_NAME_PATH);
+		 LLDP_CLIF_SOCK);
 	rc = connect(fd, (struct sockaddr *)&dest, sizeof(dest));
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "clif connect failed");

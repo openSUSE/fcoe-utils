@@ -41,7 +41,8 @@ fcoemon_LDFLAGS = -lrt
 ## rules for building fipvlan
 ## only listed sources get packaged, so must list all headers too
 fipvlan_SOURCES = fipvlan.c fcoe_utils_version.h include/fip.h \
-log.c include/log.h
+fcoemon_utils.c
+fipvlan_LDFLAGS = -lrt
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

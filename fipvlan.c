@@ -39,9 +39,22 @@
 #include <linux/rtnetlink.h>
 #include "fcoe_utils_version.h"
 #include "fip.h"
-#include "log.h"
+#include "fcoemon_utils.h"
+
+static struct {
+	int debug;
+} fcoe_config = {
+	.debug = 1,
+};
 
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
+
+#define FIP_LOG(...)		sa_log(__VA_ARGS__)
+#define FIP_LOG_ERR(error, ...)	sa_log_err(error, __func__, __VA_ARGS__)
+#define FIP_LOG_ERRNO(...)	sa_log_err(errno, __func__, __VA_ARGS__)
+#define FIP_LOG_DBG(...)	do { \
+	if (fcoe_config.debug) sa_log(__VA_ARGS__); \
+} while (0)
 
 /* global configuration */
 
@@ -76,10 +89,10 @@ int packet_socket(void)
 {
 	int s;
 
-	log_debug(1, "creating ETH_P_FIP packet socket");
+	FIP_LOG_DBG("creating ETH_P_FIP packet socket");
 	s = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
 	if (s < 0)
-		log_errno("packet socket error");
+		FIP_LOG_ERRNO("packet socket error");
 
 	return s;
 }
@@ -131,10 +144,10 @@ ssize_t fip_send_vlan_request(int s, struct iff *iff)
 
 	memcpy(tlvs.mac.mac_addr, iff->mac_addr, ETHER_ADDR_LEN);
 
-	log_debug(1, "sending FIP VLAN request");
+	FIP_LOG_DBG("sending FIP VLAN request");
 	rc = sendmsg(s, &msg, 0);
 	if (rc < 0)
-		log_errno("sendmsg error");
+		FIP_LOG_ERRNO("sendmsg error");
 
 	return rc;
 }
@@ -150,7 +163,7 @@ struct fip_tlv_ptrs {
 #define TLV_LEN_CHECK(t, l) ({ \
 	int _tlc = ((t)->tlv_len != (l)) ? 1 : 0; \
 	if (_tlc) \
-		log_warn("bad length for TLV of type %d", (t)->tlv_type); \
+		FIP_LOG("bad length for TLV of type %d", (t)->tlv_type); \
 	_tlc; \
 })
 
@@ -182,7 +195,7 @@ unsigned int fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
 			break;
 		default:
 			/* unexpected or unrecognized descriptor */
-			log_warn("unrecognized TLV type %d", tlv->tlv_type);
+			FIP_LOG("unrecognized TLV type %d", tlv->tlv_type);
 			break;
 		}
 		len -= tlv->tlv_len;
@@ -205,7 +218,7 @@ int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
 	int desc_len;
 	int i;
 
-	log_debug(1, "received FIP VLAN Notification");
+	FIP_LOG_DBG("received FIP VLAN Notification");
 
 	desc_len = ntohs(fh->fip_desc_len);
 	if (len < (sizeof(*fh) + (desc_len << 2)))
@@ -220,7 +233,7 @@ int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
 	for (i = 0; i < tlvs.vlanc; i++) {
 		fcf = malloc(sizeof(*fcf));
 		if (!fcf) {
-			log_errno("malloc failed");
+			FIP_LOG_ERRNO("malloc failed");
 			break;
 		}
 		memset(fcf, 0, sizeof(*fcf));
@@ -254,16 +267,16 @@ int fip_recv(int s)
 	struct iff *iff;
 	ssize_t len;
 
-	log_debug(1, "%s", __func__);
+	FIP_LOG_DBG("%s", __func__);
 
 	len = recvmsg(s, &msg, 0);
 	if (len < 0) {
-		log_errno("packet socket recv error");
+		FIP_LOG_ERRNO("packet socket recv error");
 		return len;
 	}
 
 	if (len < sizeof(*fh)) {
-		log_err("received packed smaller that FIP header length");
+		FIP_LOG_ERR(EINVAL, "received packed smaller that FIP header");
 		return -1;
 	}
 
@@ -271,7 +284,7 @@ int fip_recv(int s)
 
 	/* We only care about VLAN Notifications */
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
-		log_debug(1, "ignoring FIP packet, protocol %d",
+		FIP_LOG_DBG("ignoring FIP packet, protocol %d",
 			  ntohs(fh->fip_proto));
 		return -1;
 	}
@@ -280,7 +293,7 @@ int fip_recv(int s)
 			break;
 	}
 	if (!iff) {
-		log_warn("received packet on unexpected interface");
+		FIP_LOG("received packet on unexpected interface");
 		return -1;
 	}
 
@@ -289,7 +302,7 @@ int fip_recv(int s)
 		fip_recv_vlan_note(fh, len, iff);
 		break;
 	default:
-		log_warn("FIP packet with unknown subcode %d", fh->fip_subcode);
+		FIP_LOG("FIP packet with unknown subcode %d", fh->fip_subcode);
 		return -1;
 	}
 
@@ -309,16 +322,16 @@ int rtnl_socket(void)
 	int s;
 	int rc;
 
-	log_debug(1, "creating netlink socket");
+	FIP_LOG_DBG("creating netlink socket");
 	s = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (s < 0) {
-		log_errno("netlink socket error");
+		FIP_LOG_ERRNO("netlink socket error");
 		return s;
 	}
 
 	rc = bind(s, (struct sockaddr *) &sa, sizeof(sa));
 	if (rc < 0) {
-		log_errno("netlink bind error");
+		FIP_LOG_ERRNO("netlink bind error");
 		close(s);
 		return rc;
 	}
@@ -362,10 +375,10 @@ ssize_t send_getlink_dump(int s)
 	};
 	int rc;
 
-	log_debug(1, "sending RTM_GETLINK dump request");
+	FIP_LOG_DBG("sending RTM_GETLINK dump request");
 	rc = sendmsg(s, &msg, 0);
 	if (rc < 0)
-		log_errno("netlink sendmsg error");
+		FIP_LOG_ERRNO("netlink sendmsg error");
 
 	return rc;
 }
@@ -381,10 +394,10 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	struct iff *iff;
 	unsigned int len;
 
-	log_debug(1, "RTM_NEWLINK");
+	FIP_LOG_DBG("RTM_NEWLINK");
 
 	ifm = NLMSG_DATA(nh);
-	log_debug(1, "ifindex %d, type %d", ifm->ifi_index, ifm->ifi_type);
+	FIP_LOG_DBG("ifindex %d, type %d", ifm->ifi_index, ifm->ifi_type);
 
 	/* We only deal with Ethernet interfaces */
 	if (ifm->ifi_type != ARPHRD_ETHER)
@@ -396,7 +409,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 	iff = malloc(sizeof(*iff));
 	if (!iff) {
-		log_errno("malloc failed");
+		FIP_LOG_ERRNO("malloc failed");
 		return;
 	}
 	memset(iff, 0, sizeof(*iff));
@@ -408,14 +421,14 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 		switch (rta->rta_type) {
 		case IFLA_ADDRESS:
 			memcpy(iff->mac_addr, RTA_DATA(rta), ETHER_ADDR_LEN);
-			log_debug(1, "\tIFLA_ADDRESS\t%x:%x:%x:%x:%x:%x",
+			FIP_LOG_DBG("\tIFLA_ADDRESS\t%x:%x:%x:%x:%x:%x",
 					iff->mac_addr[0], iff->mac_addr[1],
 					iff->mac_addr[2], iff->mac_addr[3],
 					iff->mac_addr[4], iff->mac_addr[5]);
 			break;
 		case IFLA_IFNAME:
 			iff->ifname = strdup(RTA_DATA(rta));
-			log_debug(1, "\tIFLA_IFNAME\t%s", iff->ifname);
+			FIP_LOG_DBG("\tIFLA_IFNAME\t%s", iff->ifname);
 			break;
 		default:
 			/* other attributes don't matter */
@@ -453,11 +466,11 @@ int rtnl_recv(int s)
 	int len;
 	int rc;
 
-	log_debug(1, "%s", __func__);
+	FIP_LOG_DBG("%s", __func__);
 
 	len = recvmsg(s, &msg, 0);
 	if (len < 0) {
-		log_errno("netlink recvmsg error");
+		FIP_LOG_ERRNO("netlink recvmsg error");
 		return len;
 	}
 
@@ -468,13 +481,13 @@ int rtnl_recv(int s)
 			rtnl_recv_newlink(nh);
 			break;
 		case NLMSG_DONE:
-			log_debug(1, "NLMSG_DONE");
+			FIP_LOG_DBG("NLMSG_DONE");
 			break;
 		case NLMSG_ERROR:
-			log_debug(1, "NLMSG_ERROR");
+			FIP_LOG_DBG("NLMSG_ERROR");
 			break;
 		default:
-			log_warn("unexpected netlink message type %d",
+			FIP_LOG("unexpected netlink message type %d",
 				 nh->nlmsg_type);
 			break;
 		}
@@ -572,11 +585,11 @@ int autodetect()
 
 	while (1) {
 		rc = poll(pfd, ARRAY_SIZE(pfd), TIMEOUT);
-		log_debug(1, "return from poll %d", rc);
+		FIP_LOG_DBG("return from poll %d", rc);
 		if (rc == 0) /* timeout */
 			break;
 		if (rc == -1) {
-			log_errno("poll error");
+			FIP_LOG_ERRNO("poll error");
 			break;
 		}
 		if (pfd[0].revents) {
@@ -597,25 +610,25 @@ int check_interface(char *name, int ps)
 
 	iff = malloc(sizeof(*iff));
 	if (!iff) {
-		log_errno("malloc failed");
+		FIP_LOG_ERRNO("malloc failed");
 		return -1;
 	}
 	memset(iff, 0, sizeof(*iff));
 
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
 	if (ioctl(ps, SIOCGIFINDEX, &ifr) != 0) {
-		log_errno("SIOCGIFINDEX");
+		FIP_LOG_ERRNO("SIOCGIFINDEX");
 		goto err;
 	}
 	iff->ifname = strdup(ifr.ifr_name);
 	iff->ifindex = ifr.ifr_ifindex;
 
 	if (ioctl(ps, SIOCGIFHWADDR, &ifr) != 0) {
-		log_errno("SIOCGIFHWADDR");
+		FIP_LOG_ERRNO("SIOCGIFHWADDR");
 		goto err;
 	}
 	if (ifr.ifr_addr.sa_family != ARPHRD_ETHER) {
-		log_err("%s is not an Ethernet interface", name);
+		FIP_LOG_ERR(ENODEV, "%s is not an Ethernet interface", name);
 		goto err;
 	}
 	memcpy(iff->mac_addr, ifr.ifr_addr.sa_data, ETHER_ADDR_LEN);
@@ -657,11 +670,11 @@ void recv_loop(int ps)
 
 	while (1) {
 		rc = poll(pfd, ARRAY_SIZE(pfd), TIMEOUT);
-		log_debug(1, "return from poll %d", rc);
+		FIP_LOG_DBG("return from poll %d", rc);
 		if (rc == 0) /* timeout */
 			break;
 		if (rc == -1) {
-			log_errno("poll error");
+			FIP_LOG_ERRNO("poll error");
 			break;
 		}
 		if (pfd[0].revents)
@@ -684,7 +697,8 @@ int main(int argc, char **argv)
 		exe = argv[0];
 
 	automode = parse_cmdline(argc, argv);
-	log_start(exe, 0, 0);
+	sa_log_prefix = exe;
+	sa_log_flags = 0;
 
 	ps = packet_socket();
 
@@ -696,9 +710,8 @@ int main(int argc, char **argv)
 	}
 
 	if (TAILQ_EMPTY(&interfaces)) {
-		log_err("no interfaces to perform discovery on");
+		FIP_LOG_ERR(ENODEV, "no interfaces to perform discovery on");
 		close(ps);
-		log_stop();
 		exit(1);
 	}
 
@@ -709,7 +722,6 @@ int main(int argc, char **argv)
 	print_results();
 
 	close(ps);
-	log_stop();
 	exit(0);
 }
 

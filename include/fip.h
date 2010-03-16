@@ -123,4 +123,26 @@ struct fip_tlv_vlan {
 	uint16_t vlan;	/* only lower 12 bits matter */
 };
 
+
+/* libutil / fip.c functionality */
+
+/* FIP message handler, passed into fip_recv */
+typedef int fip_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg);
+
+/**
+ * fip_recv - receive from a FIP packet socket
+ * @s: packet socket with data ready to be received
+ */
+int fip_recv(int s, fip_handler *fn, void *arg);
+
+/**
+ * fip_send_vlan_request - send a FIP VLAN request
+ * @s: ETH_P_FIP packet socket to send on
+ * @ifindex: network interface index to send on
+ * @mac: mac address of the netif
+ *
+ * Note: sends to FIP_ALL_FCF_MACS
+ */
+ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac);
+
 #endif /* FIP_H */

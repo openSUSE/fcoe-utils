@@ -66,13 +66,27 @@ struct iff_list_head interfaces = TAILQ_HEAD_INITIALIZER(interfaces);
 TAILQ_HEAD(fcf_list_head, fcf);
 
 struct fcf {
-	struct iff *interface;
+	int ifindex;
 	uint16_t vlan;
 	unsigned char mac_addr[ETHER_ADDR_LEN];
 	TAILQ_ENTRY(fcf) list_node;
 };
 
 struct fcf_list_head fcfs = TAILQ_HEAD_INITIALIZER(fcfs);
+
+struct iff *lookup_iff(int ifindex, char *ifname)
+{
+	struct iff *iff;
+
+	if (!ifindex && !ifname)
+		return NULL;
+
+	TAILQ_FOREACH(iff, &interfaces, list_node)
+		if ((!ifindex || ifindex == iff->ifindex) &&
+		    (!ifname  || strcmp(ifname, iff->ifname) == 0))
+			return iff;
+	return NULL;
+}
 
 /**
  * packet_socket - create a packet socket bound to the FIP ethertype
@@ -87,61 +101,6 @@ int packet_socket(void)
 		FIP_LOG_ERRNO("packet socket error");
 
 	return s;
-}
-
-/**
- * fip_send_vlan_request - send a FIP VLAN request
- * @s: ETH_P_FIP packet socket
- * @iff: network interface to send from
- *
- * Note: sends to FIP_ALL_FCF_MACS
- */
-ssize_t fip_send_vlan_request(int s, struct iff *iff)
-{
-	struct sockaddr_ll sa = {
-		.sll_family = AF_PACKET,
-		.sll_protocol = htons(ETH_P_FIP),
-		.sll_ifindex = iff->ifindex,
-		.sll_hatype = ARPHRD_ETHER,
-		.sll_pkttype = PACKET_MULTICAST,
-		.sll_halen = ETHER_ADDR_LEN,
-		.sll_addr = FIP_ALL_FCF_MACS,
-	};
-	struct fiphdr fh = {
-		.fip_version = FIP_VERSION(1),
-		.fip_proto = htons(FIP_PROTO_VLAN),
-		.fip_subcode = FIP_VLAN_REQ,
-		.fip_desc_len = htons(2),
-		.fip_flags = 0,
-	};
-	struct {
-		struct fip_tlv_mac_addr mac;
-	} tlvs = {
-		.mac = {
-			.hdr.tlv_type = FIP_TLV_MAC_ADDR,
-			.hdr.tlv_len = 2,
-		},
-	};
-	struct iovec iov[] = {
-		{ .iov_base = &fh, .iov_len = sizeof(fh), },
-		{ .iov_base = &tlvs, .iov_len = sizeof(tlvs), },
-	};
-	struct msghdr msg = {
-		.msg_name = &sa,
-		.msg_namelen = sizeof(sa),
-		.msg_iov = iov,
-		.msg_iovlen = ARRAY_SIZE(iov),
-	};
-	int rc;
-
-	memcpy(tlvs.mac.mac_addr, iff->mac_addr, ETHER_ADDR_LEN);
-
-	FIP_LOG_DBG("sending FIP VLAN request");
-	rc = sendmsg(s, &msg, 0);
-	if (rc < 0)
-		FIP_LOG_ERRNO("sendmsg error");
-
-	return rc;
 }
 
 struct fip_tlv_ptrs {
@@ -199,26 +158,23 @@ unsigned int fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
 /**
  * fip_recv_vlan_note - parse a FIP VLAN Notification
  * @fh: FIP header, the beginning of the received FIP frame
- * @len: total length of the received FIP frame
- * @iff: interface this notification was received on
+ * @ifindex: index of interface this was received on
  */
-int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
+int fip_recv_vlan_note(struct fiphdr *fh, int ifindex)
 {
 	struct fip_tlv_ptrs tlvs;
 	struct fcf *fcf;
 	unsigned int bitmap, required_tlvs;
-	int desc_len;
+	int len;
 	int i;
 
 	FIP_LOG_DBG("received FIP VLAN Notification");
 
-	desc_len = ntohs(fh->fip_desc_len);
-	if (len < (sizeof(*fh) + (desc_len << 2)))
-		return -1;
+	len = ntohs(fh->fip_desc_len);
 
 	required_tlvs = (1 << FIP_TLV_MAC_ADDR) | (1 << FIP_TLV_VLAN);
 
-	bitmap = fip_parse_tlvs((fh + 1), desc_len, &tlvs);
+	bitmap = fip_parse_tlvs((fh + 1), len, &tlvs);
 	if ((bitmap & required_tlvs) != required_tlvs)
 		return -1;
 
@@ -229,7 +185,7 @@ int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
 			break;
 		}
 		memset(fcf, 0, sizeof(*fcf));
-		fcf->interface = iff;
+		fcf->ifindex = ifindex;
 		fcf->vlan = ntohs(tlvs.vlan[i]->vlan);
 		memcpy(fcf->mac_addr, tlvs.mac->mac_addr, ETHER_ADDR_LEN);
 		TAILQ_INSERT_TAIL(&fcfs, fcf, list_node);
@@ -238,67 +194,27 @@ int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
 	return 0;
 }
 
-/**
- * fip_recv - receive from a FIP packet socket
- * @s: packet socket with data ready to be received
- */
-int fip_recv(int s)
+int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 {
-	char buf[4096];
-	struct sockaddr_ll sa;
-	struct iovec iov[] = {
-		{ .iov_base = &buf[0], .iov_len = sizeof(buf), },
-	};
-	struct msghdr msg = {
-		.msg_name = &sa,
-		.msg_namelen = sizeof(sa),
-		.msg_iov = iov,
-		.msg_iovlen = ARRAY_SIZE(iov),
-	};
-	struct fiphdr *fh;
-	struct iff *iff;
-	ssize_t len;
-
-	FIP_LOG_DBG("%s", __func__);
-
-	len = recvmsg(s, &msg, 0);
-	if (len < 0) {
-		FIP_LOG_ERRNO("packet socket recv error");
-		return len;
-	}
-
-	if (len < sizeof(*fh)) {
-		FIP_LOG_ERR(EINVAL, "received packed smaller that FIP header");
-		return -1;
-	}
-
-	fh = (struct fiphdr *) buf;
+	int rc = -1;
 
 	/* We only care about VLAN Notifications */
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
 		FIP_LOG_DBG("ignoring FIP packet, protocol %d",
-			  ntohs(fh->fip_proto));
-		return -1;
-	}
-	TAILQ_FOREACH(iff, &interfaces, list_node) {
-		if (iff->ifindex == sa.sll_ifindex)
-			break;
-	}
-	if (!iff) {
-		FIP_LOG("received packet on unexpected interface");
+			    ntohs(fh->fip_proto));
 		return -1;
 	}
 
 	switch (fh->fip_subcode) {
 	case FIP_VLAN_NOTE:
-		fip_recv_vlan_note(fh, len, iff);
+		rc = fip_recv_vlan_note(fh, sa->sll_ifindex);
 		break;
 	default:
-		FIP_LOG("FIP packet with unknown subcode %d", fh->fip_subcode);
-		return -1;
+		FIP_LOG_DBG("ignored FIP VLAN packet with subcode %d",
+			    fh->fip_subcode);
+		break;
 	}
-
-	return 0;
+	return rc;
 }
 
 /**
@@ -634,6 +550,7 @@ err:
 
 void print_results()
 {
+	struct iff *iff;
 	struct fcf *fcf;
 
 	if (TAILQ_EMPTY(&fcfs)) {
@@ -645,8 +562,9 @@ void print_results()
 	printf("%-10.10s| %-5.5s| %-10.10s\n", "interface", "VLAN", "FCF MAC");
 	printf("------------------------------------\n");
 	TAILQ_FOREACH(fcf, &fcfs, list_node) {
+		iff = lookup_iff(fcf->ifindex, NULL);
 		printf("%-10.10s| %-5d| %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
-			fcf->interface->ifname, fcf->vlan,
+			iff->ifname, fcf->vlan,
 			fcf->mac_addr[0], fcf->mac_addr[1], fcf->mac_addr[2],
 			fcf->mac_addr[3], fcf->mac_addr[4], fcf->mac_addr[5]);
 	}
@@ -670,7 +588,7 @@ void recv_loop(int ps)
 			break;
 		}
 		if (pfd[0].revents)
-			fip_recv(pfd[0].fd);
+			fip_recv(pfd[0].fd, fip_vlan_handler, NULL);
 		pfd[0].revents = 0;
 	}
 }
@@ -709,7 +627,7 @@ int main(int argc, char **argv)
 	}
 
 	TAILQ_FOREACH(iff, &interfaces, list_node)
-		fip_send_vlan_request(ps, iff);
+		fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
 
 	recv_loop(ps);
 	print_results();

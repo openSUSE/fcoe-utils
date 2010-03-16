@@ -685,4 +685,3 @@ hex2int(char *b)
 	}
 	return n;
 }
-

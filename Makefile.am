@@ -1,3 +1,6 @@
+# build libutil first
+SUBDIRS = lib .
+
 ## target programs, to be built and installed in $(prefix)/sbin
 sbin_PROGRAMS = fcoeadm fcping fipvlan fcnsq fcrls
 if WITH_DCB
@@ -12,9 +15,10 @@ AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
 
 ## rules for building fcoeadm
 ## only listed sources get packaged, so must list all headers too
-fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h fcoe_utils.c \
-fcoe_utils.h fcoe_utils_version.h include/fc_scsi.h include/fc_types.h \
+fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h \
+include/fc_scsi.h include/fc_types.h \
 include/net_types.h fcoe_clif.h
+fcoeadm_LDADD = lib/libutil.a
 
 ## fcoeadm uses HBAAPI, so get the right flags for compiling and linking
 fcoeadm_CFLAGS = $(HBAAPI_CFLAGS)
@@ -22,7 +26,8 @@ fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
 
 ## rules for building fcping
 ## only listed sources get packaged, so must list all headers too
-fcping_SOURCES = fcping.c fcoe_utils.c fcoe_utils.h
+fcping_SOURCES = fcping.c
+fcping_LDADD = lib/libutil.a
 
 ## fcping uses HBAAPI, so get the right flags for compiling and linking
 fcping_CFLAGS = $(HBAAPI_CFLAGS)
@@ -30,9 +35,10 @@ fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
 
 ## rules for building fcoemon
 ## only listed sources get packaged, so must list all headers too
-fcoemon_SOURCES = fcoemon_utils.c fcoemon.c fcoemon.h fcoemon_utils.h \
-fcoe_utils.c fcoe_utils.h fcoe_utils_version.h include/fc_scsi.h \
+fcoemon_SOURCES = fcoemon.c fcoemon.h \
+include/fc_scsi.h \
 include/fc_types.h include/net_types.h fcoe_clif.h
+fcoemon_LDADD = lib/libutil.a
 
 ## fcoemon needs headers from dcbd, get the right include path for them
 fcoemon_CFLAGS = $(DCBD_CFLAGS)
@@ -40,8 +46,8 @@ fcoemon_LDFLAGS = -lrt
 
 ## rules for building fipvlan
 ## only listed sources get packaged, so must list all headers too
-fipvlan_SOURCES = fipvlan.c fcoe_utils_version.h include/fip.h \
-fcoemon_utils.c
+fipvlan_SOURCES = fipvlan.c include/fip.h
+fipvlan_LDADD = lib/libutil.a
 fipvlan_LDFLAGS = -lrt
 
 ## install configuration file in $(prefix)/etc/fcoe

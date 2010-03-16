@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/queue.h>
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <net/ethernet.h>
@@ -39,7 +40,6 @@
 #include "fcoe_utils_version.h"
 #include "fip.h"
 #include "log.h"
-#include "list.h"
 
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
 
@@ -47,23 +47,27 @@
 
 char *exe;
 
+TAILQ_HEAD(iff_list_head, iff);
+
 struct iff {
 	int ifindex;
 	char *ifname;
 	unsigned char mac_addr[ETHER_ADDR_LEN];
-	struct list_head list;
+	TAILQ_ENTRY(iff) list_node;
 };
 
-LIST_HEAD(interfaces);
+struct iff_list_head interfaces = TAILQ_HEAD_INITIALIZER(interfaces);
+
+TAILQ_HEAD(fcf_list_head, fcf);
 
 struct fcf {
 	struct iff *interface;
 	uint16_t vlan;
 	unsigned char mac_addr[ETHER_ADDR_LEN];
-	struct list_head list;
+	TAILQ_ENTRY(fcf) list_node;
 };
 
-LIST_HEAD(fcfs);
+struct fcf_list_head fcfs = TAILQ_HEAD_INITIALIZER(fcfs);
 
 /**
  * packet_socket - create a packet socket bound to the FIP ethertype
@@ -223,7 +227,7 @@ int fip_recv_vlan_note(struct fiphdr *fh, ssize_t len, struct iff *iff)
 		fcf->interface = iff;
 		fcf->vlan = ntohs(tlvs.vlan[i]->vlan);
 		memcpy(fcf->mac_addr, tlvs.mac->mac_addr, ETHER_ADDR_LEN);
-		list_add_tail(&fcf->list, &fcfs);
+		TAILQ_INSERT_TAIL(&fcfs, fcf, list_node);
 	}
 
 	return 0;
@@ -271,12 +275,11 @@ int fip_recv(int s)
 			  ntohs(fh->fip_proto));
 		return -1;
 	}
-
-	list_for_each_entry(iff, &interfaces, list) {
+	TAILQ_FOREACH(iff, &interfaces, list_node) {
 		if (iff->ifindex == sa.sll_ifindex)
 			break;
 	}
-	if (&iff->list == &interfaces) {
+	if (!iff) {
 		log_warn("received packet on unexpected interface");
 		return -1;
 	}
@@ -420,7 +423,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 		}
 	}
 
-	list_add_tail(&iff->list, &interfaces);
+	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
 }
 
 #define NLMSG(c) ((struct nlmsghdr *) (c))
@@ -617,7 +620,7 @@ int check_interface(char *name, int ps)
 	}
 	memcpy(iff->mac_addr, ifr.ifr_addr.sa_data, ETHER_ADDR_LEN);
 
-	list_add_tail(&iff->list, &interfaces);
+	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
 	return 0;
 err:
 	free(iff);
@@ -628,7 +631,7 @@ void print_results()
 {
 	struct fcf *fcf;
 
-	if (list_empty(&fcfs)) {
+	if (TAILQ_EMPTY(&fcfs)) {
 		printf("No Fibre Channel Forwarders Found\n");
 		return;
 	}
@@ -636,7 +639,7 @@ void print_results()
 	printf("Fibre Channel Forwarders Discovered\n");
 	printf("%-10.10s| %-5.5s| %-10.10s\n", "interface", "VLAN", "FCF MAC");
 	printf("------------------------------------\n");
-	list_for_each_entry(fcf, &fcfs, list) {
+	TAILQ_FOREACH(fcf, &fcfs, list_node) {
 		printf("%-10.10s| %-5d| %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
 			fcf->interface->ifname, fcf->vlan,
 			fcf->mac_addr[0], fcf->mac_addr[1], fcf->mac_addr[2],
@@ -692,14 +695,14 @@ int main(int argc, char **argv)
 			check_interface(namev[i], ps);
 	}
 
-	if (list_empty(&interfaces)) {
+	if (TAILQ_EMPTY(&interfaces)) {
 		log_err("no interfaces to perform discovery on");
 		close(ps);
 		log_stop();
 		exit(1);
 	}
 
-	list_for_each_entry(iff, &interfaces, list)
+	TAILQ_FOREACH(iff, &interfaces, list_node)
 		fip_send_vlan_request(ps, iff);
 
 	recv_loop(ps);

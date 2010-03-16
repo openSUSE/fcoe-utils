@@ -117,9 +117,16 @@ fcoe_info()
 	fcoeadm -t
 }
 
+bsg_info()
+{
+	echo -e "\n###BSG Info"
+	echo -e "#find /dev/bsg/"
+	find /dev/bsg/ 2>&1
+}
+
 sysfs_dump()
 {
-	echo -e "###SYSFS dump"
+	echo -e "\n###SYSFS dump"
 	echo -e "#sysfs fc_host dump"
 	find /sys/class/fc_host/host*/ -type f -print -exec cat '{}' \;
 	echo -e "#sysfs fc_transport dump"
@@ -147,6 +154,7 @@ fcoe_debug()
 	adapter_info
 	dcb_info
 	fcoe_info
+	bsg_info
 	sysfs_dump
 	logfile_dump
 }

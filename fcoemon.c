@@ -2350,6 +2350,7 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			fcoe_config.debug = 1;
+			enable_debug_log(1);
 			break;
 		case 's':
 			fcoe_config.use_syslog = 1;

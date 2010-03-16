@@ -41,20 +41,12 @@
 #include "fip.h"
 #include "fcoemon_utils.h"
 
-static struct {
-	int debug;
-} fcoe_config = {
-	.debug = 1,
-};
-
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
 
 #define FIP_LOG(...)		sa_log(__VA_ARGS__)
 #define FIP_LOG_ERR(error, ...)	sa_log_err(error, __func__, __VA_ARGS__)
 #define FIP_LOG_ERRNO(...)	sa_log_err(errno, __func__, __VA_ARGS__)
-#define FIP_LOG_DBG(...)	do { \
-	if (fcoe_config.debug) sa_log(__VA_ARGS__); \
-} while (0)
+#define FIP_LOG_DBG(...)	sa_log_debug(__VA_ARGS__)
 
 /* global configuration */
 
@@ -699,6 +691,7 @@ int main(int argc, char **argv)
 	automode = parse_cmdline(argc, argv);
 	sa_log_prefix = exe;
 	sa_log_flags = 0;
+	enable_debug_log(0);
 
 	ps = packet_socket();
 

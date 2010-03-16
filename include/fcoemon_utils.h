@@ -40,6 +40,7 @@
 #include "fc_types.h"
 
 void sa_log(const char *format, ...);
+void sa_log_debug(const char *format, ...);
 void sa_log_err(int, const char *func, const char *format, ...);
 
 /*
@@ -262,7 +263,8 @@ fc_wwn_from_mac(u_int64_t, u_int32_t scheme, u_int32_t port);
 
 extern int hex2int(char *b);
 
-int use_syslog;
+extern int use_syslog;
 void enable_syslog(int);
+void enable_debug_log(int);
 
 #endif /* _FCOEMON_UTILS_H_ */

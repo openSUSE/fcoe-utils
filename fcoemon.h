@@ -43,14 +43,12 @@ struct fcoe_config {
 
 #define FCM_LOG_DBG(fmt, args...)					\
 	do {								\
-		if (fcoe_config.debug)					\
-			sa_log(fmt, ##args);				\
+		sa_log_debug(fmt, ##args);				\
 	} while (0)
 
 #define FCM_LOG_DEV_DBG(fcm, fmt, args...)				\
 	do {								\
-		if (fcoe_config.debug)					\
-			sa_log("%s, " fmt, fcm->ifname, ##args);	\
+		sa_log_debug("%s, " fmt, fcm->ifname, ##args);	\
 	} while (0)
 
 #define FCM_LOG_DEV(fcm, fmt, args...)				\

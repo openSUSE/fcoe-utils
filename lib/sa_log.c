@@ -22,6 +22,7 @@
 #include "fc_types.h"
 
 int use_syslog;
+static int debug;
 
 /*
  * Size of on-stack line buffers.
@@ -32,6 +33,11 @@ int use_syslog;
 void enable_syslog(int enable)
 {
 	use_syslog = enable;
+}
+
+void enable_debug_log(int enable)
+{
+	debug = enable;
 }
 
 /*
@@ -76,6 +82,22 @@ void
 sa_log(const char *format, ...)
 {
 	va_list arg;
+
+	va_start(arg, format);
+	sa_log_va(NULL, format, arg);
+	va_end(arg);
+}
+
+/*
+ * debug log, controlled by static debug flag
+ */
+void
+sa_log_debug(const char *format, ...)
+{
+	va_list arg;
+
+	if (!debug)
+		return;
 
 	va_start(arg, format);
 	sa_log_va(NULL, format, arg);

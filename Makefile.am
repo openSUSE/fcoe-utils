@@ -48,7 +48,6 @@ fcoemon_LDFLAGS = -lrt
 ## only listed sources get packaged, so must list all headers too
 fipvlan_SOURCES = fipvlan.c include/fip.h
 fipvlan_LDADD = lib/libutil.a
-fipvlan_LDFLAGS = -lrt
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

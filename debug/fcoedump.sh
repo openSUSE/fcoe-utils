@@ -18,12 +18,14 @@ else
 	PHYSDEV=$DEVICE
 fi
 
-kernel_info () {
+kernel_info()
+{
 	echo -e "\n###KERNEL INFO###"
 	uname -a
 }
 
-system_info () {
+system_info()
+{
 	echo -e "\n###System Info###"
 	echo -e "#lsscsi:"
 	lsscsi
@@ -35,7 +37,8 @@ system_info () {
 	grep fcoe /proc/kallsyms
 }
 
-adapter_info () {
+adapter_info()
+{
 	if [ $DEVICE != $PHYSDEV ]
 	then
 		echo -e "\n###Adapter INFO VLAN $DEVICE"
@@ -64,7 +67,8 @@ adapter_info () {
 	ifconfig $PHYSDEV
 }
 
-dcb_info () {
+dcb_info()
+{
 	echo -e "\n###DCB INFO"
 	echo -e "#tc config"
 	tc qdisc
@@ -100,7 +104,8 @@ dcb_info () {
 	dcbtool gp $PHYSDEV ll:0
 }
 
-fcoe_info () {
+fcoe_info()
+{
 	echo -e "\n###FCOE Info"
 	echo -e "#service fcoe status"
 	service fcoe status
@@ -112,7 +117,8 @@ fcoe_info () {
 	fcoeadm -t
 }
 
-sysfs_dump () {
+sysfs_dump()
+{
 	echo -e "###SYSFS dump"
 	echo -e "#sysfs fc_host dump"
 	find /sys/class/fc_host/host*/ -type f -print -exec cat '{}' \;
@@ -124,7 +130,8 @@ sysfs_dump () {
 	find /sys/class/fc_vports/*/ -type f -print -exec cat '{}' \;
 }
 
-logfile_dump() {
+logfile_dump()
+{
 	echo "###LOGFILES"
 	echo "#/var/log/messages"
 	cat /var/log/messages
@@ -133,7 +140,8 @@ logfile_dump() {
 	dmesg
 }
 
-fcoe_debug () {
+fcoe_debug()
+{
 	kernel_info
 	system_info
 	adapter_info

@@ -54,6 +54,9 @@ git://open-fcoe.org/openfc/fcoe-utils.git
 	      LibFCoE
 	      FCoE
 
+   Enable the block layer
+	      Block layer SG support v4
+
    Device Drivers -> Network Device Support -> Ethernet (10000 Mbit)
 	      Intel(R) 10GbE PCI Express adapters support
 	      Data Center Bridging (DCB) Support

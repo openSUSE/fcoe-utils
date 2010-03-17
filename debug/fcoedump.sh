@@ -1,3 +1,4 @@
+#!/bin/bash
 ###############################################################################
 #
 # fcoe_debug: print debugging information for fcoe

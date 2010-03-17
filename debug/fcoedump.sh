@@ -43,6 +43,9 @@ system_info()
 	echo -e "#check symbols:"
 	grep dcbnl_init /proc/kallsyms
 	grep fcoe /proc/kallsyms
+
+	echo -e "#lsmod:"
+	lsmod
 }
 
 adapter_info()

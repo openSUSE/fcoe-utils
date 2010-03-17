@@ -35,16 +35,29 @@ kernel_info()
 system_info()
 {
 	echo -e "\n###System Info###"
-	echo -e "#lsscsi:"
+
+	echo -e "#lsscsi"
 	lsscsi
-	echo -e "#lspci:"
+
+	echo -e "#lspci"
 	lspci
 
-	echo -e "#check symbols:"
+	echo -e "#grep dcbnl_init /proc/kallsyms"
 	grep dcbnl_init /proc/kallsyms
-	grep fcoe /proc/kallsyms
 
-	echo -e "#lsmod:"
+	echo -e "#grep scsi_transport_fc /proc/kallsyms"
+	grep scsi_transport_fc /proc/kallsyms
+
+	echo -e "#grep libfc /proc/kallsyms"
+	grep libfc /proc/kallsyms | grep -v libfcoe
+
+	echo -e "#grep libfcoe /proc/kallsyms"
+	grep libfcoe /proc/kallsyms
+
+	echo -e "#grep fcoe /proc/kallsyms"
+	grep fcoe /proc/kallsyms | grep -v libfcoe
+
+	echo -e "#lsmod"
 	lsmod
 }
 

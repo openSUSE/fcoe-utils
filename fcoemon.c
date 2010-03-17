@@ -55,6 +55,9 @@
 #include "fcoemon.h"
 #include "fcoe_clif.h"
 
+#include "fip.h"
+#include "rtnetlink.h"
+
 #ifndef SYSCONFDIR
 #define SYSCONFDIR                  "/etc"
 #endif
@@ -103,12 +106,16 @@ struct fcoe_port {
 					is a VLAN */
 	int fcoe_enable;
 	int dcb_required;
+	int auto_vlan;
 
 	/* following track data required to manage FCoE interface state */
 	enum fcp_action action;      /* current state */
 	enum fcp_action last_action; /* last action */
 	int last_msg_type;     /* last rtnetlink msg type received on if name */
 	struct sock_info *sock_reply;
+
+	int ifindex;
+	unsigned char mac[ETHER_ADDR_LEN];
 };
 
 enum fcoeport_ifname {
@@ -152,6 +159,8 @@ static void fcm_link_recv(void *);
 static void fcm_link_getlink(void);
 static int fcm_link_buf_check(size_t);
 static void clear_dcbd_info(struct fcm_netif *ff);
+
+static int fcm_fip_socket;
 
 /*
  * Table for getopt_long(3).
@@ -350,9 +359,21 @@ static int fcm_read_config_files(void)
 			continue;
 		}
 		/* if not found, default to "no" */
-		if (!strncasecmp(val, "yes", 3) && rc == 1) {
+		if (!strncasecmp(val, "yes", 3) && rc == 1)
 			next->dcb_required = 1;
+
+		/* AUTO_VLAN */
+		rc = fcm_read_config_variable(file, val, sizeof(val),
+					      fp, "AUTO_VLAN");
+		if (rc < 0) {
+			FCM_LOG("%s invalid format for AUTO_VLAN setting");
+			fclose(fp);
+			free(next);
+			continue;
 		}
+		/* if not found, default to "no" */
+		if (!strncasecmp(val, "yes", 3) && rc == 1)
+			next->auto_vlan = 1;
 
 		fclose(fp);
 
@@ -460,6 +481,92 @@ static int fcm_link_init(void)
 	return 0;
 }
 
+static struct fcoe_port *fcm_port_create(char *ifname, int cmd);
+
+void fcm_new_vlan(int ifindex, int vid)
+{
+	char real_name[IFNAMSIZ];
+	char vlan_name[IFNAMSIZ];
+
+	FCM_LOG_DBG("Auto VLAN Found FCF on VID %d\n", vid);
+
+	if (rtnl_find_vlan(ifindex, vid, vlan_name)) {
+		rtnl_get_linkname(ifindex, real_name);
+		snprintf(vlan_name, IFNAMSIZ, "%s.%d-fcoe", real_name, vid);
+		vlan_create(ifindex, vid, vlan_name);
+	}
+	rtnl_set_iff_up(0, vlan_name);
+	fcm_port_create(vlan_name, FCP_CREATE_IF);
+}
+
+
+int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
+{
+	int vid;
+	unsigned char mac[ETHER_ADDR_LEN];
+	int len = ntohs(fh->fip_desc_len);
+	struct fip_tlv_hdr *tlv = (struct fip_tlv_hdr *)(fh + 1);
+
+	FCM_LOG_DBG("%s", __func__);
+
+	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
+		FCM_LOG_DBG("ignoring FIP frame that is not of type VLAN");
+		return -1;
+	}
+
+	if (fh->fip_subcode != FIP_VLAN_NOTE) {
+		FCM_LOG_DBG("ignoring FIP VLAN Discovery Request");
+		return -1;
+	}
+
+	while (len > 0) {
+		switch (tlv->tlv_type) {
+		case FIP_TLV_MAC_ADDR:
+			memcpy(mac, ((struct fip_tlv_mac_addr *)tlv)->mac_addr,
+			       ETHER_ADDR_LEN);
+			break;
+		/*
+		 * this expects to see the MAC_ADDR TLV first,
+		 * and is broken if not
+		 */
+		case FIP_TLV_VLAN:
+			if (tlv->tlv_len != 1) {
+				FCM_LOG_ERR(EINVAL, "bad length on VLAN TLV");
+				break;
+			}
+			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
+			fcm_new_vlan(sa->sll_ifindex, vid);
+			break;
+		default:
+			/* unexpected or unrecognized descriptor */
+			FCM_LOG_DBG("ignoring TLV type %d", tlv->tlv_type);
+			break;
+		}
+		len -= tlv->tlv_len;
+		tlv = ((void *) tlv) + (tlv->tlv_len << 2);
+	};
+	return 0;
+}
+
+static void fcm_fip_recv(void *arg)
+{
+	fip_recv(fcm_fip_socket, fcm_vlan_disc_handler, NULL);
+}
+
+static int fcm_vlan_disc_init(void)
+{
+	int fd;
+
+	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
+	if (fd < 0) {
+		FCM_LOG_ERR(errno, "socket error");
+		return fd;
+	}
+	fcm_fip_socket = fd;
+	sa_select_add_fd(fd, fcm_fip_recv, NULL, NULL, NULL);
+	return 0;
+}
+
 
 /* fcm_vlan_dev_real_dev - query vlan real_dev
  * @vlan_ifname - vlan device ifname to find real interface name for
@@ -542,7 +649,10 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 			p->action = action;
 			break;
 		case FCP_ACTIVATE_IF:
-			p->action = FCP_ENABLE_IF;
+			if (p->auto_vlan)
+				p->action = FCP_VLAN_DISC;
+			else
+				p->action = FCP_ENABLE_IF;
 			break;
 		default:
 			p->action = FCP_WAIT;
@@ -552,10 +662,11 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 	case FCP_DESTROY_IF:
 		switch (action) {
 		case FCP_CREATE_IF:
-			p->action = action;
-			break;
 		case FCP_ACTIVATE_IF:
-			p->action = FCP_CREATE_IF;
+			if (p->auto_vlan)
+				p->action = FCP_VLAN_DISC;
+			else
+				p->action = FCP_CREATE_IF;
 			break;
 		default:
 			p->action = FCP_WAIT;
@@ -578,12 +689,15 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 	case FCP_DISABLE_IF:
 		switch (action) {
 		case FCP_DESTROY_IF:
-		case FCP_ENABLE_IF:
 		case FCP_RESET_IF:
 			p->action = action;
 			break;
+		case FCP_ENABLE_IF:
 		case FCP_ACTIVATE_IF:
-			p->action = FCP_ENABLE_IF;
+			if (p->auto_vlan)
+				p->action = FCP_VLAN_DISC;
+			else
+				p->action = FCP_ENABLE_IF;
 			break;
 		default:
 			p->action = FCP_WAIT;
@@ -594,14 +708,30 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 	case FCP_SCAN_IF:
 		switch (action) {
 		case FCP_DESTROY_IF:
-		case FCP_ENABLE_IF:
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
 		case FCP_SCAN_IF:
 			p->action = action;
 			break;
+		case FCP_ENABLE_IF:
 		case FCP_ACTIVATE_IF:
-			p->action = FCP_ENABLE_IF;
+			if (p->auto_vlan)
+				p->action = FCP_VLAN_DISC;
+			else
+				p->action = FCP_ENABLE_IF;
+			break;
+		default:
+			p->action = FCP_WAIT;
+			break;
+		}
+		break;
+	case FCP_VLAN_DISC:
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_DISABLE_IF:
+		case FCP_RESET_IF:
+		case FCP_SCAN_IF:
+			p->action = action;
 			break;
 		default:
 			p->action = FCP_WAIT;
@@ -727,11 +857,14 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 	char ifname[IFNAMSIZ];
 	char real_dev[IFNAMSIZ];
 	u_int8_t operstate;
-	u_int64_t mac;
+	unsigned char mac[ETHER_ADDR_LEN];
 	int is_vlan;
+	int ifindex;
 
-	mac = is_vlan = 0;
+	is_vlan = 0;
 	operstate = IF_OPER_UNKNOWN;
+
+	ifindex = ip->ifi_index;
 
 	if (ip->ifi_type != ARPHRD_ETHER)
 		return;
@@ -742,7 +875,7 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		switch (ap->rta_type) {
 		case IFLA_ADDRESS:
 			if (RTA_PAYLOAD(ap) == 6)
-				mac = net48_get(RTA_DATA(ap));
+				memcpy(mac, RTA_DATA(ap), ETHER_ADDR_LEN);
 			break;
 
 		case IFLA_IFNAME:
@@ -772,6 +905,12 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		if (!p)
 			return;
 
+		p->ifindex = ifindex;
+		memcpy(p->mac, mac, ETHER_ADDR_LEN);
+
+		/* don't do VLAN discovery on a VLAN */
+		p->auto_vlan = 0;
+
 		/* try to find the real device name */
 		real_dev[0] = '\0';
 		fcm_vlan_dev_real_dev(ifname, real_dev);
@@ -784,6 +923,8 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		 * an FCoE interface configured on it.
 		 */
 		if (p) {
+			p->ifindex = ifindex;
+			memcpy(p->mac, mac, ETHER_ADDR_LEN);
 			strncpy(p->real_ifname, ifname, strlen(ifname)+1);
 			update_fcoe_port_state(p, type, operstate,
 					       FCP_REAL_IFNAME);
@@ -1795,6 +1936,13 @@ err_out:
 	return ret;
 }
 
+int fcm_start_vlan_disc(struct fcoe_port *p)
+{
+	FCM_LOG_DBG("%s", __func__);
+	fip_send_vlan_request(fcm_fip_socket, p->ifindex, p->mac);
+	return 0;
+}
+
 /*
  *
  * Input:  action = 1      Destroy the FCoE interface
@@ -1856,6 +2004,10 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		sprintf(path, "%s/%s/device/scsi_host/%s/scan",
 			SYSFS_FCHOST, fchost, fchost);
 		rc = fcm_fcoe_if_action(path, "- - -");
+		break;
+	case FCP_VLAN_DISC:
+		FCM_LOG_DBG("OP: VLAN DISC %s\n", p->ifname);
+		rc = fcm_start_vlan_disc(p);
 		break;
 	default:
 		return;
@@ -2070,7 +2222,7 @@ static void fcm_pidfile_create(void)
 	}
 }
 
-static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
+static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 {
 	struct fcoe_port *p;
 	struct fcoe_port *curr;
@@ -2081,11 +2233,10 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 		if (!p->fcoe_enable) {
 			p->fcoe_enable = 1;
 			fcp_set_next_action(p, cmd);
-			p->sock_reply = *r;
 			if (p->dcb_required) {
 				ff = fcm_netif_lookup(p->real_ifname);
 				if (!ff)
-					return fcm_success;
+					return p;
 				fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
 				if (ff->ff_dcbd_state == FCD_GET_DCB_STATE)
 					fcp_set_next_action(p, FCP_WAIT);
@@ -2094,13 +2245,13 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 			p->fcoe_enable = 1;
 			fcp_set_next_action(p, cmd);
 		}
-		return fcm_success;
+		return p;
 	}
 
 	p = alloc_fcoe_port(ifname);
 	if (!p) {
 		FCM_LOG_ERR(errno, "fail to allocate fcoe_port %s", ifname);
-		return fcm_fail;
+		return NULL;
 	}
 
 	fcm_vlan_dev_real_dev(ifname, p->real_ifname);
@@ -2109,7 +2260,6 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 	p->fcoe_enable = 1;
 	p->dcb_required = 0;
 	fcp_set_next_action(p, cmd);
-	p->sock_reply = *r;
 	p->next = NULL;
 
 	if (!fcoe_config.port)
@@ -2125,9 +2275,19 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 	ff = fcm_netif_lookup_create(p->real_ifname);
 	if (!ff) {
 		FCM_LOG_ERR(errno, "fail to allocate fcm_netif %s", ifname);
-		return fcm_fail;
+		return NULL;
 	}
+	return p;
+}
 
+static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
+{
+	struct fcoe_port *p;
+
+	p = fcm_port_create(ifname, cmd);
+	if (!p)
+		return fcm_fail;
+	p->sock_reply = *r;
 	return fcm_success;
 }
 
@@ -2422,6 +2582,7 @@ int main(int argc, char **argv)
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
+	fcm_vlan_disc_init();
 	fcm_srv_create(&srv_info);
 	sa_select_set_callback(fcm_handle_changes);
 

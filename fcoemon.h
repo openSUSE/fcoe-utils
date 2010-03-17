@@ -93,6 +93,7 @@ enum fcp_action {
    FCP_DISABLE_IF,      /* disable FCoE interface */
    FCP_ACTIVATE_IF,     /* create or enable FCoE interface */
    FCP_ERROR,           /* error condition */
+   FCP_VLAN_DISC,       /* start VLAN discovery */
 };
 
 #define FCM_DCBD_STATES {                         \

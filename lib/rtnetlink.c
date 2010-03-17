@@ -284,3 +284,146 @@ out:
 	close(s);
 	return rc;
 }
+
+static ssize_t rtnl_send_getlink(int s, int ifindex, char *name)
+{
+	struct {
+		struct nlmsghdr nh;
+		struct ifinfomsg ifm;
+		char attrbuf[RTA_SPACE(IFNAMSIZ)];
+	} req = {
+		.nh = {
+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+			.nlmsg_type = RTM_GETLINK,
+			.nlmsg_flags = NLM_F_REQUEST,
+		},
+		.ifm = {
+			.ifi_family = AF_UNSPEC,
+			.ifi_index = ifindex,
+		},
+	};
+	int rc;
+
+	if (!ifindex && !name)
+		return -1;
+
+	if (name)
+		add_rtattr(&req.nh, IFLA_IFNAME, name, strlen(name));
+
+	RTNL_LOG_DBG("sending RTM_GETLINK");
+	rc = send(s, &req, req.nh.nlmsg_len, 0);
+	if (rc < 0)
+		RTNL_LOG_ERRNO("netlink send error");
+
+	return rc;
+}
+
+static int rtnl_getlinkname_handler(struct nlmsghdr *nh, void *arg)
+{
+	char *name = arg;
+	struct ifinfomsg *ifm;
+	struct rtattr *ifla[__IFLA_MAX];
+
+	switch (nh->nlmsg_type) {
+	case RTM_NEWLINK:
+		ifm = NLMSG_DATA(nh);
+		parse_ifinfo(ifla, nh);
+		strncpy(name, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+		return 0;
+	}
+	return -1;
+}
+
+int rtnl_get_linkname(int ifindex, char *name)
+{
+	int s;
+	int rc;
+
+	s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (s < 0)
+		return s;
+	rc = rtnl_send_getlink(s, ifindex, NULL);
+	if (rc < 0)
+		return rc;
+	rc = rtnl_recv(s, rtnl_getlinkname_handler, name);
+	if (rc < 0)
+		goto out;
+out:
+	close(s);
+	return rc;
+}
+
+struct vlan_identifier {
+	int ifindex;
+	int vid;
+	int found;
+	unsigned char ifname[IFNAMSIZ];
+};
+
+static int rtnl_find_vlan_handler(struct nlmsghdr *nh, void *arg)
+{
+	struct vlan_identifier *vlan = arg;
+	struct ifinfomsg *ifm;
+	struct rtattr *ifla[__IFLA_MAX];
+	struct rtattr *linkinfo[__IFLA_INFO_MAX];
+	struct rtattr *vlaninfo[__IFLA_VLAN_MAX];
+
+	switch (nh->nlmsg_type) {
+	case RTM_NEWLINK:
+		ifm = NLMSG_DATA(nh);
+		parse_ifinfo(ifla, nh);
+		if (!ifla[IFLA_LINK])
+			break;
+		if (vlan->ifindex != *(int *)RTA_DATA(ifla[IFLA_LINK]))
+			break;
+		if (!ifla[IFLA_LINKINFO])
+			break;
+		parse_linkinfo(linkinfo, ifla[IFLA_LINKINFO]);
+		if (!linkinfo[IFLA_INFO_KIND])
+			break;
+		if (strcmp(RTA_DATA(linkinfo[IFLA_INFO_KIND]), "vlan"))
+			break;
+		if (!linkinfo[IFLA_INFO_DATA])
+			break;
+		parse_vlaninfo(vlaninfo, linkinfo[IFLA_INFO_DATA]);
+		if (!vlaninfo[IFLA_VLAN_ID])
+			break;
+		if (vlan->vid != *(int *)RTA_DATA(vlaninfo[IFLA_VLAN_ID]))
+			break;
+		if (!ifla[IFLA_IFNAME])
+			break;
+		vlan->found = 1;
+		memcpy(vlan->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+	}
+	return 0;
+}
+
+int rtnl_find_vlan(int ifindex, int vid, char *ifname)
+{
+	int s;
+	int rc;
+	struct vlan_identifier vlan = {
+		.ifindex = ifindex,
+		.vid = vid,
+		.found = 0,
+	};
+
+	s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (s < 0)
+		return s;
+	rc = send_getlink_dump(s);
+	if (rc < 0)
+		goto out;
+	rc = rtnl_recv(s, rtnl_find_vlan_handler, &vlan);
+	if (rc < 0)
+		goto out;
+	if (vlan.found) {
+		memcpy(ifname, vlan.ifname, IFNAMSIZ);
+		rc = 0;
+	} else {
+		rc = -ENODEV;
+	}
+out:
+	close(s);
+	return rc;
+}

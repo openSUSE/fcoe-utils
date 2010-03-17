@@ -20,6 +20,9 @@
 #ifndef FIP_H
 #define FIP_H
 
+#include <stdint.h>
+#include <net/ethernet.h>
+
 #define ETH_P_FCOE	0x8906
 #define ETH_P_FIP	0x8914
 

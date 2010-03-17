@@ -157,3 +157,130 @@ more:
 		goto more;
 	return rc;
 }
+
+#define NLMSG_TAIL(nmsg) \
+	((struct rtattr *)(((void *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+static void add_rtattr(struct nlmsghdr *n, int type, const void *data, int alen)
+{
+	struct rtattr *rta = NLMSG_TAIL(n);
+	int len = RTA_LENGTH(alen);
+
+	rta->rta_type = type;
+	rta->rta_len = len;
+	memcpy(RTA_DATA(rta), data, alen);
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
+}
+
+static struct rtattr *add_rtattr_nest(struct nlmsghdr *n, int type)
+{
+	struct rtattr *nest = NLMSG_TAIL(n);
+
+	add_rtattr(n, type, NULL, 0);
+	return nest;
+}
+
+static void end_rtattr_nest(struct nlmsghdr *n, struct rtattr *nest)
+{
+	nest->rta_len = (void *)NLMSG_TAIL(n) - (void *)nest;
+}
+
+static ssize_t rtnl_send_set_iff_up(int s, int ifindex, char *ifname)
+{
+	struct {
+		struct nlmsghdr nh;
+		struct ifinfomsg ifm;
+		char attrbuf[RTA_SPACE(IFNAMSIZ)];
+	} req = {
+		.nh = {
+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+			.nlmsg_type = RTM_SETLINK,
+			.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+		},
+		.ifm = {
+			.ifi_index = ifindex,
+			.ifi_flags = IFF_UP,
+			.ifi_change = IFF_UP,
+		},
+	};
+	int rc;
+
+	if (ifname)
+		add_rtattr(&req.nh, IFLA_IFNAME, ifname, strlen(ifname));
+
+	RTNL_LOG_DBG("sending RTM_SETLINK request");
+	rc = send(s, &req, req.nh.nlmsg_len, 0);
+	if (rc < 0)
+		RTNL_LOG_ERRNO("netlink send error");
+
+	return rc;
+}
+
+int rtnl_set_iff_up(int ifindex, char *ifname)
+{
+	int s;
+	int rc;
+
+	s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (s < 0)
+		return s;
+	rc = rtnl_send_set_iff_up(s, ifindex, ifname);
+	if (rc < 0)
+		goto out;
+	rc = rtnl_recv(s, NULL, NULL);
+out:
+	close(s);
+	return rc;
+}
+
+static ssize_t rtnl_send_vlan_newlink(int s, int ifindex, int vid, char *name)
+{
+	struct {
+		struct nlmsghdr nh;
+		struct ifinfomsg ifm;
+		char attrbuf[1024];
+	} req = {
+		.nh = {
+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+			.nlmsg_type = RTM_NEWLINK,
+			.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE |
+				       NLM_F_EXCL | NLM_F_ACK,
+		},
+	};
+	struct rtattr *linkinfo, *data;
+	int rc;
+
+	add_rtattr(&req.nh, IFLA_LINK, &ifindex, 4);
+	add_rtattr(&req.nh, IFLA_IFNAME, name, strlen(name));
+	linkinfo = add_rtattr_nest(&req.nh, IFLA_LINKINFO);
+	add_rtattr(&req.nh, IFLA_INFO_KIND, "vlan", strlen("vlan"));
+	data = add_rtattr_nest(&req.nh, IFLA_INFO_DATA);
+	add_rtattr(&req.nh, IFLA_VLAN_ID, &vid, 2);
+	end_rtattr_nest(&req.nh, data);
+	end_rtattr_nest(&req.nh, linkinfo);
+
+	RTNL_LOG_DBG("sending RTM_NEWLINK request");
+	rc = send(s, &req, req.nh.nlmsg_len, 0);
+	if (rc < 0)
+		RTNL_LOG_ERRNO("netlink send error");
+
+	return rc;
+}
+
+int vlan_create(int ifindex, int vid, char *name)
+{
+	int s;
+	int rc;
+
+	s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (s < 0)
+		return s;
+
+	rc = rtnl_send_vlan_newlink(s, ifindex, vid, name);
+	if (rc < 0)
+		goto out;
+	rc = rtnl_recv(s, NULL, NULL);
+out:
+	close(s);
+	return rc;
+}

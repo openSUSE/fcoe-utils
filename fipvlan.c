@@ -52,6 +52,18 @@
 
 /* global configuration */
 
+struct {
+	char **namev;
+	int namec;
+	bool automode;
+	bool create;
+} config = {
+	.namev = NULL,
+	.namec = 0,
+	.automode = false,
+	.create = false,
+};
+
 char *exe;
 
 TAILQ_HEAD(iff_list_head, iff);
@@ -91,6 +103,17 @@ struct iff *lookup_iff(int ifindex, char *ifname)
 		if ((!ifindex || ifindex == iff->ifindex) &&
 		    (!ifname  || strcmp(ifname, iff->ifname) == 0))
 			return iff;
+	return NULL;
+}
+
+struct iff *lookup_vlan(int ifindex, short int vid)
+{
+	struct iff *real_dev, *vlan;
+	TAILQ_FOREACH(real_dev, &interfaces, list_node)
+		if (real_dev->ifindex == ifindex)
+			TAILQ_FOREACH(vlan, &real_dev->vlans, list_node)
+				if (vlan->vid == vid)
+					return vlan;
 	return NULL;
 }
 
@@ -276,10 +299,11 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 /* command line arguments */
 
-#define GETOPT_STR "ahv"
+#define GETOPT_STR "achv"
 
 static const struct option long_options[] = {
 	{ "auto", no_argument, NULL, 'a' },
+	{ "create", no_argument, NULL, 'c' },
 	{ "help", no_argument, NULL, 'h' },
 	{ "version", no_argument, NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
@@ -291,6 +315,7 @@ static void help(int status)
 "Usage: %s [ options ] [ network interfaces ]\n"
 "Options:\n"
 "  -a, --auto           Auto select Ethernet interfaces\n"
+"  -c, --create		Create system VLAN devices\n"
 "  -h, --help           Display this help and exit\n"
 "  -v, --version        Display version information and exit\n",
 	exe);
@@ -298,15 +323,9 @@ static void help(int status)
 	exit(status);
 }
 
-/* array of interface names to use */
-char **namev;
-/* length of namev */
-int namec;
-
-int parse_cmdline(int argc, char **argv)
+void parse_cmdline(int argc, char **argv)
 {
 	char c;
-	int automode = 0;
 
 	while (1) {
 		c = getopt_long(argc, argv, GETOPT_STR, long_options, NULL);
@@ -314,7 +333,10 @@ int parse_cmdline(int argc, char **argv)
 			break;
 		switch (c) {
 		case 'a':
-			automode = 1;
+			config.automode = true;
+			break;
+		case 'c':
+			config.create = true;
 			break;
 		case 'h':
 			help(0);
@@ -330,12 +352,11 @@ int parse_cmdline(int argc, char **argv)
 		}
 	}
 
-	if ((optind == argc) && (!automode))
+	if ((optind == argc) && (!config.automode))
 		help(1);
 
-	namev = &argv[optind];
-	namec = argc - optind;
-	return automode;
+	config.namev = &argv[optind];
+	config.namec = argc - optind;
 }
 
 int rtnl_listener_handler(struct nlmsghdr *nh, void *arg)
@@ -350,6 +371,42 @@ int rtnl_listener_handler(struct nlmsghdr *nh, void *arg)
 
 /* exit after waiting 2 seconds without receiving anything */
 #define TIMEOUT 2000
+
+void create_missing_vlans()
+{
+	struct fcf *fcf;
+	struct iff *real_dev, *vlan;
+	char vlan_name[IFNAMSIZ];
+	int rc;
+
+	if (!config.create)
+		return;
+
+	TAILQ_FOREACH(fcf, &fcfs, list_node) {
+		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
+		if (vlan) {
+			FIP_LOG_DBG("VLAN %s.%d already exists as %s",
+				    fcf->ifindex, fcf->vlan, vlan->ifname);
+			continue;
+		}
+		real_dev = lookup_iff(fcf->ifindex, NULL);
+		if (!real_dev) {
+			FIP_LOG_ERR(ENODEV, "lost device %d with discoved FCF?",
+				    fcf->ifindex);
+			continue;
+		}
+		snprintf(vlan_name, IFNAMSIZ, "%s.%d-fcoe",
+			 real_dev->ifname, fcf->vlan);
+		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
+		if (rc < 0)
+			printf("Failed to crate VLAN device %s\n\t%s\n",
+			       vlan_name, strerror(-rc));
+		else
+			printf("Created VLAN device %s\n", vlan_name);
+		rtnl_set_iff_up(0, vlan_name);
+	}
+	printf("\n");
+}
 
 void print_results()
 {
@@ -371,6 +428,7 @@ void print_results()
 			fcf->mac_addr[0], fcf->mac_addr[1], fcf->mac_addr[2],
 			fcf->mac_addr[3], fcf->mac_addr[4], fcf->mac_addr[5]);
 	}
+	printf("\n");
 }
 
 void recv_loop(int ps)
@@ -408,17 +466,17 @@ void find_interfaces()
 	close(ns);
 }
 
-void send_vlan_requests(int ps, int automode)
+void send_vlan_requests(int ps)
 {
 	struct iff *iff;
 	int i;
 
-	if (automode) {
+	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node)
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
 	} else {
-		for (i = 0; i < namec; i++) {
-			iff = lookup_iff(0, namev[i]);
+		for (i = 0; i < config.namec; i++) {
+			iff = lookup_iff(0, config.namev[i]);
 			if (!iff)
 				continue;
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
@@ -429,7 +487,6 @@ void send_vlan_requests(int ps, int automode)
 int main(int argc, char **argv)
 {
 	int ps;
-	int automode;
 
 	exe = strrchr(argv[0], '/');
 	if (exe)
@@ -437,7 +494,7 @@ int main(int argc, char **argv)
 	else
 		exe = argv[0];
 
-	automode = parse_cmdline(argc, argv);
+	parse_cmdline(argc, argv);
 	sa_log_prefix = exe;
 	sa_log_flags = 0;
 	enable_debug_log(0);
@@ -452,9 +509,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	send_vlan_requests(ps, automode);
+	send_vlan_requests(ps);
 	recv_loop(ps);
 	print_results();
+
+	if (config.create)
+		create_missing_vlans();
 
 	close(ps);
 	exit(0);

@@ -21,9 +21,11 @@
 #define _RTNETLINK_
 
 int rtnl_socket(void);
-ssize_t send_getlink_dump(int s);
 typedef int rtnl_handler(struct nlmsghdr *nh, void *arg);
 int rtnl_recv(int s, rtnl_handler *fn, void *arg);
+ssize_t send_getlink_dump(int s);
+int rtnl_set_iff_up(int ifindex, char *ifname);
+int vlan_create(int ifindex, int vid, char *name);
 
 static inline void parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {

@@ -460,11 +460,11 @@ void print_results()
 	}
 
 	printf("Fibre Channel Forwarders Discovered\n");
-	printf("%-10.10s| %-5.5s| %-10.10s\n", "interface", "VLAN", "FCF MAC");
-	printf("------------------------------------\n");
+	printf("%-16.16s| %-5.5s| %-17.17s\n", "interface", "VLAN", "FCF MAC");
+	printf("------------------------------------------\n");
 	TAILQ_FOREACH(fcf, &fcfs, list_node) {
 		iff = lookup_iff(fcf->ifindex, NULL);
-		printf("%-10.10s| %-5d| %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
+		printf("%-16.16s| %-5d| %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
 			iff->ifname, fcf->vlan,
 			fcf->mac_addr[0], fcf->mac_addr[1], fcf->mac_addr[2],
 			fcf->mac_addr[3], fcf->mac_addr[4], fcf->mac_addr[5]);

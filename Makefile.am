@@ -77,6 +77,6 @@ init_d_SCRIPTS = etc/initd/fcoe
 dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec
 
 install-data-hook:
-	if [ ! -f ${fcoe_configdir}/config ] ; then \
-		cp etc/config ${fcoe_configdir}/config; \
+	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
+		cp etc/config ${DESTDIR}${fcoe_configdir}/config; \
 	fi

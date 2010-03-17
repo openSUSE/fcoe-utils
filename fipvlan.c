@@ -38,9 +38,14 @@
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "fcoe_utils_version.h"
 #include "fip.h"
 #include "fcoemon_utils.h"
+#include "fcoe_utils.h"
 #include "rtnetlink.h"
 
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
@@ -57,6 +62,7 @@ struct {
 	int namec;
 	bool automode;
 	bool create;
+	bool start;
 } config = {
 	.namev = NULL,
 	.namec = 0,
@@ -299,11 +305,12 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 /* command line arguments */
 
-#define GETOPT_STR "achv"
+#define GETOPT_STR "acshv"
 
 static const struct option long_options[] = {
 	{ "auto", no_argument, NULL, 'a' },
 	{ "create", no_argument, NULL, 'c' },
+	{ "start", no_argument, NULL, 's' },
 	{ "help", no_argument, NULL, 'h' },
 	{ "version", no_argument, NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
@@ -316,6 +323,7 @@ static void help(int status)
 "Options:\n"
 "  -a, --auto           Auto select Ethernet interfaces\n"
 "  -c, --create		Create system VLAN devices\n"
+"  -s, --start		Start FCoE login automatically\n"
 "  -h, --help           Display this help and exit\n"
 "  -v, --version        Display version information and exit\n",
 	exe);
@@ -337,6 +345,9 @@ void parse_cmdline(int argc, char **argv)
 			break;
 		case 'c':
 			config.create = true;
+			break;
+		case 's':
+			config.start = true;
 			break;
 		case 'h':
 			help(0);
@@ -406,6 +417,39 @@ void create_missing_vlans()
 		rtnl_set_iff_up(0, vlan_name);
 	}
 	printf("\n");
+}
+
+int fcoe_instance_start(char *ifname)
+{
+	int fd, rc;
+	FIP_LOG_DBG("%s on %s\n", __func__, ifname);
+	fd = open(SYSFS_FCOE "/create", O_WRONLY);
+	if (fd < 0) {
+		FIP_LOG_ERRNO("failed to open fcoe create file");
+		return fd;
+	}
+	rc = write(fd, ifname, strlen(ifname));
+	close(fd);
+	return rc < 0 ? rc : 0;
+}
+
+void start_fcoe()
+{
+	struct fcf *fcf;
+	struct iff *iff;
+
+	TAILQ_FOREACH(fcf, &fcfs, list_node) {
+		iff = lookup_vlan(fcf->ifindex, fcf->vlan);
+		if (!iff) {
+			FIP_LOG_ERR(ENODEV,
+				    "Cannot start FCoE on VLAN %d, ifindex %d, "
+				    "because the VLAN device does not exist",
+				    fcf->vlan, fcf->ifindex);
+			continue;
+		}
+		printf("Starting FCoE on interface %s\n", iff->ifname);
+		fcoe_instance_start(iff->ifname);
+	}
 }
 
 void print_results()
@@ -515,6 +559,9 @@ int main(int argc, char **argv)
 
 	if (config.create)
 		create_missing_vlans();
+
+	if (config.start)
+		start_fcoe();
 
 	close(ps);
 	exit(0);

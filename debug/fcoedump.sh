@@ -22,6 +22,14 @@ kernel_info()
 {
 	echo -e "\n###KERNEL INFO###"
 	uname -a
+
+	if [ -f "/proc/config.gz" ]
+	then
+		echo -e "\nzcat /proc/config.gz"
+		zcat /proc/config.gz
+	else
+		echo -e "\n/proc/config.gz does not exist."
+	fi
 }
 
 system_info()

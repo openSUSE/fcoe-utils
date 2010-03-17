@@ -380,9 +380,6 @@ int rtnl_listener_handler(struct nlmsghdr *nh, void *arg)
 	return -1;
 }
 
-/* exit after waiting 2 seconds without receiving anything */
-#define TIMEOUT 2000
-
 void create_missing_vlans()
 {
 	struct fcf *fcf;
@@ -475,11 +472,16 @@ void print_results()
 	printf("\n");
 }
 
-void recv_loop(int ps)
+/* exit after waiting 1 second without receiving anything */
+#define TIMEOUT 1000
+
+void recv_loop(int ns, int ps)
 {
-	struct pollfd pfd[1] = {
-		[0].fd = ps,
+	struct pollfd pfd[2] = {
+		[0].fd = ns,
 		[0].events = POLLIN,
+		[1].fd = ps,
+		[1].events = POLLIN,
 	};
 	int rc;
 
@@ -493,21 +495,18 @@ void recv_loop(int ps)
 			break;
 		}
 		if (pfd[0].revents)
-			fip_recv(pfd[0].fd, fip_vlan_handler, NULL);
+			rtnl_recv(ns, rtnl_listener_handler, NULL);
+		if (pfd[1].revents)
+			fip_recv(ps, fip_vlan_handler, NULL);
 		pfd[0].revents = 0;
+		pfd[1].revents = 0;
 	}
 }
 
-void find_interfaces()
+void find_interfaces(int ns)
 {
-	int ns;
-
-	ns = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-	if (ns < 0)
-		return;
 	send_getlink_dump(ns);
 	rtnl_recv(ns, rtnl_listener_handler, NULL);
-	close(ns);
 }
 
 void send_vlan_requests(int ps)
@@ -530,7 +529,8 @@ void send_vlan_requests(int ps)
 
 int main(int argc, char **argv)
 {
-	int ps;
+	int ps, ns;
+	int rc = 0;
 
 	exe = strrchr(argv[0], '/');
 	if (exe)
@@ -544,8 +544,17 @@ int main(int argc, char **argv)
 	enable_debug_log(0);
 
 	ps = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
+	if (ps < 0) {
+		rc = ps;
+		goto ps_err;
+	}
+	ns = rtnl_socket();
+	if (ns < 0) {
+		rc = ns;
+		goto ns_err;
+	}
 
-	find_interfaces();
+	find_interfaces(ns);
 
 	if (TAILQ_EMPTY(&interfaces)) {
 		FIP_LOG_ERR(ENODEV, "no interfaces to perform discovery on");
@@ -554,16 +563,23 @@ int main(int argc, char **argv)
 	}
 
 	send_vlan_requests(ps);
-	recv_loop(ps);
+	recv_loop(ns, ps);
+
 	print_results();
-
-	if (config.create)
+	if (config.create) {
 		create_missing_vlans();
-
+		/*
+		 * need to listen for the RTM_NETLINK messages
+		 * about the new VLAN devices
+		 */
+		recv_loop(ns, ps);
+	}
 	if (config.start)
 		start_fcoe();
-
+	close(ns);
+ns_err:
 	close(ps);
-	exit(0);
+ps_err:
+	exit(rc);
 }
 

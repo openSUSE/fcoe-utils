@@ -12,6 +12,6 @@ AC_SUBST([HBAAPI_LIBS])
 PKG_CHECK_MODULES([DCBD], [dcbd])
 AC_SUBST([DCBD_CFLAGS])
 
-AC_CONFIG_FILES([Makefile lib/Makefile fcoe-utils.spec include/fcoe_utils_version.h])
+AC_CONFIG_FILES([Makefile fcoe-utils.spec include/fcoe_utils_version.h])
 AC_OUTPUT
 

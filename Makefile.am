@@ -1,6 +1,3 @@
-# build libutil first
-SUBDIRS = lib .
-
 ## target programs, to be built and installed in $(prefix)/sbin
 sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 
@@ -45,6 +42,11 @@ fcoemon_LDFLAGS = -lrt
 ## only listed sources get packaged, so must list all headers too
 fipvlan_SOURCES = fipvlan.c include/fip.h
 fipvlan_LDADD = lib/libutil.a
+
+AUTOMAKE_OPTIONS=subdir-objects
+noinst_LIBRARIES = lib/libutil.a
+lib_libutil_a_SOURCES = lib/fcoe_utils.c lib/sa_log.c lib/sa_select.c \
+	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

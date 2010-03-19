@@ -9,16 +9,8 @@ PKG_CHECK_MODULES([HBAAPI], [HBAAPI])
 AC_SUBST([HBAAPI_CFLAGS])
 AC_SUBST([HBAAPI_LIBS])
 
-AC_ARG_WITH([dcb],
-	[AS_HELP_STRING([--without-dcb], [disable DCB support])],
-	[],
-	[with_dcb=yes])
-
-AM_CONDITIONAL([WITH_DCB], [test "X$with_dcb" != Xno])
-
-AS_IF([test "X$with_dcb" != Xno],
-	[PKG_CHECK_MODULES([DCBD], [dcbd])
-	AC_SUBST([DCBD_CFLAGS])])
+PKG_CHECK_MODULES([DCBD], [dcbd])
+AC_SUBST([DCBD_CFLAGS])
 
 AC_CONFIG_FILES([Makefile lib/Makefile fcoe-utils.spec include/fcoe_utils_version.h])
 AC_OUTPUT

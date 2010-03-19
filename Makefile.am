@@ -2,10 +2,7 @@
 SUBDIRS = lib .
 
 ## target programs, to be built and installed in $(prefix)/sbin
-sbin_PROGRAMS = fcoeadm fcping fipvlan fcnsq fcrls
-if WITH_DCB
-sbin_PROGRAMS += fcoemon
-endif
+sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 
 ## all targets should look for headers in the include directory
 AM_CPPFLAGS = -Wall -I${srcdir}/include
@@ -54,10 +51,7 @@ fcoe_configdir = ${sysconfdir}/fcoe
 dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## man pages for fcoeadm and fcoemon
-dist_man_MANS = doc/fcoeadm.8
-if WITH_DCB
-dist_man_MANS += doc/fcoemon.8
-endif
+dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8
 
 ## init script for fcoemon
 dist_noinst_SCRIPTS = etc/initd/initd.suse etc/initd/initd.fedora

@@ -2,16 +2,13 @@
 sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 
 ## all targets should look for headers in the include directory
-AM_CPPFLAGS = -Wall -I${srcdir}/include
+AM_CPPFLAGS = -Wall -I${srcdir}/include -I${builddir}/include
 
 ## pass the sysconfdir into the C proprocessor
 AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
 
 ## rules for building fcoeadm
-## only listed sources get packaged, so must list all headers too
-fcoeadm_SOURCES = fcoeadm_display.c fcoeadm.c fcoeadm.h \
-include/fc_scsi.h include/fc_types.h \
-include/net_types.h fcoe_clif.h
+fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
 fcoeadm_LDADD = lib/libutil.a
 
 ## fcoeadm uses HBAAPI, so get the right flags for compiling and linking
@@ -19,7 +16,6 @@ fcoeadm_CFLAGS = $(HBAAPI_CFLAGS)
 fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
 
 ## rules for building fcping
-## only listed sources get packaged, so must list all headers too
 fcping_SOURCES = fcping.c
 fcping_LDADD = lib/libutil.a
 
@@ -28,10 +24,7 @@ fcping_CFLAGS = $(HBAAPI_CFLAGS)
 fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
 
 ## rules for building fcoemon
-## only listed sources get packaged, so must list all headers too
-fcoemon_SOURCES = fcoemon.c fcoemon.h \
-include/fc_scsi.h \
-include/fc_types.h include/net_types.h fcoe_clif.h
+fcoemon_SOURCES = fcoemon.c
 fcoemon_LDADD = lib/libutil.a
 
 ## fcoemon needs headers from dcbd, get the right include path for them
@@ -39,14 +32,18 @@ fcoemon_CFLAGS = $(DCBD_CFLAGS)
 fcoemon_LDFLAGS = -lrt
 
 ## rules for building fipvlan
-## only listed sources get packaged, so must list all headers too
-fipvlan_SOURCES = fipvlan.c include/fip.h
+fipvlan_SOURCES = fipvlan.c
 fipvlan_LDADD = lib/libutil.a
 
 AUTOMAKE_OPTIONS=subdir-objects
 noinst_LIBRARIES = lib/libutil.a
 lib_libutil_a_SOURCES = lib/fcoe_utils.c lib/sa_log.c lib/sa_select.c \
 	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c
+
+## header files that need to be distributed
+noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \
+	include/fcoemon_utils.h include/fcoe_utils.h include/fc_scsi.h \
+	include/fc_types.h include/fip.h include/net_types.h include/rtnetlink.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe
@@ -70,9 +67,9 @@ etc/initd/fcoe:
 init_ddir = ${sysconfdir}/init.d
 init_d_SCRIPTS = etc/initd/fcoe
 
-dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec
+dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec etc/config
 
 install-data-hook:
 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
-		cp etc/config ${DESTDIR}${fcoe_configdir}/config; \
+		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_configdir}/config; \
 	fi

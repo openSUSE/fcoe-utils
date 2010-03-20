@@ -2,34 +2,28 @@
 sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 
 ## all targets should look for headers in the include directory
-AM_CPPFLAGS = -Wall -I${srcdir}/include -I${builddir}/include
-
+AM_CPPFLAGS = -I${srcdir}/include -I${builddir}/include
 ## pass the sysconfdir into the C proprocessor
-AM_CFLAGS = -DSYSCONFDIR="\"${sysconfdir}\""
+AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\""
+AM_CFLAGS = -Wall
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
 fcoeadm_LDADD = lib/libutil.a
-
-## fcoeadm uses HBAAPI, so get the right flags for compiling and linking
-fcoeadm_CFLAGS = $(HBAAPI_CFLAGS)
-fcoeadm_LDFLAGS = $(HBAAPI_LIBS)
-
-## rules for building fcping
-fcping_SOURCES = fcping.c
-fcping_LDADD = lib/libutil.a
-
-## fcping uses HBAAPI, so get the right flags for compiling and linking
-fcping_CFLAGS = $(HBAAPI_CFLAGS)
-fcping_LDFLAGS = $(HBAAPI_LIBS) -lrt
+fcoeadm_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
+fcoeadm_LDFLAGS = $(AM_LDFLAGS) $(HBAAPI_LIBS)
 
 ## rules for building fcoemon
 fcoemon_SOURCES = fcoemon.c
 fcoemon_LDADD = lib/libutil.a
+fcoemon_CFLAGS = $(AM_CFLAGS) $(DCBD_CFLAGS)
+fcoemon_LDFLAGS = $(AM_LDFLAGS) -lrt
 
-## fcoemon needs headers from dcbd, get the right include path for them
-fcoemon_CFLAGS = $(DCBD_CFLAGS)
-fcoemon_LDFLAGS = -lrt
+## rules for building fcping
+fcping_SOURCES = fcping.c
+fcping_LDADD = lib/libutil.a
+fcping_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
+fcping_LDFLAGS = $(AM_LDFLAGS) $(HBAAPI_LIBS) -lrt
 
 ## rules for building fipvlan
 fipvlan_SOURCES = fipvlan.c

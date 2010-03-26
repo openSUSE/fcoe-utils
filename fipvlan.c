@@ -407,16 +407,16 @@ void create_missing_vlans()
 		return;
 
 	TAILQ_FOREACH(fcf, &fcfs, list_node) {
-		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
-		if (vlan) {
-			FIP_LOG_DBG("VLAN %s.%d already exists as %s",
-				    fcf->ifindex, fcf->vlan, vlan->ifname);
-			continue;
-		}
 		real_dev = lookup_iff(fcf->ifindex, NULL);
 		if (!real_dev) {
 			FIP_LOG_ERR(ENODEV, "lost device %d with discoved FCF?",
 				    fcf->ifindex);
+			continue;
+		}
+		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
+		if (vlan) {
+			FIP_LOG_DBG("VLAN %s.%d already exists as %s",
+				    real_dev->ifname, fcf->vlan, vlan->ifname);
 			continue;
 		}
 		snprintf(vlan_name, IFNAMSIZ, "%s.%d-fcoe",

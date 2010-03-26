@@ -82,6 +82,7 @@ struct iff {
 	bool running;
 	bool is_vlan;
 	short int vid;
+	bool req_sent;
 	bool resp_recv;
 	TAILQ_ENTRY(iff) list_node;
 	struct iff_list_head vlans;
@@ -521,43 +522,64 @@ void find_interfaces(int ns)
 	rtnl_recv(ns, rtnl_listener_handler, NULL);
 }
 
-void send_vlan_requests(int ps)
+int send_vlan_requests(int ps)
 {
 	struct iff *iff;
 	int i;
+	int skipped = 0;
 
 	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node) {
-			if (!iff->running)
-				continue;
 			if (iff->resp_recv)
 				continue;
+			if (!iff->running) {
+				skipped++;
+				iff->req_sent = false;
+				continue;
+			}
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
+			iff->req_sent = true;
 		}
 	} else {
 		for (i = 0; i < config.namec; i++) {
 			iff = lookup_iff(0, config.namev[i]);
-			if (!iff)
+			if (!iff) {
+				skipped++;
 				continue;
-			if (!iff->running)
-				continue;
+			}
 			if (iff->resp_recv)
 				continue;
+			if (!iff->running) {
+				skipped++;
+				iff->req_sent = false;
+				continue;
+			}
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
+			iff->req_sent = true;
 		}
 	}
+	return skipped;
 }
 
 void do_vlan_discovery(ns, ps)
 {
 	struct iff *iff;
 	int retry_count = 0;
+	int skip_retry_count = 0;
+	int skipped = 0;
 retry:
-	send_vlan_requests(ps);
+	skipped += send_vlan_requests(ps);
+	if (skipped && skip_retry_count++ < 30) {
+		FIP_LOG_DBG("waiting for IFF_RUNNING [%d]\n", skip_retry_count);
+		recv_loop(ns, ps, 500);
+		skipped = 0;
+		retry_count = 0;
+		goto retry;
+	}
 	recv_loop(ns, ps, 200);
 	TAILQ_FOREACH(iff, &interfaces, list_node)
 		/* if we did not receive a response, retry */
-		if (!iff->resp_recv && retry_count++ < 10) {
+		if (iff->req_sent && !iff->resp_recv && retry_count++ < 10) {
 			FIP_LOG_DBG("VLAN discovery RETRY [%d]", retry_count);
 			goto retry;
 		}

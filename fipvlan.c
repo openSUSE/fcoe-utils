@@ -79,6 +79,7 @@ struct iff {
 	int iflink;
 	char ifname[IFNAMSIZ];
 	unsigned char mac_addr[ETHER_ADDR_LEN];
+	bool running;
 	bool is_vlan;
 	short int vid;
 	bool resp_recv;
@@ -272,6 +273,13 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	if (ifm->ifi_type != ARPHRD_ETHER)
 		return;
 
+	iff = lookup_iff(ifm->ifi_index, NULL);
+	if (iff) {
+		/* already tracking, update operstate and return */
+		iff->running = (ifm->ifi_flags & IFF_RUNNING) == IFF_RUNNING;
+		return;
+	}
+
 	iff = malloc(sizeof(*iff));
 	if (!iff) {
 		FIP_LOG_ERRNO("malloc failed");
@@ -283,6 +291,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	parse_ifinfo(ifla, nh);
 
 	iff->ifindex = ifm->ifi_index;
+	iff->running = (ifm->ifi_flags & IFF_RUNNING) == IFF_RUNNING;
 	if (ifla[IFLA_LINK])
 		iff->iflink = *(int *)RTA_DATA(ifla[IFLA_LINK]);
 	else
@@ -519,6 +528,8 @@ void send_vlan_requests(int ps)
 
 	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node) {
+			if (!iff->running)
+				continue;
 			if (iff->resp_recv)
 				continue;
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
@@ -527,6 +538,8 @@ void send_vlan_requests(int ps)
 		for (i = 0; i < config.namec; i++) {
 			iff = lookup_iff(0, config.namev[i]);
 			if (!iff)
+				continue;
+			if (!iff->running)
 				continue;
 			if (iff->resp_recv)
 				continue;

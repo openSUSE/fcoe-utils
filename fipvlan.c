@@ -81,6 +81,7 @@ struct iff {
 	unsigned char mac_addr[ETHER_ADDR_LEN];
 	bool is_vlan;
 	short int vid;
+	bool resp_recv;
 	TAILQ_ENTRY(iff) list_node;
 	struct iff_list_head vlans;
 };
@@ -194,6 +195,7 @@ int fip_recv_vlan_note(struct fiphdr *fh, int ifindex)
 {
 	struct fip_tlv_ptrs tlvs;
 	struct fcf *fcf;
+	struct iff *iff;
 	unsigned int bitmap, required_tlvs;
 	int len;
 	int i;
@@ -207,6 +209,10 @@ int fip_recv_vlan_note(struct fiphdr *fh, int ifindex)
 	bitmap = fip_parse_tlvs((fh + 1), len, &tlvs);
 	if ((bitmap & required_tlvs) != required_tlvs)
 		return -1;
+
+	iff = lookup_iff(ifindex, NULL);
+	if (iff)
+		iff->resp_recv = true;
 
 	for (i = 0; i < tlvs.vlanc; i++) {
 		fcf = malloc(sizeof(*fcf));
@@ -472,10 +478,7 @@ void print_results()
 	printf("\n");
 }
 
-/* exit after waiting 1 second without receiving anything */
-#define TIMEOUT 1000
-
-void recv_loop(int ns, int ps)
+void recv_loop(int ns, int ps, int timeout)
 {
 	struct pollfd pfd[2] = {
 		[0].fd = ns,
@@ -486,7 +489,7 @@ void recv_loop(int ns, int ps)
 	int rc;
 
 	while (1) {
-		rc = poll(pfd, ARRAY_SIZE(pfd), TIMEOUT);
+		rc = poll(pfd, ARRAY_SIZE(pfd), timeout);
 		FIP_LOG_DBG("return from poll %d", rc);
 		if (rc == 0) /* timeout */
 			break;
@@ -515,16 +518,36 @@ void send_vlan_requests(int ps)
 	int i;
 
 	if (config.automode) {
-		TAILQ_FOREACH(iff, &interfaces, list_node)
+		TAILQ_FOREACH(iff, &interfaces, list_node) {
+			if (iff->resp_recv)
+				continue;
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
+		}
 	} else {
 		for (i = 0; i < config.namec; i++) {
 			iff = lookup_iff(0, config.namev[i]);
 			if (!iff)
 				continue;
+			if (iff->resp_recv)
+				continue;
 			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
 		}
 	}
+}
+
+void do_vlan_discovery(ns, ps)
+{
+	struct iff *iff;
+	int retry_count = 0;
+retry:
+	send_vlan_requests(ps);
+	recv_loop(ns, ps, 200);
+	TAILQ_FOREACH(iff, &interfaces, list_node)
+		/* if we did not receive a response, retry */
+		if (!iff->resp_recv && retry_count++ < 10) {
+			FIP_LOG_DBG("VLAN discovery RETRY [%d]", retry_count);
+			goto retry;
+		}
 }
 
 int main(int argc, char **argv)
@@ -562,8 +585,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	send_vlan_requests(ps);
-	recv_loop(ns, ps);
+	do_vlan_discovery(ns, ps);
 
 	print_results();
 	if (config.create) {
@@ -572,7 +594,7 @@ int main(int argc, char **argv)
 		 * need to listen for the RTM_NETLINK messages
 		 * about the new VLAN devices
 		 */
-		recv_loop(ns, ps);
+		recv_loop(ns, ps, 500);
 	}
 	if (config.start)
 		start_fcoe();

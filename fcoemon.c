@@ -516,17 +516,11 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	char ifname[IFNAMSIZ];
 	struct fcoe_port *p;
 
-	FCM_LOG_DBG("%s", __func__);
-
-	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
-		FCM_LOG_DBG("ignoring FIP frame that is not of type VLAN");
+	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN)
 		return -1;
-	}
 
-	if (fh->fip_subcode != FIP_VLAN_NOTE) {
-		FCM_LOG_DBG("ignoring FIP VLAN Discovery Request");
+	if (fh->fip_subcode != FIP_VLAN_NOTE)
 		return -1;
-	}
 
 	/* cancel the retry timer, response received */
 	rtnl_get_linkname(sa->sll_ifindex, ifname);

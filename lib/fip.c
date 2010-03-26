@@ -128,8 +128,6 @@ int fip_recv(int s, fip_handler *fn, void *arg)
 	struct fiphdr *fh;
 	ssize_t len, desc_len;
 
-	FIP_LOG_DBG("%s", __func__);
-
 	len = recvmsg(s, &msg, 0);
 	if (len < 0) {
 		FIP_LOG_ERRNO("packet socket recv error");

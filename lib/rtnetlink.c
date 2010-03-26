@@ -122,7 +122,6 @@ int rtnl_recv(int s, rtnl_handler *fn, void *arg)
 	int rc = 0;
 	bool more = false;
 
-	RTNL_LOG_DBG("%s", __func__);
 more:
 	len = recv(s, buf, sizeof(buf), 0);
 	if (len < 0) {

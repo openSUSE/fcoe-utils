@@ -86,6 +86,10 @@
 #define FCOE_ENABLE 	SYSFS_FCOE "/enable"
 #define FCOE_DISABLE	SYSFS_FCOE "/disable"
 
+#define FCM_VLAN_DISC_TIMEOUT	(1000 * 1000)	/* 1 seconds */
+#define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
+void fcm_vlan_disc_timeout(void *arg);
+
 enum fcm_srv_status {
 	fcm_success = 0,
 	fcm_fail,
@@ -116,6 +120,8 @@ struct fcoe_port {
 
 	int ifindex;
 	unsigned char mac[ETHER_ADDR_LEN];
+	struct sa_timer vlan_disc_timer;
+	int vlan_disc_count;
 };
 
 enum fcoeport_ifname {
@@ -282,6 +288,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		 * that the interface is not created yet.
 		 */
 		p->last_action = FCP_DESTROY_IF;
+		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
 	}
 
 	return p;
@@ -506,6 +513,8 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	unsigned char mac[ETHER_ADDR_LEN];
 	int len = ntohs(fh->fip_desc_len);
 	struct fip_tlv_hdr *tlv = (struct fip_tlv_hdr *)(fh + 1);
+	char ifname[IFNAMSIZ];
+	struct fcoe_port *p;
 
 	FCM_LOG_DBG("%s", __func__);
 
@@ -518,6 +527,13 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 		FCM_LOG_DBG("ignoring FIP VLAN Discovery Request");
 		return -1;
 	}
+
+	/* cancel the retry timer, response received */
+	rtnl_get_linkname(sa->sll_ifindex, ifname);
+	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
+	if (!p)
+		return -ENODEV;
+	sa_timer_cancel(&p->vlan_disc_timer);
 
 	while (len > 0) {
 		switch (tlv->tlv_type) {
@@ -727,6 +743,12 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		break;
 	case FCP_VLAN_DISC:
 		switch (action) {
+		case FCP_ACTIVATE_IF:
+			if (p->auto_vlan)
+				p->action = FCP_WAIT;
+			else
+				p->action = FCP_CREATE_IF;
+			break;
 		case FCP_DESTROY_IF:
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
@@ -1936,10 +1958,29 @@ err_out:
 	return ret;
 }
 
+void fcm_vlan_disc_timeout(void *arg)
+{
+	struct fcoe_port *p = arg;
+	FCM_LOG_DBG("%s: VLAN discovery TIMEOUT [%d]",
+		    p->ifname, p->vlan_disc_count);
+	if (++(p->vlan_disc_count) > FCM_VLAN_DISC_MAX) {
+		FCM_LOG("%s: VLAN discovery failed after %d attempts",
+			p->ifname, FCM_VLAN_DISC_MAX);
+		FCM_LOG("%s: disabling VLAN discovery, trying FCoE on %s",
+			p->ifname, p->ifname);
+		p->auto_vlan = 0;
+		fcp_set_next_action(p, FCP_ACTIVATE_IF);
+		return;
+	}
+	fip_send_vlan_request(fcm_fip_socket, p->ifindex, p->mac);
+	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
+}
+
 int fcm_start_vlan_disc(struct fcoe_port *p)
 {
-	FCM_LOG_DBG("%s", __func__);
+	p->vlan_disc_count = 1;
 	fip_send_vlan_request(fcm_fip_socket, p->ifindex, p->mac);
+	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 	return 0;
 }
 

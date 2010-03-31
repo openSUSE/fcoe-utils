@@ -9,13 +9,13 @@
 #	  Yi Zou
 #         Intel Corporation
 #
-# Usage: sysfs_edd.sh -t for getting FCoE boot target information.
-#        sysfs_edd.sh -i for getting FCoE boot NIC name.
-#        sysfs_edd.sh -m for getting FCoE boot NIC MAC.
-#        sysfs_edd.sh -e for getting FCoE boot EDD information.
-#        sysfs_edd.sh -r for getting FCoE boot EDD interface type and path.
-#        sysfs_edd.sh -a for getting all FCoE boot information.
-#        sysfs_edd.sh -h for usage information.
+# Usage: fcoe_edd.sh -t for getting FCoE boot target information.
+#        fcoe_edd.sh -i for getting FCoE boot NIC name.
+#        fcoe_edd.sh -m for getting FCoE boot NIC MAC.
+#        fcoe_edd.sh -e for getting FCoE boot EDD information.
+#        fcoe_edd.sh -r for getting FCoE boot EDD interface type and path.
+#        fcoe_edd.sh -a for getting all FCoE boot information.
+#        fcoe_edd.sh -h for usage information.
 #        Optional: use -v to turn on verbose mode.
 #
 # Notes:
@@ -66,7 +66,7 @@ find_fcoe_boot_disk() {
 		LOG " checking ${disk}/interface..."
 		prefix=`awk '{printf $1}' < ${disk}/interface`
 		if [ "${PREFIX}" != "${prefix}" ]; then
-			LOG " The FCoE Boot prefix ${FCOE_PRE} is invalid!"
+			LOG " The FCoE Boot prefix ${prefix} is invalid!"
 			continue;
 		fi
 		FCOE_INF=`cat ${disk}/interface`

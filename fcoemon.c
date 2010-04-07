@@ -2226,7 +2226,7 @@ static void fcm_usage(void)
 
 static void fcm_sig(int sig)
 {
-	sa_select_exit();
+	sa_select_exit(sig);
 }
 
 static void fcm_pidfile_create(void)
@@ -2628,7 +2628,8 @@ int main(int argc, char **argv)
 	}
 	fcm_dcbd_shutdown();
 	fcm_srv_destroy(&srv_info);
-	fcm_cleanup();
+	if (rc == SIGHUP)
+		fcm_cleanup();
 	return 0;
 }
 

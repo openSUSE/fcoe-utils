@@ -253,7 +253,7 @@ void sa_select_rem_fd(int fd);
 /*
  * Cause select loop to return.
  */
-void sa_select_exit(void);
+void sa_select_exit(int sig);
 
 /*
  * Convert 48-bit IEEE MAC address to 64-bit FC WWN.

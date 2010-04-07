@@ -31,7 +31,7 @@ static struct sa_sel_state {
 	fd_set      ts_tx_fds;
 	fd_set      ts_ex_fds;
 	int         ts_max_fd;
-	u_char      ts_exit;
+	int         ts_sig;
 	struct sa_sel_fd {
 		void    (*ts_rx_handler)(void *);
 		void    (*ts_tx_handler)(void *);
@@ -41,6 +41,12 @@ static struct sa_sel_state {
 	void        (*ts_callback)(void);
 } sa_sel_state;
 
+/**
+ * sa_select_loop() - listens to registered descriptors
+ *
+ * Return value:
+ *	-1 on failure or interrupted signal number
+ */
 int sa_select_loop(void)
 {
 	struct sa_sel_state *ss = &sa_sel_state;
@@ -52,10 +58,10 @@ int sa_select_loop(void)
 	struct timeval *tvp;
 	int rv, i;
 
-	ss->ts_exit = 0;
-	while (ss->ts_exit == 0) {
+	ss->ts_sig = 0;
+	while (ss->ts_sig == 0) {
 		sa_timer_check(&tval);
-		if (ss->ts_exit)
+		if (ss->ts_sig)
 			break;
 		if (tval.tv_sec == 0 && tval.tv_usec == 0)
 			tvp = NULL;
@@ -68,7 +74,7 @@ int sa_select_loop(void)
 		if (rv == -1) {
 			if (errno == EINTR)
 				continue;
-			return errno;
+			return rv;
 		}
 
 		fp = ss->ts_fd;
@@ -101,7 +107,7 @@ int sa_select_loop(void)
 		if (ss->ts_callback != NULL)
 			(*ss->ts_callback)();
 	}
-	return 0;
+	return ss->ts_sig;
 }
 
 void
@@ -207,7 +213,7 @@ sa_select_set_callback(void (*cb)(void))
  * this cleanly, all lower-level protocol handlers should return first.
  */
 void
-sa_select_exit(void)
+sa_select_exit(int sig)
 {
-	sa_sel_state.ts_exit = 1;
+	sa_sel_state.ts_sig = sig;
 }

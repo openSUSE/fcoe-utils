@@ -47,7 +47,9 @@ dist_fcoe_config_DATA = etc/cfg-ethx
 dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8
 
 ## init script for fcoemon
-dist_noinst_SCRIPTS = etc/initd/initd.suse etc/initd/initd.fedora
+dist_noinst_SCRIPTS = etc/initd/initd.suse etc/initd/initd.fedora \
+	contrib/fcc.sh contrib/fcoe-setup.sh contrib/fcoe_edd.sh \
+	debug/dcbcheck.sh debug/fcoedump.sh
 
 CLEANFILES = etc/initd/fcoe
 etc/initd/fcoe:

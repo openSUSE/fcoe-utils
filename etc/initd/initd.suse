@@ -94,22 +94,28 @@ start()
 	startproc -l ${LOG_FILE} -p ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
 	rc_status -v
-
-	echo
 }
 
 stop()
 {
-	echo -n $"Stopping FCoE initiator service: "
+	local force=$1
 
-	killproc -TERM $FCOEMON
+	pid=$(pidof "$FCOEMON")
+	if [ "$force" == "force" ]
+	then
+		echo -n "Destroying any active fcoe interface/s"
+		[ "$pid" ] && kill -HUP $pid
+		rc_status -v
+	else
+		[ "$pid" ] && kill -TERM $pid
+	fi
+
+	echo -n $"Stopping FCoE initiator service: "
 
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*
 
 	rc_status -v
-
-	echo
 }
 
 status()
@@ -133,11 +139,11 @@ case "$1" in
 		;;
 
 	stop)
-		stop
+		stop $2
 		;;
 
 	restart)
-		stop
+		stop $2
 		start
 		rc_status
 		;;
@@ -156,7 +162,7 @@ case "$1" in
 		;;
 
 	*)
-		echo "Usage: $0 {start|stop|status|restart}"
+		echo "Usage: $0 {start|stop [force]|status|restart [force]}"
 		exit 1
 		;;
 esac

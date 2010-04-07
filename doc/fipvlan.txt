@@ -1,0 +1,94 @@
+///////////////////////////////////////////////////////////////////////////
+// vim:syntax=asciidoc:tw=75:
+//
+// This is an asciidoc text file, which will be converted into a UNIX man
+// page using asciidoc and the DocBook XSL stylesheets.
+//
+// If you are going to update this documentation, please modify this file
+// and then regenerate the nroff formated man page using the Makefile.
+///////////////////////////////////////////////////////////////////////////
+
+FIPVLAN(8)
+==========
+:man source: Open-FCoE
+:man manual: Open-FCoE Tools
+
+NAME
+----
+fipvlan - Fibre Channel over Ethernet VLAN Discovery
+
+SYNOPSIS
+--------
+*fipvlan* [-c|--create] [-s|--start] _interfaces_
+
+*fipvlan* -a|--auto [-c|--create] [-s|--start]
+
+*fipvlan* -h|--help
+
+*fipvlan* -v|--version
+
+DESCRIPTION
+-----------
+The *fipvlan* command performs Fibre Channel over Ethernet (FCoE)
+Initialization Protocol (FIP) VLAN Discovery over Ethernet interfaces.
+*fipvlan* can be used as a diagnostic tool to determine which VLANs have
+FCoE services available on a network, prior to configuring VLAN interfaces
+and the _Open-FCoE_ initiator. *fipvlan* can also be used to create VLAN
+interfaces as the are discovered, and to start the _Open-FCoE_ initiator.
+The *--create* and *--start* options are primarily intended to be used as
+part of an _Open-FCoE_ boot solution.
+
+*fipvlan* takes a list of network interface names to run the VLAN discovery
+protocol over, or the *--auto* option to use all available Ethernet
+interfaces.
+
+OPTIONS
+-------
+*-a*, *--auto*::
+	Use all Ethernet interfaces currently available
+
+*-c*, *--create*::
+	Create network interfaces for discovered FCoE VLANs. If a VLAN
+	device already exists for a discovered VLAN, a new VLAN device will
+	not be created.
+
+*-s*, *--start*::
+	Start the _Open-FCoE_ initiator on discovered FCoE VLANs
+
+*-h*, *--help*::
+	Display a help message with basic usage instructions
+
+*-v*, *--version*::
+	Display the *fipvlan* version string
+
+VLAN NAMING CONVENTIONS
+-----------------------
+If a new VLAN device is created, it will have the name _dev_._vlan_-fcoe;
+where _dev_ is the name of the Ethernet parent device and _vlan_ is the
+discovered VLAN ID number.
+
+EXAMPLES
+--------
+Display all discoverable VLANs with FCoE services
+
+	fipvlan --auto
+
+Discover FCoE VLANs on interface eth2, create VLAN devices and start the
+_Open-FCoE_ initiator
+
+	fipvlan --create --start eth2
+
+In this example if FCoE services were available on VLAN 101 of network
+interface eth2, then a VLAN interface eth2.101-fcoe would be created and
+used as the parent device for the initiator.
+
+SEE ALSO
+--------
+*fcoeadm*(8)
+*fcoemon*(8)
+
+SUPPORT
+-------
+*fipvlan* is part of the _fcoe-utils_ package, maintained through the
+_Open-FCoE_ project. Resources for both developers and users can be found
+at the _Open-FCoE_ website <http://open-fcoe.org/>

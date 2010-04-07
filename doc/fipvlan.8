@@ -1,0 +1,100 @@
+'\" t
+.\"     Title: fipvlan
+.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
+.\"      Date: 04/01/2010
+.\"    Manual: Open-FCoE Tools
+.\"    Source: Open-FCoE
+.\"  Language: English
+.\"
+.TH "FIPVLAN" "8" "04/01/2010" "Open\-FCoE" "Open\-FCoE Tools"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+fipvlan \- Fibre Channel over Ethernet VLAN Discovery
+.SH "SYNOPSIS"
+.sp
+\fBfipvlan\fR [\-c|\-\-create] [\-s|\-\-start] \fIinterfaces\fR
+.sp
+\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-s|\-\-start]
+.sp
+\fBfipvlan\fR \-h|\-\-help
+.sp
+\fBfipvlan\fR \-v|\-\-version
+.SH "DESCRIPTION"
+.sp
+The \fBfipvlan\fR command performs Fibre Channel over Ethernet (FCoE) Initialization Protocol (FIP) VLAN Discovery over Ethernet interfaces\&. \fBfipvlan\fR can be used as a diagnostic tool to determine which VLANs have FCoE services available on a network, prior to configuring VLAN interfaces and the \fIOpen\-FCoE\fR initiator\&. \fBfipvlan\fR can also be used to create VLAN interfaces as the are discovered, and to start the \fIOpen\-FCoE\fR initiator\&. The \fB\-\-create\fR and \fB\-\-start\fR options are primarily intended to be used as part of an \fIOpen\-FCoE\fR boot solution\&.
+.sp
+\fBfipvlan\fR takes a list of network interface names to run the VLAN discovery protocol over, or the \fB\-\-auto\fR option to use all available Ethernet interfaces\&.
+.SH "OPTIONS"
+.PP
+\fB\-a\fR, \fB\-\-auto\fR
+.RS 4
+Use all Ethernet interfaces currently available
+.RE
+.PP
+\fB\-c\fR, \fB\-\-create\fR
+.RS 4
+Create network interfaces for discovered FCoE VLANs\&. If a VLAN device already exists for a discovered VLAN, a new VLAN device will not be created\&.
+.RE
+.PP
+\fB\-s\fR, \fB\-\-start\fR
+.RS 4
+Start the
+\fIOpen\-FCoE\fR
+initiator on discovered FCoE VLANs
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Display a help message with basic usage instructions
+.RE
+.PP
+\fB\-v\fR, \fB\-\-version\fR
+.RS 4
+Display the
+\fBfipvlan\fR
+version string
+.RE
+.SH "VLAN NAMING CONVENTIONS"
+.sp
+If a new VLAN device is created, it will have the name \fIdev\fR\&.\fIvlan\fR\-fcoe; where \fIdev\fR is the name of the Ethernet parent device and \fIvlan\fR is the discovered VLAN ID number\&.
+.SH "EXAMPLES"
+.sp
+Display all discoverable VLANs with FCoE services
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fipvlan \-\-auto
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Discover FCoE VLANs on interface eth2, create VLAN devices and start the \fIOpen\-FCoE\fR initiator
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fipvlan \-\-create \-\-start eth2
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+In this example if FCoE services were available on VLAN 101 of network interface eth2, then a VLAN interface eth2\&.101\-fcoe would be created and used as the parent device for the initiator\&.
+.SH "SEE ALSO"
+.sp
+\fBfcoeadm\fR(8) \fBfcoemon\fR(8)
+.SH "SUPPORT"
+.sp
+\fBfipvlan\fR is part of the \fIfcoe\-utils\fR package, maintained through the \fIOpen\-FCoE\fR project\&. Resources for both developers and users can be found at the \fIOpen\-FCoE\fR website http://open\-fcoe\&.org/

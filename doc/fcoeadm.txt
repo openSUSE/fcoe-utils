@@ -1,0 +1,162 @@
+///////////////////////////////////////////////////////////////////////////
+// vim:syntax=asciidoc:tw=75:
+//
+// This is an asciidoc text file, which will be converted into a UNIX man
+// page using asciidoc and the DocBook XSL stylesheets.
+//
+// If you are going to update this documentation, please modify this file
+// and then regenerate the nroff formated man page using the Makefile.
+///////////////////////////////////////////////////////////////////////////
+
+FCOEADM(8)
+==========
+:man source: Open-FCoE
+:man manual: Open-FCoE Tools
+
+NAME
+----
+fcoeadm - The Open-FCoE Administration Tool
+
+SYNOPSIS
+--------
+*fcoeadm* -c|--create _ethX_
+
+*fcoeadm* -d|--destroy _ethX_
+
+*fcoeadm* -r|--reset _ethX_
+
+*fcoeadm* -i|--interface [_ethX_]
+
+*fcoeadm* -t|--target [_ethX_]
+
+*fcoeadm* -l|--lun [_ethX_]
+
+*fcoeadm* -s|--stats _ethX_ [_interval_]
+
+*fcoeadm* -h|--help
+
+*fcoeadm* -v|--version
+
+DESCRIPTION
+-----------
+The *fcoeadm* utility is the Fibre Channel over Ethernet (FCoE) management
+tool for the _Open-FCoE_ project.  *fcoeadm* may be used to create,
+destroy, and reset an FCoE instance on a given network interface. For these
+operations *fcoeadm* sends a command to a running *fcoemon* process, via a
+socket interface. *fcoemon* will then perform the requested operation.
+
+*fcoeadm* also provides options to query information about FCoE instances,
+including interface information, target information, LUN information, and port
+statistics. For much of this information, *fcoeadm* relies on the _libhbalinux_
+implementation of the _HBA API_.
+
+OPTIONS
+-------
+*-c*, *--create* _ethX_::
+	Creates an FCoE instance based on the specified network interface.
+	Note that if there is not an fcoemon configuration file for the
+	interface (/etc/fcoe/cfg-ethX, see *fcoemon*), then the created
+	FCoE instance will not require DCB.
+
+*-d*, *--destroy* _ethX_::
+	Destroys the FCoE instance on the specified network interface.
+
+*-r*, *--reset* _ethX_::
+	Resets the FCoE instance on the specified network interface.
+
+*-i*, *--interface* [_ethX_]::
+	Show information about the FCoE instance on the specified network
+	interface, or all FCoE instances if no network interface is specified.
+
+*-t*, *--target* [_ethX_]::
+	Show information about the discovered targets associated with the
+	FCoE instance on the specified network interface.
+	If no network interface is specified, information about discovered
+	targets from all FCoE instances will be shown.
+
+*-l*, *--lun* [_ethX_]::
+	Show detailed information about the discovered SCSI LUNs associated
+	with the FCoE instance on the specified network interface.
+	If no network interface is specifed, information about SCSI LUNs
+	from all FCoE instances will be shown.
+
+*-s*, *--stats* _ethX_ [_interval_]::
+	Show the statistics (including FC4 statistics) of the FCoE
+	interface on the specfied network interface.
+	The information will be display in one line on the screen per given
+	time interval. _interval_ should be specified in whole integers
+	greater than 0. It specifies the time interval in the unit of
+	seconds. If _interval_ is not specified, the default interval is
+	one second.
+
+*-h*, *--help*::
+	Displays the usage message of the *fcoeadm* command.
+
+*-v*, *--version*::
+	Displays the version of the *fcoeadm* command.
+
+EXAMPLES
+--------
+Creates an FCoE instance on eth2.101
+
+	fcoeadm -c eth2.101
+
+Destroys the FCoE instance on eth2.101
+
+	fcoeadm -d eth2.101
+
+Resets the FCoE instance on eth2.101
+
+	fcoeadm -r eth2.101
+
+Show the information of all the adapters and their ports having FCoE
+instances created
+
+	fcoeadm -i
+
+Show the information of a specific interface eth3. If eth3 has no FCoE
+instances created, the command will show the error "No fc_host found for
+eth3"
+
+	fcoeadm -i eth3
+
+Show the information of all the discovered targets from all the ports
+having FCoE instances created (they may be on different adapter cards).
+A brief listing of discovered LUNs are listed after the target they are
+associated with, if any
+
+	fcoeadm -t
+
+Show the information of all the discovered targets from a given port (eth3)
+having FCoE instance created. A brief listing of discovered LUNs are listed
+after each target they are associated with, if any
+
+	fcoeadm -t eth3
+
+Show the detailed information of all the LUNs discovered on all FCoE
+connections
+
+	fcoeadm -l
+
+Show the detailed information of all the LUNs associated with a specific
+interface
+
+	fcoeadm -l eth3.101
+
+Show the statistics information of a specific port eth3 having FCoE
+instances created. The statistics are displayed one line per time interval.
+The default interval is one second if an interval is not specified
+
+	fcoeadm -s eth3
+
+	fcoeadm -s eth3 3
+
+SEE ALSO
+--------
+*fcoemon*(8)
+
+SUPPORT
+-------
+*fcoeadm* is part of the _fcoe-utils_ package, maintained through the
+_Open-FCoE_ project. Resources for both developers and users can be found
+at the _Open-FCoE_ website <http://open-fcoe.org/>

@@ -173,13 +173,13 @@ static int ns_query(int bsg, void *req, int req_len, void *resp, int resp_len)
 		.protocol		= BSG_PROTOCOL_SCSI,
 		.subprotocol		= BSG_SUB_PROTOCOL_SCSI_TRANSPORT,
 		.request_len		= sizeof(cdb),
-		.request		= (u64) &cdb,
+		.request		= (uintptr_t) &cdb,
 		.dout_xfer_len		= req_len,
-		.dout_xferp		= (u64) req,
+		.dout_xferp		= (uintptr_t) req,
 		.din_xfer_len		= resp_len,
-		.din_xferp		= (u64) resp,
+		.din_xferp		= (uintptr_t) resp,
 		.max_response_len	= sizeof(sense),
-		.response		= (u64) &sense,
+		.response		= (uintptr_t) &sense,
 		.timeout		= 1000,
 	};
 

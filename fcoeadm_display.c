@@ -1067,7 +1067,7 @@ static int hba_table_init(struct hba_name_table *hba_table)
 {
 	HBA_STATUS retval;
 	char namebuf[1024];
-	int i, j, num_hbas = 0;
+	int i, num_hbas = 0;
 
 	/*
 	 * Initialize the table.
@@ -1122,7 +1122,7 @@ static int hba_table_init(struct hba_name_table *hba_table)
 			hba_table[i].failed = 1;
 			fprintf(stderr,
 				"HBA_GetAdapterPortAttributes failed, "
-				"j=%d, status=%d\n", j, retval);
+				"retval=%d\n", retval);
 			continue;
 		}
 	}

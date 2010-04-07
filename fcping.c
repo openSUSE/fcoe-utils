@@ -58,7 +58,7 @@ typedef uint8_t u8;
 
 static const char *cmdname;
 
-#define FC_MAX_PAYLOAD  (2112U - sizeof(net32_t))
+#define FC_MAX_PAYLOAD  (2112UL - sizeof(net32_t))
 #define MAX_SENSE_LEN	96	/* SCSI_SENSE_BUFFERSIZE */
 #define MAX_HBA_COUNT	128
 #define FP_LEN_DEF	32	/* default ping payload length */
@@ -81,7 +81,7 @@ fp_usage()
 	"     -i <interval>: Wait <interval> seconds between each ping\n"
 	"     -c <count>:    Stop after sending <count> pings\n"
 	"     -h <hba>:      eth<n>, MAC address, WWPN, or FC-ID of the HBA\n"
-	"     -s <size>:     Byte-length of ping request payload (max %ld)\n"
+	"     -s <size>:     Byte-length of ping request payload (max %lu)\n"
 	"     -F <FC-ID>:    Destination port ID\n"
 	"     -P <WWPN>:     Destination world-wide port name\n"
 	"     -N <WWNN>:     Destination world-wide node name\n",
@@ -380,7 +380,7 @@ fp_options(int argc, char *argv[])
 		case 's':
 			fp_len = strtoul(optarg, &endptr, 0);
 			if (*endptr != '\0' || fp_len > FC_MAX_PAYLOAD)
-				SA_LOG_EXIT("bad size %s max %d\n",
+				SA_LOG_EXIT("bad size %s max %lu\n",
 					optarg, FC_MAX_PAYLOAD);
 			if (fp_len < 4)
 				SA_LOG_EXIT("bad size %s min %d\n",
@@ -620,13 +620,13 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 	sg_io.protocol = BSG_PROTOCOL_SCSI;
 	sg_io.subprotocol = BSG_SUB_PROTOCOL_SCSI_TRANSPORT;
 	sg_io.request_len = sizeof(cdb);
-	sg_io.request = (__u64)&cdb;
+	sg_io.request = (uintptr_t)&cdb;
 	sg_io.dout_xfer_len = sizeof(ct);
-	sg_io.dout_xferp = (unsigned long)&ct;
+	sg_io.dout_xferp = (uintptr_t)&ct;
 	sg_io.din_xfer_len = *resp_len;
-	sg_io.din_xferp = (__u64)response;
+	sg_io.din_xferp = (uintptr_t)response;
 	sg_io.max_response_len = sizeof(reply);
-	sg_io.response = (__u64)&reply;
+	sg_io.response = (uintptr_t)&reply;
 	sg_io.timeout = 1000;	/* millisecond */
 	memset(&reply, 0, sizeof(reply));
 	memset(response, 0, *resp_len);

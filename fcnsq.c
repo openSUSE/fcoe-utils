@@ -228,7 +228,7 @@ static int gpn_id(int bsg, u32 fcid)
 	print_result("Port Name", "%16.16llx\n", wwpn);
 	return 0;
 fail:
-	if (rjt == ~0)
+	if (rjt == (u16) ~0)
 		print_err("%s ioctl failed: %s\n", __func__, strerror(errno));
 	else
 		print_err("%s command failed: %s, %s\n", __func__,
@@ -249,7 +249,7 @@ static int gnn_id(int bsg, u32 fcid)
 	print_result("Node Name", "%16.16llx\n", wwnn);
 	return 0;
 fail:
-	if (rjt == ~0)
+	if (rjt == (u16) ~0)
 		print_err("%s ioctl failed: %s\n", __func__, strerror(errno));
 	else
 		print_err("%s command failed: %s, %s\n", __func__,

@@ -129,6 +129,8 @@ struct fip_tlv_vlan {
 
 /* libutil / fip.c functionality */
 
+int fip_socket(int ifindex);
+
 /* FIP message handler, passed into fip_recv */
 typedef int fip_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg);
 

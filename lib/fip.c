@@ -50,6 +50,32 @@
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
 
 /**
+ * fip_socket - create and bind a packet socket for FIP
+ */
+int fip_socket(int ifindex)
+{
+	struct sockaddr_ll sa = {
+		.sll_family = AF_PACKET,
+		.sll_protocol = htons(ETH_P_FIP),
+		.sll_ifindex = ifindex,
+	};
+	int s;
+	int rc;
+
+	s = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
+	if (s < 0)
+		return s;
+
+	rc = bind(s, (struct sockaddr *) &sa, sizeof(sa));
+	if (rc < 0) {
+		close(s);
+		return rc;
+	}
+
+	return s;
+}
+
+/**
  * fip_send_vlan_request - send a FIP VLAN request
  * @s: ETH_P_FIP packet socket to send on
  * @ifindex: network interface index to send on

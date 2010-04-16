@@ -72,9 +72,45 @@ struct {
 
 char *exe;
 
+static struct pollfd *pfd = NULL;
+static int pfd_len = 0;
+
+void pfd_add(int fd)
+{
+	struct pollfd *npfd;
+
+	npfd = realloc(pfd, (pfd_len + 1) * sizeof(struct pollfd));
+	if (!npfd) {
+		perror("realloc fail");
+		return;
+	}
+	pfd = npfd;
+	pfd[pfd_len].fd = fd;
+	pfd[pfd_len].events = POLLIN;
+	pfd_len++;
+}
+
+void pfd_remove(int fd)
+{
+	struct pollfd *npfd;
+	int i;
+
+	for (i = 0; i < pfd_len; i++) {
+		if (pfd[i].fd == fd)
+			break;
+	}
+	if (i == pfd_len)
+		return;
+	memmove(&pfd[i], &pfd[i+1], (--pfd_len - i) * sizeof(struct pollfd));
+	npfd = realloc(pfd, pfd_len * sizeof(struct pollfd));
+	if (npfd)
+		pfd = npfd;
+}
+
 TAILQ_HEAD(iff_list_head, iff);
 
 struct iff {
+	int ps;			/* packet socket file descriptor */
 	int ifindex;
 	int iflink;
 	char ifname[IFNAMSIZ];
@@ -266,6 +302,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	struct rtattr *linkinfo[__IFLA_INFO_MAX];
 	struct rtattr *vlan[__IFLA_VLAN_MAX];
 	struct iff *iff, *real_dev;
+	int origdev = 1;
 
 	FIP_LOG_DBG("RTM_NEWLINK: ifindex %d, type %d",
 		    ifm->ifi_index, ifm->ifi_type);
@@ -323,6 +360,10 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 			return;
 		}
 	}
+	iff->ps = fip_socket(iff->ifindex);
+	setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
+		   &origdev, sizeof(origdev));
+	pfd_add(iff->ps);
 	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
 }
 
@@ -495,18 +536,13 @@ void print_results()
 	printf("\n");
 }
 
-void recv_loop(int ns, int ps, int timeout)
+void recv_loop(struct pollfd *pfd, int pfd_len, int timeout)
 {
-	struct pollfd pfd[2] = {
-		[0].fd = ns,
-		[0].events = POLLIN,
-		[1].fd = ps,
-		[1].events = POLLIN,
-	};
+	int i;
 	int rc;
 
 	while (1) {
-		rc = poll(pfd, ARRAY_SIZE(pfd), timeout);
+		rc = poll(pfd, pfd_len, timeout);
 		FIP_LOG_DBG("return from poll %d", rc);
 		if (rc == 0) /* timeout */
 			break;
@@ -514,12 +550,16 @@ void recv_loop(int ns, int ps, int timeout)
 			FIP_LOG_ERRNO("poll error");
 			break;
 		}
+		/* pfd[0] must be the netlink socket */
 		if (pfd[0].revents)
-			rtnl_recv(ns, rtnl_listener_handler, NULL);
-		if (pfd[1].revents)
-			fip_recv(ps, fip_vlan_handler, NULL);
+			rtnl_recv(pfd[0].fd, rtnl_listener_handler, NULL);
 		pfd[0].revents = 0;
-		pfd[1].revents = 0;
+		/* everything else should be FIP packet sockets */
+		for (i = 1; i < pfd_len; i++) {
+			if (pfd[i].revents)
+				fip_recv(pfd[i].fd, fip_vlan_handler, NULL);
+			pfd[i].revents = 0;
+		}
 	}
 }
 
@@ -529,7 +569,7 @@ void find_interfaces(int ns)
 	rtnl_recv(ns, rtnl_listener_handler, NULL);
 }
 
-int send_vlan_requests(int ps)
+int send_vlan_requests(void)
 {
 	struct iff *iff;
 	int i;
@@ -544,7 +584,9 @@ int send_vlan_requests(int ps)
 				iff->req_sent = false;
 				continue;
 			}
-			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
+			fip_send_vlan_request(iff->ps,
+					      iff->ifindex,
+					      iff->mac_addr);
 			iff->req_sent = true;
 		}
 	} else {
@@ -561,29 +603,31 @@ int send_vlan_requests(int ps)
 				iff->req_sent = false;
 				continue;
 			}
-			fip_send_vlan_request(ps, iff->ifindex, iff->mac_addr);
+			fip_send_vlan_request(iff->ps,
+					      iff->ifindex,
+					      iff->mac_addr);
 			iff->req_sent = true;
 		}
 	}
 	return skipped;
 }
 
-void do_vlan_discovery(ns, ps)
+void do_vlan_discovery(void)
 {
 	struct iff *iff;
 	int retry_count = 0;
 	int skip_retry_count = 0;
 	int skipped = 0;
 retry:
-	skipped += send_vlan_requests(ps);
+	skipped += send_vlan_requests();
 	if (skipped && skip_retry_count++ < 30) {
 		FIP_LOG_DBG("waiting for IFF_RUNNING [%d]\n", skip_retry_count);
-		recv_loop(ns, ps, 500);
+		recv_loop(pfd, pfd_len, 500);
 		skipped = 0;
 		retry_count = 0;
 		goto retry;
 	}
-	recv_loop(ns, ps, 200);
+	recv_loop(pfd, pfd_len, 200);
 	TAILQ_FOREACH(iff, &interfaces, list_node)
 		/* if we did not receive a response, retry */
 		if (iff->req_sent && !iff->resp_recv && retry_count++ < 10) {
@@ -594,9 +638,8 @@ retry:
 
 int main(int argc, char **argv)
 {
-	int ps, ns;
+	int ns;
 	int rc = 0;
-	int origdev = 1;
 
 	exe = strrchr(argv[0], '/');
 	if (exe)
@@ -609,27 +652,21 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	enable_debug_log(0);
 
-	ps = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
-	if (ps < 0) {
-		rc = ps;
-		goto ps_err;
-	}
-	setsockopt(ps, SOL_PACKET, PACKET_ORIGDEV, &origdev, sizeof(origdev));
 	ns = rtnl_socket();
 	if (ns < 0) {
 		rc = ns;
 		goto ns_err;
 	}
+	pfd_add(ns);
 
 	find_interfaces(ns);
 
 	if (TAILQ_EMPTY(&interfaces)) {
 		FIP_LOG_ERR(ENODEV, "no interfaces to perform discovery on");
-		close(ps);
 		exit(1);
 	}
 
-	do_vlan_discovery(ns, ps);
+	do_vlan_discovery();
 
 	print_results();
 	if (config.create) {
@@ -638,14 +675,12 @@ int main(int argc, char **argv)
 		 * need to listen for the RTM_NETLINK messages
 		 * about the new VLAN devices
 		 */
-		recv_loop(ns, ps, 500);
+		recv_loop(pfd, pfd_len, 500);
 	}
 	if (config.start)
 		start_fcoe();
 	close(ns);
 ns_err:
-	close(ps);
-ps_err:
 	exit(rc);
 }
 

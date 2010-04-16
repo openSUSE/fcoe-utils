@@ -122,6 +122,7 @@ struct fcoe_port {
 	unsigned char mac[ETHER_ADDR_LEN];
 	struct sa_timer vlan_disc_timer;
 	int vlan_disc_count;
+	int fip_socket;
 };
 
 enum fcoeport_ifname {
@@ -165,8 +166,6 @@ static void fcm_link_recv(void *);
 static void fcm_link_getlink(void);
 static int fcm_link_buf_check(size_t);
 static void clear_dcbd_info(struct fcm_netif *ff);
-
-static int fcm_fip_socket;
 
 /*
  * Table for getopt_long(3).
@@ -560,23 +559,23 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 
 static void fcm_fip_recv(void *arg)
 {
-	fip_recv(fcm_fip_socket, fcm_vlan_disc_handler, NULL);
+	struct fcoe_port *p = arg;
+	fip_recv(p->fip_socket, fcm_vlan_disc_handler, NULL);
 }
 
-static int fcm_vlan_disc_init(void)
+static int fcm_vlan_disc_socket(struct fcoe_port *p)
 {
 	int fd;
 	int origdev = 1;
 
-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
+	fd = fip_socket(p->ifindex);
 	if (fd < 0) {
 		FCM_LOG_ERR(errno, "socket error");
 		return fd;
 	}
 	setsockopt(fd, SOL_PACKET, PACKET_ORIGDEV, &origdev, sizeof(origdev));
-	fcm_fip_socket = fd;
-	sa_select_add_fd(fd, fcm_fip_recv, NULL, NULL, NULL);
-	return 0;
+	sa_select_add_fd(fd, fcm_fip_recv, NULL, NULL, p);
+	return fd;
 }
 
 
@@ -1968,14 +1967,21 @@ void fcm_vlan_disc_timeout(void *arg)
 		fcp_set_next_action(p, FCP_ACTIVATE_IF);
 		return;
 	}
-	fip_send_vlan_request(fcm_fip_socket, p->ifindex, p->mac);
+	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac);
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 }
 
 int fcm_start_vlan_disc(struct fcoe_port *p)
 {
+	int s;
+	if (!p->fip_socket) {
+		s = fcm_vlan_disc_socket(p);
+		if (s < 0)
+			return s;
+		p->fip_socket = s;
+	}
 	p->vlan_disc_count = 1;
-	fip_send_vlan_request(fcm_fip_socket, p->ifindex, p->mac);
+	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac);
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 	return 0;
 }
@@ -2604,7 +2610,6 @@ int main(int argc, char **argv)
 	fcm_fcoe_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
-	fcm_vlan_disc_init();
 	fcm_srv_create(&srv_info);
 	sa_select_set_callback(fcm_handle_changes);
 

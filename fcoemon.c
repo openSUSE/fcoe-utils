@@ -2565,27 +2565,12 @@ int main(int argc, char **argv)
 	if (argc != optind)
 		fcm_usage();
 
-	if (!fcm_fg) {
-		pid_t pid, sid;
-
-		pid = fork();
-		if (pid < 0) {
-			FCM_LOG("Starting daemon failed");
-			exit(EXIT_FAILURE);
-		} else if (pid)
-			exit(EXIT_SUCCESS);
-
-		/* Create a new SID for the child process */
-		sid = setsid();
-		if (sid < 0)
-			exit(EXIT_FAILURE);
+	if (!fcm_fg && daemon(0, fcoe_config.use_syslog)) {
+		FCM_LOG("Starting daemon failed");
+		exit(EXIT_FAILURE);
 	}
 
 	umask(0);
-
-	/* Change the current working directory */
-	if ((chdir("/")) < 0)
-		exit(EXIT_FAILURE);
 
 	/*
 	 * Set up for signals.

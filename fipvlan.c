@@ -34,10 +34,10 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <net/ethernet.h>
-#include <netpacket/packet.h>
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_packet.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -302,6 +302,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 	if (ifla[IFLA_LINKINFO]) {
 		parse_linkinfo(linkinfo, ifla[IFLA_LINKINFO]);
+		/* Track VLAN devices separately */
 		if (linkinfo[IFLA_INFO_KIND] &&
 		    !strcmp(RTA_DATA(linkinfo[IFLA_INFO_KIND]), "vlan")) {
 			iff->is_vlan = true;
@@ -313,6 +314,12 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 				return;
 			}
 			TAILQ_INSERT_TAIL(&real_dev->vlans, iff, list_node);
+			return;
+		}
+		/* ignore bonding interfaces */
+		if (linkinfo[IFLA_INFO_KIND] &&
+		    !strcmp(RTA_DATA(linkinfo[IFLA_INFO_KIND]), "bond")) {
+			free(iff);
 			return;
 		}
 	}
@@ -589,6 +596,7 @@ int main(int argc, char **argv)
 {
 	int ps, ns;
 	int rc = 0;
+	int origdev = 1;
 
 	exe = strrchr(argv[0], '/');
 	if (exe)
@@ -606,6 +614,7 @@ int main(int argc, char **argv)
 		rc = ps;
 		goto ps_err;
 	}
+	setsockopt(ps, SOL_PACKET, PACKET_ORIGDEV, &origdev, sizeof(origdev));
 	ns = rtnl_socket();
 	if (ns < 0) {
 		rc = ns;

@@ -566,12 +566,14 @@ static void fcm_fip_recv(void *arg)
 static int fcm_vlan_disc_init(void)
 {
 	int fd;
+	int origdev = 1;
 
 	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
 	if (fd < 0) {
 		FCM_LOG_ERR(errno, "socket error");
 		return fd;
 	}
+	setsockopt(fd, SOL_PACKET, PACKET_ORIGDEV, &origdev, sizeof(origdev));
 	fcm_fip_socket = fd;
 	sa_select_add_fd(fd, fcm_fip_recv, NULL, NULL, NULL);
 	return 0;

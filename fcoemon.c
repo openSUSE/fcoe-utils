@@ -2545,7 +2545,7 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "fdhv",
+	while ((c = getopt_long(argc, argv, "fdhsv",
 				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':

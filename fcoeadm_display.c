@@ -238,7 +238,7 @@ static int is_fcp_target(HBA_PORTATTRIBUTES *rp_info)
 	if (sa_sys_read_line(rp_info->OSDeviceName, "roles", buf, sizeof(buf)))
 		return -EINVAL;
 
-	if (!strncmp(buf, FCP_TARG_STR, strlen(buf)))
+	if (!strncmp(buf, FCP_TARG_STR, strlen(FCP_TARG_STR)))
 		return 0;
 
 	return -EINVAL;

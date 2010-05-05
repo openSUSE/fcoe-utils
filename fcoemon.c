@@ -111,6 +111,7 @@ struct fcoe_port {
 	int fcoe_enable;
 	int dcb_required;
 	int auto_vlan;
+	int auto_created;
 
 	/* following track data required to manage FCoE interface state */
 	enum fcp_action action;      /* current state */
@@ -489,10 +490,11 @@ static int fcm_link_init(void)
 
 static struct fcoe_port *fcm_port_create(char *ifname, int cmd);
 
-void fcm_new_vlan(int ifindex, int vid)
+struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
 {
 	char real_name[IFNAMSIZ];
 	char vlan_name[IFNAMSIZ];
+	struct fcoe_port *p;
 
 	FCM_LOG_DBG("Auto VLAN Found FCF on VID %d\n", vid);
 
@@ -502,7 +504,9 @@ void fcm_new_vlan(int ifindex, int vid)
 		vlan_create(ifindex, vid, vlan_name);
 	}
 	rtnl_set_iff_up(0, vlan_name);
-	fcm_port_create(vlan_name, FCP_CREATE_IF);
+	p = fcm_port_create(vlan_name, FCP_ACTIVATE_IF);
+	p->auto_created = 1;
+	return p;
 }
 
 
@@ -512,8 +516,8 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	unsigned char mac[ETHER_ADDR_LEN];
 	int len = ntohs(fh->fip_desc_len);
 	struct fip_tlv_hdr *tlv = (struct fip_tlv_hdr *)(fh + 1);
-	char ifname[IFNAMSIZ];
-	struct fcoe_port *p;
+	struct fcoe_port *p = arg;
+	struct fcoe_port *vp;
 
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN)
 		return -1;
@@ -522,10 +526,6 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 		return -1;
 
 	/* cancel the retry timer, response received */
-	rtnl_get_linkname(sa->sll_ifindex, ifname);
-	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
-	if (!p)
-		return -ENODEV;
 	sa_timer_cancel(&p->vlan_disc_timer);
 
 	while (len > 0) {
@@ -544,7 +544,8 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 				break;
 			}
 			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
-			fcm_new_vlan(sa->sll_ifindex, vid);
+			vp = fcm_new_vlan(sa->sll_ifindex, vid);
+			vp->dcb_required = p->dcb_required;
 			break;
 		default:
 			/* unexpected or unrecognized descriptor */
@@ -560,7 +561,7 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 static void fcm_fip_recv(void *arg)
 {
 	struct fcoe_port *p = arg;
-	fip_recv(p->fip_socket, fcm_vlan_disc_handler, NULL);
+	fip_recv(p->fip_socket, fcm_vlan_disc_handler, p);
 }
 
 static int fcm_vlan_disc_socket(struct fcoe_port *p)
@@ -740,7 +741,7 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		switch (action) {
 		case FCP_ACTIVATE_IF:
 			if (p->auto_vlan)
-				p->action = FCP_WAIT;
+				p->action = FCP_VLAN_DISC;
 			else
 				p->action = FCP_CREATE_IF;
 			break;
@@ -767,8 +768,22 @@ static void fcp_action_set(char *ifname, enum fcp_action action)
 
 	p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
 	while (p) {
-		if (p->fcoe_enable)
-			fcp_set_next_action(p, action);
+		if (p->fcoe_enable) {
+			switch (action) {
+			case FCP_ACTIVATE_IF:
+				/*
+				 * let the VLAN discovery code
+				 * enabled auto-VLANs
+				 */
+				if (!p->auto_created)
+					fcp_set_next_action(p, FCP_ACTIVATE_IF);
+				else
+					fcp_set_next_action(p, FCP_WAIT);
+				break;
+			default:
+				fcp_set_next_action(p, action);
+			}
+		}
 		p = fcm_find_next_fcoe_port(p, ifname);
 	}
 }
@@ -859,8 +874,14 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 					fcm_dcbd_state_set(ff,
 						FCD_GET_DCB_STATE);
 			} else {
-				fcp_set_next_action(p, FCP_CREATE_IF);
+				/* hold off on auto-created VLAN ports until
+				 * VLAN discovery can validate that the setup
+				 * has not changed */
+				if (!p->auto_created)
+					fcp_set_next_action(p, FCP_ACTIVATE_IF);
 			}
+		} else {
+			fcp_set_next_action(p, FCP_DISABLE_IF);
 		}
 	} else {
 		fcp_set_next_action(p, FCP_DESTROY_IF);

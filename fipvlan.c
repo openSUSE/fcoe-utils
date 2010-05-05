@@ -317,6 +317,8 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	if (iff) {
 		/* already tracking, update operstate and return */
 		iff->running = (ifm->ifi_flags & IFF_RUNNING) == IFF_RUNNING;
+		if (iff->running)
+			pfd_add(iff->ps);
 		return;
 	}
 
@@ -365,7 +367,8 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	iff->ps = fip_socket(iff->ifindex);
 	setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
 		   &origdev, sizeof(origdev));
-	pfd_add(iff->ps);
+	if (iff->running)
+		pfd_add(iff->ps);
 	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
 }
 
@@ -553,14 +556,12 @@ void recv_loop(struct pollfd *pfd, int pfd_len, int timeout)
 			break;
 		}
 		/* pfd[0] must be the netlink socket */
-		if (pfd[0].revents)
+		if (pfd[0].revents & POLLIN)
 			rtnl_recv(pfd[0].fd, rtnl_listener_handler, NULL);
-		pfd[0].revents = 0;
 		/* everything else should be FIP packet sockets */
 		for (i = 1; i < pfd_len; i++) {
-			if (pfd[i].revents)
+			if (pfd[i].revents & POLLIN)
 				fip_recv(pfd[i].fd, fip_vlan_handler, NULL);
-			pfd[i].revents = 0;
 		}
 	}
 }

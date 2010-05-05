@@ -17,6 +17,7 @@
  * Maintained at www.Open-FCoE.org
  */
 
+#define _GNU_SOURCE		/* for GNU definition of strerror_r */
 #include "fcoemon_utils.h"
 #include "net_types.h"
 #include "fc_types.h"

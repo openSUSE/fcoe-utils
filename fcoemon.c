@@ -504,6 +504,9 @@ struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
 		vlan_create(ifindex, vid, vlan_name);
 	}
 	rtnl_set_iff_up(0, vlan_name);
+	p = fcm_find_fcoe_port(vlan_name, FCP_CFG_IFNAME);
+	if (p && !p->fcoe_enable)
+		return p;
 	p = fcm_port_create(vlan_name, FCP_ACTIVATE_IF);
 	p->auto_created = 1;
 	return p;
@@ -2015,6 +2018,7 @@ int fcm_start_vlan_disc(struct fcoe_port *p)
  */
 static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
+	struct fcoe_port *vp;
 	char *ifname = p->ifname;
 	char fchost[FCHOSTBUFLEN];
 	char path[256];
@@ -2028,6 +2032,19 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		break;
 	case FCP_DESTROY_IF:
 		FCM_LOG_DBG("OP: DESTROY %s\n", p->ifname);
+		if (p->auto_vlan) {
+			/* destroy all the VLANs */
+			vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
+			while (vp) {
+				if (vp->auto_created) {
+					vp->fcoe_enable = 0;
+					fcp_set_next_action(vp, FCP_DESTROY_IF);
+				}
+				vp = fcm_find_next_fcoe_port(vp, p->ifname);
+			}
+			rc = fcm_success;
+			break;
+		}
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
 		break;
 	case FCP_ENABLE_IF:
@@ -2036,6 +2053,16 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		break;
 	case FCP_DISABLE_IF:
 		FCM_LOG_DBG("OP: DISABLE %s\n", p->ifname);
+		if (p->auto_vlan) {
+			/* disable all the VLANs */
+			vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
+			while (vp) {
+				if (vp->auto_created)
+					fcp_set_next_action(vp, FCP_DISABLE_IF);
+				vp = fcm_find_next_fcoe_port(vp, p->ifname);
+			}
+			break;
+		}
 		rc = fcm_fcoe_if_action(FCOE_DISABLE, ifname);
 		break;
 	case FCP_RESET_IF:
@@ -2345,8 +2372,22 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 
 static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 {
-	struct fcoe_port *p;
+	struct fcoe_port *p, *vp;
 
+	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
+	if (p && p->fcoe_enable) {
+		/* no action needed */
+		return CLI_NO_ACTION;
+	}
+	/* re-enable previous VLANs */
+	if (p && p->auto_vlan) {
+		vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
+		while (vp) {
+			if (vp->auto_created)
+				vp->fcoe_enable = 1;
+			vp = fcm_find_next_fcoe_port(vp, p->ifname);
+		}
+	}
 	p = fcm_port_create(ifname, cmd);
 	if (!p)
 		return fcm_fail;

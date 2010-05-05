@@ -2157,12 +2157,11 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
 		case FCP_ERROR:
-			if (ff->dcbd_retry_cnt < DCBD_MAX_REQ_RETRIES) {
+			fcp_action_set(ff->ifname, FCP_DISABLE_IF);
+			if (ff->dcbd_retry_cnt < DCBD_MAX_REQ_RETRIES)
 				fcm_dcbd_state_set(ff, FCD_ERROR);
-			} else {
-				fcp_action_set(ff->ifname, FCP_DISABLE_IF);
+			else
 				fcm_dcbd_state_set(ff, FCD_INIT);
-			}
 			break;
 		case FCP_WAIT:
 		default:

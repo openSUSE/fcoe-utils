@@ -38,6 +38,8 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_packet.h>
+#include <linux/capability.h>
+#include <sys/syscall.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -636,6 +638,25 @@ retry:
 		}
 }
 
+/* this is to not require headers from libcap */
+static inline int capget(cap_user_header_t hdrp, cap_user_data_t datap)
+{
+	return syscall(__NR_capget, hdrp, datap);
+}
+
+int checkcaps()
+{
+	struct __user_cap_header_struct caphdr = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	struct __user_cap_data_struct caps[_LINUX_CAPABILITY_U32S_3];
+
+	capget(&caphdr, caps);
+	return !(caps[CAP_TO_INDEX(CAP_NET_RAW)].effective &
+		 CAP_TO_MASK(CAP_NET_RAW));
+}
+
 int main(int argc, char **argv)
 {
 	int ns;
@@ -651,6 +672,11 @@ int main(int argc, char **argv)
 	sa_log_prefix = exe;
 	sa_log_flags = 0;
 	enable_debug_log(0);
+
+	if (checkcaps()) {
+		FIP_LOG("must run as root or with the NET_RAW capability");
+		exit(1);
+	}
 
 	ns = rtnl_socket();
 	if (ns < 0) {

@@ -805,7 +805,7 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 
 	if (new_state == FCD_ERROR) {
 		ff->dcbd_retry_cnt++;
-		FCM_LOG_DEV_DBG(ff, "%s: SETTING dcbd RETRY TIMER  = %d\n",
+		FCM_LOG_DEV_DBG(ff, "%s: SETTING lldpad RETRY TIMER  = %d\n",
 			ff->ifname,
 			ff->dcbd_retry_cnt * DCBD_REQ_RETRY_TIMEOUT);
 		sa_timer_set(&ff->dcbd_retry_timer,
@@ -1185,7 +1185,7 @@ static int fcm_dcbd_connect(void)
 	}
 	fcm_clif->cl_fd = fd;
 	sa_select_add_fd(fd, fcm_dcbd_rx, NULL, NULL, fcm_clif);
-	FCM_LOG_DBG("connected to dcbd");
+	FCM_LOG_DBG("connected to lldpad");
 	return 1;
 }
 
@@ -1211,7 +1211,7 @@ static void fcm_dcbd_retry_timeout(void *arg)
 	struct fcm_netif *ff = (struct fcm_netif *)arg;
 
 	ASSERT(ff);
-	FCM_LOG_DBG("%s: dcbd retry TIMEOUT occurred [%d]",
+	FCM_LOG_DBG("%s: lldpad retry TIMEOUT occurred [%d]",
 		ff->ifname, ff->dcbd_retry_cnt);
 
 	fcm_dcbd_state_set(ff, FCD_GET_DCB_STATE);
@@ -1228,13 +1228,13 @@ static void fcm_dcbd_disconnect(void)
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;
-		FCM_LOG_DBG("Disconnected from dcbd");
+		FCM_LOG_DBG("Disconnected from lldpad");
 	}
 }
 
 static void fcm_dcbd_shutdown(void)
 {
-	FCM_LOG_DBG("Shutdown dcbd connection\n");
+	FCM_LOG_DBG("Shutdown lldpad connection\n");
 	fcm_dcbd_request("D");	/* DETACH_CMD */
 	fcm_dcbd_disconnect();
 	unlink(fcm_pidfile);
@@ -1307,11 +1307,11 @@ static void fcm_dcbd_rx(void *arg)
 			st = fcm_get_hex(buf + CLIF_STAT_OFF, CLIF_STAT_LEN,
 					 &ep);
 			if (ep != NULL)
-				FCM_LOG("unexpected response code from dcbd: "
+				FCM_LOG("unexpected response code from lldpad: "
 					"len %d buf %s rc %d", len, buf, rc);
 			else if (st != cmd_success &&
 				 st != cmd_device_not_found) {
-				FCM_LOG("error response from dcbd: "
+				FCM_LOG("error response from lldpad: "
 					"error %d len %d %s",
 					st, len, buf);
 			}
@@ -1333,7 +1333,7 @@ static void fcm_dcbd_rx(void *arg)
 				break;
 			default:
 				FCM_LOG("Unexpected cmd in response "
-					"from dcbd: len %d %s",
+					"from lldpad: len %d %s",
 					len, buf);
 				break;
 			}
@@ -1343,7 +1343,7 @@ static void fcm_dcbd_rx(void *arg)
 			fcm_dcbd_event(buf, len);
 			break;
 		default:
-			FCM_LOG("Unexpected message from dcbd: len %d buf %s",
+			FCM_LOG("Unexpected message from lldpad: len %d buf %s",
 				len, buf);
 			break;
 		}

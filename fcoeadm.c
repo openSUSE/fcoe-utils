@@ -65,19 +65,6 @@ static void fcoeadm_help(void)
 	       "\t [-h|--help]\n\n", progname);
 }
 
-static enum fcoe_err fcoeadm_check_fcoemon()
-{
-	int fd;
-
-	fd = open(CLIF_PID_FILE, O_RDWR, S_IRUSR | S_IWUSR);
-	if (fd < 0)
-		return ENOMONCONN;
-
-	close(fd);
-
-	return NOERR;
-}
-
 static enum fcoe_err fcoeadm_clif_request(struct clif_sock_info *clif_info,
 					  const struct clif_data *cmd,
 					  size_t cmd_len, char *reply,
@@ -236,11 +223,6 @@ int main(int argc, char *argv[])
 		rc = ENOSYSFS;
 		goto err;
 	}
-
-	/* Check if fcoemon is running */
-	rc = fcoeadm_check_fcoemon();
-	if (rc)
-		goto err;
 
 	opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
 	if (opt != -1) {

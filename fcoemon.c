@@ -1178,7 +1178,7 @@ static int fcm_dcbd_connect(void)
 		 LLDP_CLIF_SOCK);
 	rc = connect(fd, (struct sockaddr *)&dest, sizeof(dest));
 	if (rc < 0) {
-		FCM_LOG_ERR(errno, "clif connect failed");
+		FCM_LOG_ERR(errno, "Failed to connect to lldpad");
 		unlink(lp->sun_path);
 		close(fd);
 		return 0;

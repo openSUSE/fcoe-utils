@@ -245,17 +245,7 @@ int main(int argc, char *argv[])
 			}
 
 			ifname = optarg;
-
-			if (opt == 'c') {
-				rc = fcoe_validate_interface(ifname);
-				if (!rc &&
-				    !fcoe_validate_fcoe_conn(ifname))
-					rc = EFCOECONN;
-			} else
-				rc = fcoe_validate_fcoe_conn(ifname);
-
-			if (!rc)
-				rc = fcoeadm_action(cmd, ifname);
+			rc = fcoeadm_action(cmd, ifname);
 			break;
 
 		case 'i':

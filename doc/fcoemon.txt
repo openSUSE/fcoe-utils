@@ -67,16 +67,16 @@ OPTIONS
 TERMINOLOGY
 -----------
 _DCB_::
-	Data Center Bridging A set of Ethernet enchancement standards
+	Data Center Bridging A set of Ethernet enhancement standards
 	developed by the IEEE 802.1 Working Group.
 &nbsp;::
 	See <http://www.ieee802.org/1/pages/dcbridges.html> for more
 	information.
 
 _DCBX_::
-	DCB Capabilitues Exchange Protocol, implemented by the DCB module
+	DCB Capabilities Exchange Protocol, implemented by the DCB module
 	of *lldpad*. DCBX exchanges DCB capabilities and configuration with
-	a link partner as a series of values tranfered using the Link Layer
+	a link partner as a series of values transfered using the Link Layer
 	Discovery Protocol (LLDP).
 
 _PFC_::
@@ -94,7 +94,7 @@ configuration on the physical Ethernet interface.
 
 First of all, the network interface must be "up" for the FCoE instance to
 be created. Secondly, if the FCoE configuration indicates that DCB is
-required, then the following criteria must be satisified before the FCoE
+required, then the following criteria must be satisfied before the FCoE
 interface is created:
 
 * DCB is enabled on the Ethernet interface.
@@ -178,7 +178,7 @@ _DCB_REQUIRED_::
 	indicates if the DCB service is required on the Ethernet interface.
 
 _AUTO_VLAN_::
-	indictaes if VLAN discovery should be performed.  If AUTO_VLAN is
+	indicates if VLAN discovery should be performed.  If AUTO_VLAN is
 	set to "yes", then once the link configuration has been validated,
 	*fcoemon* will run run the FIP VLAN discovery protocol on the
 	Ethernet interface. Network interfaces for any discovered FCoE
@@ -197,7 +197,7 @@ init process or by the service command to start and stop the *fcoemon*.
 
 VLAN NAMING CONVENTIONS
 -----------------------
-If a new VLAN device is created (see the desription of the _AUTO_VLAN_
+If a new VLAN device is created (see the description of the _AUTO_VLAN_
 setting above), it will have the name _dev_._vlan_-fcoe; where _dev_ is the
 name of the Ethernet parent device and _vlan_ is the discovered VLAN ID
 number.

@@ -77,12 +77,12 @@ OPTIONS
 *-l*, *--lun* [_ethX_]::
 	Show detailed information about the discovered SCSI LUNs associated
 	with the FCoE instance on the specified network interface.
-	If no network interface is specifed, information about SCSI LUNs
+	If no network interface is specified, information about SCSI LUNs
 	from all FCoE instances will be shown.
 
 *-s*, *--stats* _ethX_ [_interval_]::
 	Show the statistics (including FC4 statistics) of the FCoE
-	interface on the specfied network interface.
+	interface on the specified network interface.
 	The information will be display in one line on the screen per given
 	time interval. _interval_ should be specified in whole integers
 	greater than 0. It specifies the time interval in the unit of

@@ -28,6 +28,7 @@ int rtnl_set_iff_up(int ifindex, char *ifname);
 int vlan_create(int ifindex, int vid, char *name);
 int rtnl_find_vlan(int ifindex, int vid, char *ifname);
 int rtnl_get_linkname(int ifindex, char *name);
+int rtnl_get_sanmac(const char *ifname, unsigned char *addr);
 
 static inline void parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {

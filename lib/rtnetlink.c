@@ -38,6 +38,7 @@
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/dcbnl.h>
 #include "rtnetlink.h"
 #include "fcoemon_utils.h"
 
@@ -45,6 +46,8 @@
 #define RTNL_LOG_ERR(error, ...)	sa_log_err(error, __func__, __VA_ARGS__)
 #define RTNL_LOG_ERRNO(...)	sa_log_err(errno, __func__, __VA_ARGS__)
 #define RTNL_LOG_DBG(...)	sa_log_debug(__VA_ARGS__)
+
+#define NLA_DATA(nla)  ((void *)((char*)(nla) + NLA_HDRLEN))
 
 /**
  * rtnl_socket - create and bind a routing netlink socket
@@ -423,6 +426,75 @@ int rtnl_find_vlan(int ifindex, int vid, char *ifname)
 		rc = -ENODEV;
 	}
 out:
+	close(s);
+	return rc;
+}
+
+int rtnl_get_sanmac(const char *ifname, unsigned char *addr)
+{
+	int s;
+	int rc = -EIO;
+	struct {
+		struct nlmsghdr nh;
+		struct dcbmsg dcb;
+		char attrbuf[1204];
+	} req = {
+		.nh = {
+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct dcbmsg)),
+			.nlmsg_type = RTM_GETDCB,
+			.nlmsg_pid = getpid(),
+			.nlmsg_flags = NLM_F_REQUEST,
+		},
+		.dcb = {
+			.cmd = DCB_CMD_GPERM_HWADDR,
+			.dcb_family = AF_UNSPEC,
+			.dcb_pad = 0,
+		},
+	};
+
+	struct nlmsghdr *nh = &req.nh;
+	struct dcbmsg *dcb;
+	struct rtattr *rta;
+
+	/* prep the message */
+	memset((void *)req.attrbuf, 0, sizeof(req.attrbuf));
+	add_rtattr(nh, DCB_ATTR_IFNAME, (void *)ifname, strlen(ifname) + 1);
+	add_rtattr(nh, DCB_ATTR_PERM_HWADDR, NULL, 0);
+
+	s = rtnl_socket();
+	if (s < 0) {
+		RTNL_LOG_ERRNO("failed to create the socket");
+		return s;
+	}
+
+	rc = send(s, (void *)nh, nh->nlmsg_len, 0);
+	if (rc < 0) {
+		RTNL_LOG_ERRNO("failed to send to the socket");
+		goto err_close;
+	}
+
+	memset((void *)&req, 0, sizeof(req));
+	rc = recv(s, (void *)&req, sizeof(req), 0);
+	if (rc < 0) {
+		RTNL_LOG_ERRNO("failed to recv from the socket");
+		rc = -EIO;
+		goto err_close;
+	}
+
+	dcb = (struct dcbmsg *)NLMSG_DATA(nh);
+	rta = (struct rtattr *)(((char *)dcb) +
+	      NLMSG_ALIGN(sizeof(struct dcbmsg)));
+	if ((nh->nlmsg_type != RTM_GETDCB) ||
+	    (dcb->cmd != DCB_CMD_GPERM_HWADDR) ||
+	    (rta->rta_type != DCB_ATTR_PERM_HWADDR)) {
+		RTNL_LOG_DBG("Unexpected netlink response for GPERM_HWADDR\n");
+		rc = -EIO;
+		goto err_close;
+	}
+	/* SAN MAC follows the LAN MAC */
+	memcpy(addr, NLA_DATA(rta) + ETH_ALEN, ETH_ALEN);
+	rc = 0;
+err_close:
 	close(s);
 	return rc;
 }

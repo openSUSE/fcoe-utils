@@ -35,12 +35,13 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <net/ethernet.h>
-#include <netpacket/packet.h>
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_packet.h>
 #include "fip.h"
 #include "fcoemon_utils.h"
+#include "rtnetlink.h"
 
 #define FIP_LOG(...)			sa_log(__VA_ARGS__)
 #define FIP_LOG_ERR(error, ...)		sa_log_err(error, __func__, __VA_ARGS__)
@@ -48,6 +49,91 @@
 #define FIP_LOG_DBG(...)		sa_log_debug(__VA_ARGS__)
 
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
+
+static int fip_mac_is_valid(unsigned char *mac)
+{
+	if (0x01 & mac[0])
+		return 0;
+	return !!(mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5]);
+}
+
+/**
+ * fip_get_sanmac - get SAN MAC through dcbnl interface
+ * @ifindex: network interface index to send on
+ * @addr: output buffer to the SAN MAC address
+ *
+ * Returns 0 for success, none 0 for failure
+ */
+static int fip_get_sanmac(int ifindex, unsigned char *addr)
+{
+	int s;
+	int rc = -EIO;
+	struct ifreq ifr;
+
+	memset(addr, 0, ETHER_ADDR_LEN);
+	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	if (s < 0)
+		return s;
+
+	memset(&ifr, 0, sizeof(ifr));
+	ifr.ifr_ifindex = ifindex;
+	rc = ioctl(s, SIOCGIFNAME, &ifr);
+	close(s);
+	if (rc)
+		return rc;
+
+	rc = rtnl_get_sanmac(ifr.ifr_name, addr);
+	if (rc)
+		return rc;
+
+	return !fip_mac_is_valid(addr);
+}
+
+/**
+ * fip_socket_sanmac - add SAN MAC to the unicast list for input socket
+ * @s: ETH_P_FIP packet socket to setsockopt on
+ * @ifindex: network interface index to send on
+ * @add: 1 to add 0 to del
+ */
+static void fip_socket_sanmac(int s, int ifindex, int add)
+{
+	struct packet_mreq mr;
+	unsigned char smac[ETHER_ADDR_LEN];
+
+	if (fip_get_sanmac(ifindex, smac))
+		return;
+
+	memset(&mr, 0, sizeof(mr));
+	mr.mr_ifindex = ifindex;
+	mr.mr_type = PACKET_MR_UNICAST;
+	mr.mr_alen = ETHER_ADDR_LEN;
+	memcpy(mr.mr_address, smac, ETHER_ADDR_LEN);
+	if (setsockopt(s, SOL_PACKET,
+		       (add) ? PACKET_ADD_MEMBERSHIP : PACKET_DROP_MEMBERSHIP,
+		       &mr, sizeof(mr)) < 0)
+		FIP_LOG_DBG("PACKET_%s_MEMBERSHIP:failed\n",
+			    (add) ? "ADD" : "DROP");
+}
+
+/**
+ * fip_ethhdr - fills up the ethhdr for FIP
+ * @ifindex: network interface index to send on
+ * @mac: mac address of the sending network interface
+ * @eh: buffer for ether header
+ *
+ * Note: assuming no VLAN
+ */
+static void fip_ethhdr(int ifindex, unsigned char *mac, struct ethhdr *eh)
+{
+	unsigned char smac[ETHER_ADDR_LEN];
+	unsigned char dmac[ETHER_ADDR_LEN] = FIP_ALL_FCF_MACS;
+	if (fip_get_sanmac(ifindex, smac))
+		memcpy(smac, mac, ETHER_ADDR_LEN);
+
+	eh->h_proto = htons(ETH_P_FIP);
+	memcpy(eh->h_source, smac, ETHER_ADDR_LEN);
+	memcpy(eh->h_dest, dmac, ETHER_ADDR_LEN);
+}
 
 /**
  * fip_socket - create and bind a packet socket for FIP
@@ -62,9 +148,11 @@ int fip_socket(int ifindex)
 	int s;
 	int rc;
 
-	s = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_FIP));
+	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_FIP));
 	if (s < 0)
 		return s;
+
+	fip_socket_sanmac(s, ifindex, 1);
 
 	rc = bind(s, (struct sockaddr *) &sa, sizeof(sa));
 	if (rc < 0) {
@@ -74,6 +162,7 @@ int fip_socket(int ifindex)
 
 	return s;
 }
+
 
 /**
  * fip_send_vlan_request - send a FIP VLAN request
@@ -109,7 +198,9 @@ ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac)
 			.hdr.tlv_len = 2,
 		},
 	};
+	struct ethhdr eh;
 	struct iovec iov[] = {
+		{ .iov_base = &eh, .iov_len = sizeof(eh), },
 		{ .iov_base = &fh, .iov_len = sizeof(fh), },
 		{ .iov_base = &tlvs, .iov_len = sizeof(tlvs), },
 	};
@@ -121,8 +212,8 @@ ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac)
 	};
 	int rc;
 
-	memcpy(tlvs.mac.mac_addr, mac, ETHER_ADDR_LEN);
-
+	fip_ethhdr(ifindex, mac, &eh);
+	memcpy(tlvs.mac.mac_addr, eh.h_source, ETHER_ADDR_LEN);
 	FIP_LOG_DBG("sending FIP VLAN request");
 	rc = sendmsg(s, &msg, 0);
 	if (rc < 0) {
@@ -165,7 +256,7 @@ int fip_recv(int s, fip_handler *fn, void *arg)
 		return -1;
 	}
 
-	fh = (struct fiphdr *) buf;
+	fh = (struct fiphdr *) (buf + sizeof(struct ethhdr));
 
 	desc_len = ntohs(fh->fip_desc_len);
 	if (len < (sizeof(*fh) + (desc_len << 2))) {

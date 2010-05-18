@@ -97,8 +97,8 @@ dcb_info()
 	echo -e "#tc config"
 	tc qdisc
 	tc filter show dev $PHYSDEV | grep -v filter
-	echo -e "#service dcbd status:"
-	service dcbd status
+	echo -e "#service lldpad status:"
+	service lldpad status
 	echo -e "\n########## Showing dcb for $PHYSDEV"
 	dcbtool -v
 	dcbtool gc $PHYSDEV dcb

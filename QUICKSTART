@@ -92,11 +92,11 @@ DEPENDENCIES
 PROCESS
 
 1) Obtain the latest source tarball from sourceforge
-   http://sourceforge.net/projects/e1000/files/DCB%20Tools/
+   http://sourceforge.net/projects/e1000/files/
 
 2) Untar the tarball and change into it's directory
-   # tar -xvzf dcbd-x.y.z.tar.gz
-   # cd dcbd-x.y.z/
+   # tar -xvzf lldpad-x.y.z.tar.gz
+   # cd lldpad-x.y.z/
 
 3) Ensure correct header files
    # pushd /usr/include/
@@ -172,7 +172,7 @@ PROCESS
 DEPENDENCIES
 
 * libhbalinux
-* dcbd v0.9.24 or greater (optional configure flag to build without)
+* lldpad v0.9.26 or greater (optional configure flag to build without)
 
 * autoconf
 * autotools
@@ -231,8 +231,8 @@ system to automatically connect to storage over this interface.
    # cd /etc/fcoe/
    # cp cfg-ethx cfg-eth3.101
 
-4) Start dcbd and configure the VLAN interface
-   # /etc/init.d/dcbd start
+4) Start lldpad and configure the VLAN interface
+   # /etc/init.d/lldpad start
    # dcbtool sc eth3 dcb on
    # dcbtool sc eth3 pfc e:1
    # dcbtool sc eth3 app:fcoe e:1
@@ -251,8 +251,8 @@ system to automatically connect to storage over this interface.
      After a few moments your storage should appear (assuming everything is
      configured correctly on the fabric)
 
-6) Setup dcbd and fcoe to start when booting
-    # chkconfig dcbd on
+6) Setup lldpad and fcoe to start when booting
+    # chkconfig lldpad on
     # chkconfig fcoe on
 
 

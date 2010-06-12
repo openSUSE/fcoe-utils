@@ -1,0 +1,86 @@
+'\" t
+.\"     Title: fcrls
+.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
+.\"      Date: 06/04/2010
+.\"    Manual: Open-FCoE Tools
+.\"    Source: Open-FCoE
+.\"  Language: English
+.\"
+.TH "FCRLS" "8" "06/04/2010" "Open\-FCoE" "Open\-FCoE Tools"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+fcrls \- Fibre Channel Read Link Error Status Block (RLS) tool
+.SH "SYNOPSIS"
+.sp
+\fBfcrls\fR \-\-port \fIrport_bsg_name\fR [\-\-quiet]
+.sp
+\fBfcrls\fR \-\-fcid \fIrport_port_FC\-ID\fR [\-\-quiet]
+.sp
+\fBfcrls\fR \-\-help
+.SH "DESCRIPTION"
+.sp
+The \fBfcrls\fR command performs Fibre Channel Read Link Error Status Block (RLS) ELS request (see FC\-LS\-2) via BSG over a given rport bsg name or FC\-ID\&.
+.sp
+\fBfcrls\fR takes either a rport bsg name or a rport port FC\-ID as the input\&. To disable verbose output, use the \fB\-\-quiet\fR option\&.
+.SH "OPTIONS"
+.PP
+\fB\-\-port\fR \fIrport_bsg_name\fR
+.RS 4
+Send RLS to a rport by FC remote port bsg name, e\&.g\&., rport\-7:0\-1\&.
+.RE
+.PP
+\fB\-\-fcid\fR \fIrport_port_FC\-ID\fR
+.RS 4
+Send RLS to a rport by port FC\-ID, e\&.g\&., 0xce000d\&.
+.RE
+.PP
+\fB\-\-quiet\fR
+.RS 4
+Disable verbose output\&.
+.RE
+.PP
+\fB\-\-help\fR
+.RS 4
+Display a help message with basic usage instructions\&.
+.RE
+.SH "EXAMPLES"
+.sp
+Sends RLS to the FC remote port as rport\-7:0\-1
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcrls \-\-port rport\-7:0\-1
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Sends RLS to the FC remote port with 0xce000d as its port FC\-ID
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcrls \-\-fcid 0xce000d
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.sp
+\fBfcoeadm\fR(8)
+.SH "SUPPORT"
+.sp
+\fBfcrls\fR is part of the \fIfcoe\-utils\fR package, maintained through the \fIOpen\-FCoE\fR project\&. Resources for both developers and users can be found at the \fIOpen\-FCoE\fR website http://open\-fcoe\&.org/\&.

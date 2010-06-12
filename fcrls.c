@@ -395,7 +395,8 @@ static int rport_find(struct rport_info *rpi)
 		return ENODEV;
 	}
 	while (n--) {
-		if (namelist[n]->d_type != DT_DIR)
+		if ((namelist[n]->d_type != DT_DIR) &&
+		    (namelist[n]->d_type != DT_LNK))
 			goto free_name;
 		if (rport_parse(namelist[n]->d_name, &rpii))
 			goto free_name;

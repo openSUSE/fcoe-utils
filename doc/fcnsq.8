@@ -1,0 +1,128 @@
+'\" t
+.\"     Title: fcnsq
+.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
+.\"      Date: 06/09/2010
+.\"    Manual: Open-FCoE Tools
+.\"    Source: Open-FCoE
+.\"  Language: English
+.\"
+.TH "FCNSQ" "8" "06/09/2010" "Open\-FCoE" "Open\-FCoE Tools"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+fcnsq \- Fibre Channel Name Server Query Tool
+.SH "SYNOPSIS"
+.sp
+\fBfcnsq\fR \fIhost\fR \-\-gpn \fIport_id\fR [\-q | \-\-quiet]
+.sp
+\fBfcnsq\fR \fIhost\fR \-\-gnn \fIport_id\fR [\-q | \-\-quiet]
+.sp
+\fBfcnsq\fR \fIhost\fR \-\-gspn \fIport_id\fR [\-q | \-\-quiet]
+.sp
+\fBfcnsq\fR \fIhost\fR \-\-gsnn \fIwwpn\fR [\-q | \-\-quiet]
+.sp
+\fBfcnsq\fR ?
+.SH "DESCRIPTION"
+.sp
+The \fBfcnsq\fR command performs Fibre Channel Name Server queries for a user\-specified FC Host\&. The supported name server query commands include: Get Port Name (GPN), Get Node Name (GNN), Get Symbolic Node Name (GSNN), and Get Symbolic Port Name (GSPN) as described in FC\-GS\-3 for the Common Transport (CT) services\&.
+.sp
+\fBfcnsq\fR takes the host bsg name as the input for the target host\&. Host bsg name must be a valid bsg device, e\&.g\&., "host12" as derived from /dev/bsg/fc_host12\&. For each name server query command, the argument is either a Port ID or a World Wide Port Name\&. Port IDs and World Wide Names must be specified in hexadecimal\&. To disable verbose output, use the \fB\-\-quiet\fR option\&.
+.SH "OPTIONS"
+.PP
+\fBhost\fR \fB\-\-gpn\fR \fIport_id\fR
+.RS 4
+Get Port Name by Port ID for
+\fIhost\fR\&.
+.RE
+.PP
+\fBhost\fR \fB\-\-gnn\fR \fIport_id\fR
+.RS 4
+Get Node Name by Port ID for
+\fIhost\fR\&.
+.RE
+.PP
+\fBhost\fR \fB\-\-gspn\fR \fIport_id\fR
+.RS 4
+Get Symbolic Port Name by Port ID for
+\fIhost\fR\&.
+.RE
+.PP
+\fBhost\fR \fB\-\-gsnn\fR \fIwwpn\fR
+.RS 4
+Get Symbolic Node Name by World Wide Port Name for
+\fIhost\fR\&.
+.RE
+.PP
+\fB\-q\fR, \fB\-\-quiet\fR
+.RS 4
+Disable verbose output\&.
+.RE
+.PP
+\fB?\fR
+.RS 4
+Display a help message with basic usage instructions\&.
+.RE
+.SH "EXAMPLES"
+.sp
+Query Get Port Name (GPN) from host12 for Port ID 0xbf0027
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcnsq host12 \-\-gpn bf0027
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Query Get Node Name (GNN) from host12 for Port ID 0xbf0027
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcnsq host12 \-\-gnn bf0027
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Query Get Symbolic Port Name (GSPN) from host12 for Port ID 0xbf0027
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcnsq host12 \-\-gspn bf0027
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Query Get Symbolic Node Name (GSNN) from host12 for WWWPN 0x1000001B213C9DDA
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcnsq host12 \-\-gsnn 0x1000001B213C9DDA
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.sp
+\fBfcoeadm\fR(8)
+.SH "SUPPORT"
+.sp
+\fBfcnsq\fR is part of the \fIfcoe\-utils\fR package, maintained through the \fIOpen\-FCoE\fR project\&. Resources for both developers and users can be found at the \fIOpen\-FCoE\fR website http://open\-fcoe\&.org/\&.

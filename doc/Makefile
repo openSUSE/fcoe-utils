@@ -1,7 +1,7 @@
 ## known to work with asciidoc version 8.4.5
 ## and the DocBook XSL Stylesheets version 1.75.2
 
-MAN_8_TXT := fcoeadm.txt fcoemon.txt fipvlan.txt fcrls.txt
+MAN_8_TXT := fcoeadm.txt fcoemon.txt fipvlan.txt fcrls.txt fcnsq.txt
 MAN_TXT := $(MAN_8_TXT)
 MAN_8 := $(patsubst %.txt,%.8,$(MAN_8_TXT))
 MAN := $(MAN_8)

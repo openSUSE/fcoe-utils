@@ -45,7 +45,7 @@ dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## man pages for fcoeadm and fcoemon
 dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8 doc/fipvlan.8 doc/fcrls.8 \
-	doc/fcnsq.8
+	doc/fcnsq.8 doc/fcping.8
 
 ## init script for fcoemon
 dist_noinst_SCRIPTS = etc/initd/initd.suse etc/initd/initd.fedora \

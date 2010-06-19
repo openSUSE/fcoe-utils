@@ -503,7 +503,7 @@ get_device_capacity_v2(HBA_HANDLE hba_handle,
 						&slen);
 		if ((status == HBA_STATUS_OK) && (sstat == SCSI_ST_GOOD))
 			return HBA_STATUS_OK;
-		if ((sstat == SCSI_ST_CHECK) && (sense[2] == 0x06))
+		if (sstat == SCSI_ST_CHECK)
 			continue;
 		fprintf(stderr,
 			"%s: HBA_ScsiReadCapacityV2 failed, "

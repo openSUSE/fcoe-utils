@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.8 06/18/2010"
+VERSION="fcc v1.0.9 06/18/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -41,6 +41,7 @@ cmd:
 	list		List the HBAs with remote port and LUN status
 	luns		Show LUN list and status
 	stats		Show HBA statistics
+	reload		Reload fcoe and fnic modules
 	reset		Reset the HBA
 	scan		Scan the HBA
 	version		Show version
@@ -493,6 +494,18 @@ case "$cmd" in
 		;;
 	realname)
 		hba_name $hba
+		;;
+	reload)
+		mods=
+		for mod in fcoe fnic
+		do
+			if [ -d /sys/module/$mod ]
+			then
+				mods="$mods $mod"
+			fi
+		done
+		rmmod $mods libfcoe libfc
+		modprobe $mods
 		;;
 	reset | scan)
 		if [ "$hba_spec" != y ]

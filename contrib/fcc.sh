@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.10 06/18/2010"
+VERSION="fcc v1.0.11 06/18/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -31,19 +31,19 @@ cat <<USAGE
 usage: $cmdname '[<cmd> [<hba> ...]]'
 
 cmd:
-	create 		Start FCoE on an ethernet interface.
+	create 		Start FCoE on an Ethernet interface.
 	create-vn	Start FCoE (VN_port-VN_port) on an Ethernet interface.
 	delete / del	Delete an FCoE instance
-	destroy 	Same as destroy
+	destroy 	Same as delete
 	enable / en	Same as create
 	help		Show this usage message
 	info		Show HBA detailed info
 	list		List the HBAs with remote port and LUN status
 	luns		Show LUN list and status
+	scan		Scan the HBA
 	stats		Show HBA statistics
 	reload		Reload fcoe and fnic modules
 	reset		Reset the HBA
-	scan		Scan the HBA
 	version		Show version
 USAGE
 }

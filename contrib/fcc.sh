@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.9 06/18/2010"
+VERSION="fcc v1.0.10 06/18/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -345,9 +345,9 @@ repeat() {
 }
 
 fcoe_ctl() {
-	local hba=$1
-	local cmd=$2
-	local file=$fcoe_dir/parameters/$2
+	local cmd=$1
+	local hba=$2
+	local file=$fcoe_dir/parameters/$cmd
 
 	if [ -w "$file" ]
 	then
@@ -362,9 +362,9 @@ fcoe_ctl() {
 }
 
 fc_host_ctl() {
-	local hba=$1
-	local host=$1
-	local cmd=$2
+	local hba=$2
+	local host=$2
+	local cmd=$1
 	local value
 	local file
 	local dir
@@ -460,14 +460,25 @@ else
 	fi
 fi
 
+hba_required()
+{
+	if [ "$hba_spec" != y ]
+	then
+		echo "$cmdname: $cmd requires HBA name" >&2
+		exit 2
+	fi
+}
+
 case "$cmd" in
 	create | enable | en)
+		hba_required
 		load_mod
-		fcoe_ctl $hba create
+		repeat "fcoe_ctl create" $hbas
 		;;
 	create-vn)
+		hba_required
 		load_mod
-		fcoe_ctl $hba create_vn2vn
+		repeat "fcoe_ctl create_vn2vn" $hbas
 		;;
 	delete | del | destroy)
 		if [ ! -d $fcoe_dir ]
@@ -475,7 +486,8 @@ case "$cmd" in
 			echo "$cmdname: $fcoe_dir not found" >&2
 			exit 2
 		fi
-		fcoe_ctl $hba destroy
+		hba_required
+		repeat "fcoe_ctl destroy" $hba
 		;;
 	info)
 		repeat hba_info $hbas
@@ -508,15 +520,8 @@ case "$cmd" in
 		modprobe $mods
 		;;
 	reset | scan)
-		if [ "$hba_spec" != y ]
-		then
-			echo "$cmdname: $cmd requires hba name" >&2
-			exit 2
-		fi
-		for hba in $hbas
-		do
-			fc_host_ctl $hba $cmd || break
-		done
+		hba_required
+		repeat "fc_host_ctl $cmd" $hbas
 		;;
 	version)
 		echo $VERSION

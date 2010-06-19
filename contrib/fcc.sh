@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# Copyright 2008-2009 Cisco Systems, Inc.  All rights reserved.
+# Copyright 2008-2010 Cisco Systems, Inc.  All rights reserved.
 #
 # This program is free software; you may redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.3 02/19/2010"
+VERSION="fcc v1.0.8 06/18/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -32,6 +32,7 @@ usage: $cmdname '[<cmd> [<hba> ...]]'
 
 cmd:
 	create 		Start FCoE on an ethernet interface.
+	create-vn	Start FCoE (VN_port-VN_port) on an Ethernet interface.
 	delete / del	Delete an FCoE instance
 	destroy 	Same as destroy
 	enable / en	Same as create
@@ -402,6 +403,21 @@ fc_host_ctl() {
 	fi
 }
 
+load_mod()
+{
+	if [ ! -d $fcoe_dir ]
+	then
+		modprobe fcoe
+		echo "$cmdname: loading fcoe module" >&2
+		sleep 1
+		if [ ! -d $fcoe_dir ]
+		then
+			echo "$cmdname: $fcoe_dir not found" >&2
+			exit 2
+		fi
+	fi
+}
+
 #
 # Start of main script code.
 #
@@ -445,18 +461,12 @@ fi
 
 case "$cmd" in
 	create | enable | en)
-		if [ ! -d $fcoe_dir ]
-		then
-			modprobe fcoe
-			echo "$cmdname: loading fcoe module" >&2
-			sleep 1
-			if [ ! -d $fcoe_dir ]
-			then
-				echo "$cmdname: $fcoe_dir not found" >&2
-				exit 2
-			fi
-		fi
+		load_mod
 		fcoe_ctl $hba create
+		;;
+	create-vn)
+		load_mod
+		fcoe_ctl $hba create_vn2vn
 		;;
 	delete | del | destroy)
 		if [ ! -d $fcoe_dir ]

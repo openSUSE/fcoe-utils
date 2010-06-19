@@ -1368,6 +1368,10 @@ enum fcoe_err display_target_info(const char *ifname,
 				&hba_table[i].hba_attrs,
 				&rport_attrs);
 
+			if (hba_table[i].port_attrs.PortState !=
+			    HBA_PORTSTATE_ONLINE)
+				continue;
+
 			/*
 			 * This will print the LUN table
 			 * under the target.

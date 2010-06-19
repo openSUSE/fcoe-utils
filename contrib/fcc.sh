@@ -346,12 +346,6 @@ fcoe_ctl() {
 	local hba=$1
 	local cmd=$2
 	local file=$fcoe_dir/parameters/$2
-	local old_file=$fcoe_dir/$2
-
-	if [ -w "$old_file" ]
-	then
-		file=$old_file
-	fi
 
 	if [ -w "$file" ]
 	then

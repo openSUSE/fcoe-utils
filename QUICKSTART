@@ -207,32 +207,15 @@ PROCESS
 # Example Configuration
 #######################
 
-This example sets up a VLAN (101) for interface eth3 and configures the
-system to automatically connect to storage over this interface.
+This example configures interface eth3 to automatically connect to storage over
+a discovered VLAN.
 
-1) Discover VLANs
-   # fipvlan -a
-   Fibre Channel Forwarders Discovered
-   interface | VLAN | FCF MAC
-   ------------------------------------
-   eth3      | 101  | 00:0d:ec:a3:3a:80
-
-2) Create a VLAN
-   # cd /etc/sysconfig/network-scripts/
-   # cp ifcfg-eth3 ifcfg-eth3.101
-
-   Edit ifcfg-eth3.101 so the file has the following settings,
-
-   DEVICE=eth3.101
-   VLAN=yes
-   ONBOOT=yes
-
-3) Configure fcoe for the VLAN
+1) Configure FCoE on the interface
    # cd /etc/fcoe/
-   # cp cfg-ethx cfg-eth3.101
+   # cp cfg-ethx cfg-eth3
 
-4) Start lldpad and configure the VLAN interface
-   # /etc/init.d/lldpad start
+2) Start lldpad and configure the interface for DCB.
+   # service lldpad start
    # dcbtool sc eth3 dcb on
    # dcbtool sc eth3 pfc e:1
    # dcbtool sc eth3 app:fcoe e:1
@@ -246,12 +229,12 @@ system to automatically connect to storage over this interface.
    Follow the suggestions and repeatedly run the script until it states that
    DCB is configured correctly.
 
-5) Start fcoe
-   # /etc/init.d/fcoe start
+3) Start fcoe
+   # service fcoe start
      After a few moments your storage should appear (assuming everything is
      configured correctly on the fabric)
 
-6) Setup lldpad and fcoe to start when booting
+4) Setup lldpad and fcoe to start when booting
     # chkconfig lldpad on
     # chkconfig fcoe on
 
@@ -262,7 +245,32 @@ system to automatically connect to storage over this interface.
 
 Most steps cannot be skipped. Resolve issues before moving forward.
 
-Please run '<fcoe-utils-src>/debug/fcoedump.sh eth3.101 2>&1 > dump.out'
+Please run '<fcoe-utils-src>/debug/fcoedump.sh eth3.<VID>-fcoe &>dump.out'
 and provide the dump.out file with the bug report. Defects can be filed
 against the distribution used, reported to the Ethernet vendor of the
 card in use, or mailed to devel@open-fcoe.org.
+
+
+##
+# Debugging Tools
+###################
+
+1) Discover VLANs manually
+   # fipvlan -a
+   Fibre Channel Forwarders Discovered
+   interface | VLAN | FCF MAC
+   ------------------------------------
+   eth3      | 101  | 00:0d:ec:a3:3a:80
+
+   VLANs should be automatically discovered by the FCoE start up process which
+   adds a VLAN to the real device. The VLAN can be identified by the name
+   ethx.vid-fcoe.
+
+2) fcping can be used to ping targets to verify connectivity.
+
+   # fcping -h eth3.<VID>-fcoe  -F E10AEF -c 3
+     sending echo to 0xE10AEF
+     echo    1 REJECT received                 0.116 ms
+     echo    2 REJECT received                 0.222 ms
+     echo    3 REJECT received                 0.226 ms
+     3 frames sent, 3 received 3 errors, 0.000% loss, avg. rt time 0.188 ms

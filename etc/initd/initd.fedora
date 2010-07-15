@@ -15,14 +15,17 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
 #
+# chkconfig: - 21 80
+#
 # Maintained at www.Open-FCoE.org
 
 ### BEGIN INIT INFO
 # Provides: fcoe
 # Required-Start: network
 # Required-Stop:
-# Default-Start: 3 5
-# Default-Stop: 3 5
+# Default-Start:
+# Default-Stop:
+# Short-Description: Open-FCoE Initiator
 # Description: Open-FCoE Initiator
 ### END INIT INFO
 
@@ -70,6 +73,9 @@ start()
 	daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
 
 	echo
+	touch /var/lock/subsys/fcoe
+
+	echo
 }
 
 stop()
@@ -89,15 +95,18 @@ stop()
 
 	rm -f /var/run/fcoemon.*
 	rm -f /tmp/fcoemon.dcbd.*
+	rm -f /var/lock/subsys/fcoe
 }
 
 status()
 {
+	status=0
 	pidof $FCOEMON
 	if [ $? -eq 0 ]; then
 		echo "$FCOEMON -- RUNNING, pid=`cat $PID_FILE`"
 	else
 		echo "$FCOEMON -- UNUSED"
+		status=3
 	fi
 
 	interfaces=`$FCOEADM -i 2>&1 | \
@@ -108,7 +117,15 @@ status()
 		echo "No interfaces created."
 	else
 		echo "Created interfaces: $interfaces"
+		status=0
 	fi
+	if [ -f /var/lock/subsys/fcoe -a $status -eq 3 ]; then
+		status=2
+	fi
+	if [ -f /var/run/fcoe.pid -a $status -eq 3 ]; then
+		status=1
+	fi
+	return $status
 }
 
 case "$1" in
@@ -126,21 +143,21 @@ case "$1" in
 		;;
 
 	force-reload)
-		echo "force-reload not yet implemented"
-		failure
-		;;
-
-	reload)
-		echo "reload not yet implemented"
-		failure
+		stop force
+		start
 		;;
 
 	status)
 		status
+		exit $?
 		;;
-
+	condrestart|try-restart)
+		status || exit 0
+		$0 restart
+		;;
 	*)
-		echo "Usage: $0 {start|stop [force]|status|restart [force]}"
+		echo -n "Usage: $0 {start|stop [force]|status|restart [force]|"
+		echo "force-reload|condrestart|try-restart}"
 		exit 1
 		;;
 esac

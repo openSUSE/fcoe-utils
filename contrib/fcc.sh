@@ -162,7 +162,8 @@ lun_list() {
 
 	host=`echo $hba | sed -e 's/host//'`
 
-	local luns=`(cd $ddir && ls -d $host:*) 2>/dev/null`
+	local luns=`(cd $ddir &&
+		 ls -d $host:* | sort -n -t: -k1 -k2 -k3 -k4) 2>/dev/null`
 
 	if [ -z "$luns" ]
 	then

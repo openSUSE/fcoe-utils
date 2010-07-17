@@ -876,11 +876,9 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 				 * called for a real interface and the FCoE
 				 * interface is configured on a VLAN.
 				 */
-				if ((t == FCP_REAL_IFNAME) &&
+				if (!((t == FCP_REAL_IFNAME) &&
 				    strncmp(p->ifname, p->real_ifname,
-					    IFNAMSIZ))
-					fcm_dcbd_state_set(ff, FCD_INIT);
-				else
+					    IFNAMSIZ)))
 					fcm_dcbd_state_set(ff,
 						FCD_GET_DCB_STATE);
 			} else {

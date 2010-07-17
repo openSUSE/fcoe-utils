@@ -2043,10 +2043,8 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			/* destroy all the VLANs */
 			vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
 			while (vp) {
-				if (vp->auto_created) {
-					vp->fcoe_enable = 0;
+				if (vp->auto_created)
 					fcp_set_next_action(vp, FCP_DESTROY_IF);
-				}
 				vp = fcm_find_next_fcoe_port(vp, p->ifname);
 			}
 			rc = fcm_success;

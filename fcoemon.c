@@ -288,6 +288,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		 * that the interface is not created yet.
 		 */
 		p->last_action = FCP_DESTROY_IF;
+		p->fip_socket = -1;
 		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
 	}
 
@@ -1998,7 +1999,7 @@ void fcm_vlan_disc_timeout(void *arg)
 int fcm_start_vlan_disc(struct fcoe_port *p)
 {
 	int s;
-	if (!p->fip_socket) {
+	if (p->fip_socket < 0) {
 		s = fcm_vlan_disc_socket(p);
 		if (s < 0)
 			return s;

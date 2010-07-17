@@ -2637,7 +2637,7 @@ int main(int argc, char **argv)
 	if (argc != optind)
 		fcm_usage();
 
-	if (!fcm_fg && daemon(0, fcoe_config.use_syslog)) {
+	if (!fcm_fg && daemon(0, !fcoe_config.use_syslog)) {
 		FCM_LOG("Starting daemon failed");
 		exit(EXIT_FAILURE);
 	}

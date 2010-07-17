@@ -510,15 +510,18 @@ case "$cmd" in
 		;;
 	reload)
 		mods=
-		for mod in fcoe fnic
+		for mod in fcoe fnic libfcoe libfc
 		do
 			if [ -d /sys/module/$mod ]
 			then
 				mods="$mods $mod"
 			fi
 		done
-		rmmod $mods libfcoe libfc
-		modprobe $mods
+		rmmod $mods
+		for mod in $mods
+		do
+			modprobe $mod
+		done
 		;;
 	reset | scan)
 		hba_required

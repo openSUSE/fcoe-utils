@@ -753,6 +753,12 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		case FCP_DISABLE_IF:
 		case FCP_RESET_IF:
 		case FCP_SCAN_IF:
+			if (p->fip_socket >= 0) {
+				sa_timer_cancel(&p->vlan_disc_timer);
+				sa_select_rem_fd(p->fip_socket);
+				close(p->fip_socket);
+				p->fip_socket = -1;
+			}
 			p->action = action;
 			break;
 		default:

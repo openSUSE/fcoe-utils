@@ -430,7 +430,8 @@ then
 fi
 if [ -d "$fdir" ]
 then
-	all_hbas=`ls $fdir 2>/dev/null`
+	# sort the list of HBAs by the number after the 't' in "host9"
+	all_hbas=`ls $fdir 2>/dev/null | sort -n -tt -k2`
 fi
 hbas="$all_hbas"
 

@@ -80,6 +80,11 @@ static int pfd_len = 0;
 void pfd_add(int fd)
 {
 	struct pollfd *npfd;
+	int i;
+
+	for (i = 0; i < pfd_len; i++)
+		if (pfd[i].fd == fd)
+			return;
 
 	npfd = realloc(pfd, (pfd_len + 1) * sizeof(struct pollfd));
 	if (!npfd) {
@@ -319,6 +324,8 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 		iff->running = (ifm->ifi_flags & IFF_RUNNING) == IFF_RUNNING;
 		if (iff->running)
 			pfd_add(iff->ps);
+		else
+			pfd_remove(iff->ps);
 		return;
 	}
 

@@ -548,7 +548,7 @@ void print_results()
 	printf("\n");
 }
 
-void recv_loop(struct pollfd *pfd, int pfd_len, int timeout)
+void recv_loop(int timeout)
 {
 	int i;
 	int rc;
@@ -632,12 +632,12 @@ retry:
 	skipped += send_vlan_requests();
 	if (skipped && skip_retry_count++ < 30) {
 		FIP_LOG_DBG("waiting for IFF_RUNNING [%d]\n", skip_retry_count);
-		recv_loop(pfd, pfd_len, 500);
+		recv_loop(500);
 		skipped = 0;
 		retry_count = 0;
 		goto retry;
 	}
-	recv_loop(pfd, pfd_len, 200);
+	recv_loop(200);
 	TAILQ_FOREACH(iff, &interfaces, list_node)
 		/* if we did not receive a response, retry */
 		if (iff->req_sent && !iff->resp_recv && retry_count++ < 10) {
@@ -709,7 +709,7 @@ int main(int argc, char **argv)
 		 * need to listen for the RTM_NETLINK messages
 		 * about the new VLAN devices
 		 */
-		recv_loop(pfd, pfd_len, 500);
+		recv_loop(500);
 	}
 	if (config.start)
 		start_fcoe();

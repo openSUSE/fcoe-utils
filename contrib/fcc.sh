@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.11 06/18/2010"
+VERSION="fcc v1.0.12 07/21/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host

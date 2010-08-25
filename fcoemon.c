@@ -243,6 +243,7 @@ static size_t fcm_read_config_variable(char *file, char *val_buf, size_t len,
 
 	val_buf[0] = '\0';
 	buf[sizeof(buf) - 1] = '\0';
+	rewind(fp);
 	while ((s = fgets(buf, sizeof(buf) - 1, fp)) != NULL) {
 		while (isspace(*s))
 			s++;
@@ -270,6 +271,7 @@ static size_t fcm_read_config_variable(char *file, char *val_buf, size_t len,
 			return -1;
 		}
 		/* found */
+		FCM_LOG_DBG("%s: %s = %s\n", file, var_name, val);
 		return 1;
 	}
 	/* not found */

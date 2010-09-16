@@ -14,3 +14,67 @@ library, libhbalinux, may be downloaded from www.Open-FCoE.org. The instructions
 in the package describes how to download and build the libraries.  See the man
 pages for other requirements.
 
+Best Practices :
+
+Any newly discovered disk can be mounted using udev rules, autofs and possibly by
+other methods as needed but if a fcoe disk is needed during boot by any of other
+system startup service followed by fcoe service start then such fcoe disk needs to
+be mounted along fcoe service start before service requiring fcoe disk gets to start
+at boot. The fcoe disk mounting at boot can be automated by adding fcoe disk
+mounting code to fcoe service start code at /etc/init.d/fcoe and this code should
+be per system configuration for either a simple formatted fcoe disk, lvm
+or muti-path device node etc, below is a sample code as an example to mount a fcoe
+disk having ext3 file system using /etc/fstab entries.
+
+	mount_fcoe_disks_from_fstab()
+	{
+	    local timeout=20
+	    local done=1
+	    local fcoe_disks=($(egrep 'by-path\/fc-.*_netdev' /etc/fstab | cut -d ' ' -f1))
+
+	    test -z $fcoe_disks && return 0
+
+	    echo -n "Waiting for fcoe disks . "
+	    while [ $timeout -gt 0 ]; do
+		for disk in ${fcoe_disks[*]}; do
+			if ! test -b $disk; then
+				done=0
+				break
+			fi
+		done
+
+		test $done -eq 1 && break;
+		sleep 1
+		echo -n ". "
+		done=1
+		let timeout--
+	    done
+
+	    if test $timeout -eq 0; then
+		echo "timeout!"
+	    else
+		echo "done!"
+	    fi
+
+	    # mount any newly discovered disk
+	    mount -a 2>/dev/null
+	}
+
+	Above mount_fcoe_disks_from_fstab function should be invoked after
+fcoemon daemon is started by fcoe service script to mount any fcoe disk
+specified by path in /etc/fstab as:-
+
+	/dev/disk/by-path/fc-0xXX:0xXX /mnt/fcoe-disk1 ext3  defaults,_netdev    0 0
+	/dev/disk/by-path/fc-0xYY:0xYY /mnt/fcoe-disk2 ext3  defaults,_netdev    0 0
+
+	These entries with "fc-" and "_netdev" sub-strings enables
+mount_fcoe_disks_from_fstab to identify fcoe disks mount entries to wait for a
+their fcoe disk to show up within specified timeout period, the timeout is
+set to 20 seconds but can be changed per typical fcoe disk discovery time in
+a system, see man fstab(5) for for more details on above entries.
+
+	This timeout is needed since currently fcoe service start does not
+know when fcoe disk discovery is going to finish, therefore a timed wait
+would ensure that a fcoe service start will wait for only specified timeout
+or till all fcoe disk from /etc/fstab present before proceeding to mount
+fcoe disks per their /etc/fstab entries in this example.

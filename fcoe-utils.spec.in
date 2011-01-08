@@ -9,8 +9,8 @@ URL:            http://www.open-fcoe.org
 Source0:        http://www.open-fcoe.org/openfc/%{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:  libHBAAPI-devel dcbd-devel
-Requires:       dcbd
+BuildRequires:  libHBAAPI-devel lldpad-devel
+Requires:       lldpad
 Requires(post):   chkconfig
 Requires(preun):  chkconfig initscripts
 Requires(postun): initscripts

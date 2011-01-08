@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <paths.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/queue.h>
@@ -44,11 +45,9 @@
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 
-#include <dcbd/dcb_types.h>
-#include <dcbd/dcbtool.h>	/* for typedef cmd_status */
-#include <dcbd/clif.h>
-#include <dcbd/clif_cmds.h>
-#include <dcbd/common.h>	/* for event msg level definitions */
+#include <lldpad/dcb_types.h>
+#include <lldpad/clif.h>
+#include <lldpad/clif_cmds.h>
 
 #include "fcoe_utils_version.h"
 #include "fcoemon_utils.h"

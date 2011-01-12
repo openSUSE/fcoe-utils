@@ -19,7 +19,7 @@
 #
 # Please send comments and changes to jeykholt at cisco dot com
 
-VERSION="fcc v1.0.12 07/21/2010"
+VERSION="fcc v1.0.13 11/10/2010"
 
 fcoe_dir=/sys/module/fcoe
 fdir=/sys/class/fc_host
@@ -489,7 +489,7 @@ case "$cmd" in
 			exit 2
 		fi
 		hba_required
-		repeat "fcoe_ctl destroy" $hba
+		repeat "fcoe_ctl destroy" $hbas
 		;;
 	info)
 		repeat hba_info $hbas

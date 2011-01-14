@@ -82,6 +82,8 @@ git://open-fcoe.org/openfc/fcoe-utils.git
 
 DEPENDENCIES
 
+* libnl
+* libconfig
 * autoconf
 * autotools
 * sysconftool
@@ -91,20 +93,23 @@ DEPENDENCIES
 
 PROCESS
 
-1) Obtain the latest source tarball from sourceforge
-   http://sourceforge.net/projects/e1000/files/
+1) Obtain the latest source
 
-2) Untar the tarball and change into it's directory
-   # tar -xvzf lldpad-x.y.z.tar.gz
-   # cd lldpad-x.y.z/
+   git clone git://open-lldp.org/lldp/open-lldp
 
-3) Ensure correct header files
-   # pushd /usr/include/
-   # mv linux/ linux_orig/
-   # ln -s <kernel-src>/include/linux/ linux
-   # popd
+2) Obtain libconfig version 1.3.2 or greater included in distribution
+   devel packages source can be obtained directly from
+   http://www.hyperrealm.com/libconfig/
 
-3) Configure, make and make install
+3) Build and install libconfig -- see libconfig documentation
+
+4) Obtain and install devel netlink library (libnl) version 1.1 or greater
+   included in distribution devel packages source can be obtained directly
+   from http://www.infradead.org/~tgr/libnl/
+
+5) Bootstrap, configure, make and make install
+   # cd open-lldp
+   # ./bootstrap.sh
    # rpm --eval "%configure" | sh
    # make
    # make install

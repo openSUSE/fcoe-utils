@@ -2435,23 +2435,21 @@ static int fcm_cli_action(char *ifname, int cmd, struct sock_info **r)
 	return fcm_fail;
 }
 
-int fcm_save_reply(struct sock_info **r, struct sockaddr_un *f, socklen_t flen,
-			int s)
+static struct sock_info *fcm_alloc_reply(struct sockaddr_un *f,
+					 socklen_t flen, int s)
 {
-	if (!*r) {
-		*r = (struct sock_info *)malloc(sizeof(struct sock_info));
-		if (!*r) {
-			FCM_LOG_ERR(errno, "Failed in save reply info.\n");
-			return fcm_fail;
-		}
-		(*r)->sock = s;
-		(*r)->from.sun_family = f->sun_family;
-		strncpy((*r)->from.sun_path, f->sun_path, sizeof((*r)->from.sun_path));
-		(*r)->fromlen = flen;
-		return fcm_success;
-	}
+	static struct sock_info *r;
 
-	return fcm_fail;
+	r = (struct sock_info *)malloc(sizeof(struct sock_info));
+	if (!r) {
+		FCM_LOG_ERR(errno, "Failed in alloc reply sock info.\n");
+		return NULL;
+	}
+	r->sock = s;
+	r->from.sun_family = f->sun_family;
+	strncpy(r->from.sun_path, f->sun_path, sizeof(r->from.sun_path));
+	r->fromlen = flen;
+	return r;
 }
 
 /*
@@ -2484,35 +2482,34 @@ static void fcm_srv_receive(void *arg)
 	if (ifname == NULL)
 		goto err;
 
+	reply = fcm_alloc_reply(&from, fromlen, snum);
+	if (!reply)
+		goto err_out;
+
 	switch (cmd) {
 	case CLIF_CREATE_CMD:
 		FCM_LOG_DBG("FCMON CREATE\n");
-		if (fcm_save_reply(&reply, &from, fromlen, snum))
-			goto err_out;
 		if (fcm_cli_create(ifname, FCP_CREATE_IF, &reply))
 			goto err_out;
 		break;
 	case CLIF_DESTROY_CMD:
 		FCM_LOG_DBG("FCMON DESTROY\n");
-		if (fcm_save_reply(&reply, &from, fromlen, snum))
-			goto err_out;
 		if (fcm_cli_destroy(ifname, FCP_DESTROY_IF, &reply))
 			goto err_out;
 		break;
 	case CLIF_RESET_CMD:
 		FCM_LOG_DBG("FCMON RESET\n");
-		if (fcm_save_reply(&reply, &from, fromlen, snum))
-			goto err_out;
 		if (fcm_cli_action(ifname, FCP_RESET_IF, &reply))
 			goto err_out;
 		break;
 	case CLIF_SCAN_CMD:
 		FCM_LOG_DBG("FCMON SCAN\n");
-		if (fcm_save_reply(&reply, &from, fromlen, snum))
-			goto err_out;
 		if (fcm_cli_action(ifname, FCP_SCAN_IF, &reply))
 			goto err_out;
 		break;
+	default:
+		FCM_LOG_DBG("FCMON INVALID CMD\n");
+		goto err_out;
 	}
 
 	free(ifname);

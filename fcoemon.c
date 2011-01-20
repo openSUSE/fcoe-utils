@@ -2440,14 +2440,16 @@ static struct sock_info *fcm_alloc_reply(struct sockaddr_un *f,
 {
 	static struct sock_info *r;
 
+	if (flen > sizeof(*f))
+		return NULL;
+
 	r = (struct sock_info *)malloc(sizeof(struct sock_info));
 	if (!r) {
 		FCM_LOG_ERR(errno, "Failed in alloc reply sock info.\n");
 		return NULL;
 	}
 	r->sock = s;
-	r->from.sun_family = f->sun_family;
-	strncpy(r->from.sun_path, f->sun_path, sizeof(r->from.sun_path));
+	memcpy(&r->from, f, flen);
 	r->fromlen = flen;
 	return r;
 }

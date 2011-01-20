@@ -136,10 +136,8 @@ static enum fcoe_err fcoeadm_open_cli(struct clif_sock_info *clif_info)
 	enum fcoe_err rc = NOERR;
 
 	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (clif_info->socket_fd < 0) {
-		rc = ENOMONCONN;
-		goto err;
-	}
+	if (clif_info->socket_fd < 0)
+		return ENOMONCONN;
 
 	clif_info->local.sun_family = AF_UNIX;
 	if (bind(clif_info->socket_fd, (struct sockaddr *)&clif_info->local,
@@ -152,7 +150,7 @@ static enum fcoe_err fcoeadm_open_cli(struct clif_sock_info *clif_info)
 	strncpy(clif_info->dest.sun_path, CLIF_SOCK_FILE,
 		sizeof(clif_info->dest.sun_path));
 
-	if (!connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
+	if (connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
 		     sizeof(clif_info->dest)) < 0) {
 		rc = ENOMONCONN;
 		goto err_close;
@@ -162,7 +160,6 @@ static enum fcoe_err fcoeadm_open_cli(struct clif_sock_info *clif_info)
 
 err_close:
 	close(clif_info->socket_fd);
-err:
 	return rc;
 }
 

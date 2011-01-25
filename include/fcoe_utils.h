@@ -38,7 +38,7 @@
 #define SYSFS_MOUNT	"/sys"
 #define SYSFS_NET	SYSFS_MOUNT "/class/net"
 #define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
-#define SYSFS_FCOE	SYSFS_MOUNT "/module/fcoe/parameters"
+#define SYSFS_FCOE	SYSFS_MOUNT "/module/libfcoe/parameters"
 
 #define FCHOSTBUFLEN 64
 

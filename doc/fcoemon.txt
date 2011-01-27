@@ -159,8 +159,9 @@ default options in this file are: *DEBUG="no"* and *USE_SYSLOG="yes"*. The
 former is used to enable debugging messages from the fcoe service script
 and *fcoemon* (via the *--debug* option). The latter is to indicate if the
 log messages are to be output to the system log (via the *--syslog*
-option). Any changes to this file will require a restart of the *fcoe*
-service.
+option). *SUPPORTED_DRIVERS* is the list of drivers to automatically load
+during fcoe service start. Any changes to this file will require a restart
+of the *fcoe* service.
 
 /etc/fcoe/cfg-<ifname>
 ~~~~~~~~~~~~~~~~~~~~~~

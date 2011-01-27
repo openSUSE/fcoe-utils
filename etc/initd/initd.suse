@@ -82,7 +82,7 @@ test -x $FCOEMON || {
 
 startup_fcoe_modules()
 {
-	modprobe fcoe > /dev/null 2>&1
+	modprobe -a $SUPPORTED_DRIVERS > /dev/null 2>&1
 }
 
 start()

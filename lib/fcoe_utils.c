@@ -154,15 +154,20 @@ int fcoe_checkdir(char *dir)
 	return 0;
 }
 
+/*
+ * Parse the interface name from the symbolic name string.
+ * Assumption: Symbolic name is of the type "<DRIVER> <VERSION> over <IFACE>"
+ *             Specifically there is a space before the <IFACE>
+ */
 char *get_ifname_from_symbolic_name(const char *symbolic_name)
 {
 	int symbolic_name_len = strlen(symbolic_name);
-	int lead_len = strlen(SYMB_NAME_LEAD);
+	char *last_space = strrchr(symbolic_name, ' ');
 
-	if (lead_len < symbolic_name_len)
-		return (char *)(symbolic_name + lead_len);
+	if (!last_space || strlen(last_space) == 1)
+		return NULL;
 
-       return NULL;
+	return (char *)(last_space + 1);
 }
 
 int check_symbolic_name_for_interface(const char *symbolic_name,

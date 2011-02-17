@@ -363,6 +363,7 @@ err:
 			break;
 
 		case ENOFCOECONN:
+		case ENOFCHOST:
 			FCOE_LOG_ERR("No connection created on "
 				     "interface %s\n", ifname);
 			break;

@@ -65,6 +65,7 @@ enum fcoe_err {
 	ENOACTION,    /* No action was taken */
 	EFCOECONN,    /* FCoE connection already exists */
 	ENOFCOECONN,  /* No FCoE connection on interface */
+	ENOFCHOST,    /* FC Host found */
 	EINTERR,      /* Internal error */
 	EINVALARG,    /* Invalid argument */
 	EBADNUMARGS,  /* Invalid number of arguments */

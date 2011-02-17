@@ -2071,7 +2071,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * the fc_host in sysfs.
 		 */
 		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
-			fcm_cli_reply(p->sock_reply, EFAIL);
+			fcm_cli_reply(p->sock_reply, ENOFCHOST);
 			return;
 		}
 
@@ -2086,7 +2086,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * the fc_host in sysfs.
 		 */
 		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
-			fcm_cli_reply(p->sock_reply, EFAIL);
+			fcm_cli_reply(p->sock_reply, ENOFCHOST);
 			return;
 		}
 

@@ -40,8 +40,7 @@
 #include <linux/sockios.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
+#include <netlink/netlink.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 

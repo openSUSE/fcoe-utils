@@ -52,6 +52,7 @@
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
 #include "fcoe_clif.h"
+#include "fcoe_utils.h"
 
 #include "fip.h"
 #include "rtnetlink.h"
@@ -2247,7 +2248,7 @@ static void fcm_handle_changes()
 		ff = fcm_netif_lookup(p->real_ifname);
 		if (!ff) {
 			if (p->sock_reply) {
-				fcm_cli_reply(p->sock_reply, EFAIL);
+				fcm_cli_reply(p->sock_reply, ENOETHDEV);
 				free(p->sock_reply);
 				p->sock_reply = NULL;
 				p->action = FCP_WAIT;
@@ -2474,6 +2475,7 @@ static void fcm_srv_receive(void *arg)
 	struct sock_info *reply = NULL;
 	char buf[MAX_MSGBUF], rbuf[MAX_MSGBUF];
 	char *ifname;
+	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
 
 	snum = srv_info->srv_sock;
@@ -2489,7 +2491,9 @@ static void fcm_srv_receive(void *arg)
 
 	cmd = data->cmd;
 	ifname = strdup(data->ifname);
-	if (ifname == NULL)
+
+	rc = fcoe_validate_interface(ifname);
+	if (rc)
 		goto err;
 
 	reply = fcm_alloc_reply(&from, fromlen, snum);
@@ -2529,7 +2533,7 @@ err_out:
 	free(ifname);
 	free(reply);
 err:
-	snprintf(rbuf, MSG_RBUF, "%d", EFAIL);
+	snprintf(rbuf, MSG_RBUF, "%d", rc);
 	sendto(snum, rbuf, MSG_RBUF, 0, (struct sockaddr *)&from, fromlen);
 }
 

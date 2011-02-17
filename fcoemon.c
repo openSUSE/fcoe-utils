@@ -2308,6 +2308,11 @@ static void fcm_pidfile_create(void)
 	}
 }
 
+/*
+ * TODO: This routine does too much. It executes a 'cmd'
+ * and allocates a fcoe_port if one doesn't exist. The
+ * function name implies that it only does the latter.
+ */
 static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 {
 	struct fcoe_port *p;
@@ -2385,6 +2390,15 @@ static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
 			vp = fcm_find_next_fcoe_port(vp, p->ifname);
 		}
 	}
+
+	/*
+	 * This looks odd, and could use some improvement. We may
+	 * or may not have found a valid port. fcm_port_create
+	 * will execute the 'cmd' even if it doesn't allocate a
+	 * new port. fcm_port_create should probably be split
+	 * into two routines, one that allocs a new port and one
+	 * that executes the command.
+	 */
 	p = fcm_port_create(ifname, cmd);
 	if (!p)
 		return EFAIL;

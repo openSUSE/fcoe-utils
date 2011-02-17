@@ -1052,12 +1052,12 @@ static void hba_table_destroy(struct hba_name_table *hba_table)
 		HBA_CloseAdapter(hba_table[i].hba_handle);
 }
 
-static enum fcoe_err fcoeadm_loadhba()
+static enum fcoe_status fcoeadm_loadhba()
 {
 	if (HBA_STATUS_OK != HBA_LoadLibrary())
 		return EHBAAPIERR;
 
-	return NOERR;
+	return SUCCESS;
 }
 
 /*
@@ -1148,7 +1148,7 @@ static int get_index_for_ifname(struct hba_name_table *hba_table,
 	return -EINVAL;
 }
 
-enum fcoe_err display_port_stats(const char *ifname, int interval)
+enum fcoe_status display_port_stats(const char *ifname, int interval)
 {
 	HBA_STATUS retval;
 	HBA_HANDLE hba_handle;
@@ -1157,7 +1157,7 @@ enum fcoe_err display_port_stats(const char *ifname, int interval)
 	HBA_FC4STATISTICS port_fc4stats;
 	HBA_INT64 start_time = 0;
 	struct hba_name_table hba_table[MAX_HBA_COUNT];
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 	int i, num_hbas;
 
 	if (fcoeadm_loadhba())
@@ -1235,10 +1235,10 @@ enum fcoe_err display_port_stats(const char *ifname, int interval)
 	return rc;
 }
 
-enum fcoe_err display_adapter_info(const char *ifname)
+enum fcoe_status display_adapter_info(const char *ifname)
 {
 	struct hba_name_table hba_table[MAX_HBA_COUNT];
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 	int i, j, num_hbas = 0;
 
 	if (fcoeadm_loadhba())
@@ -1303,14 +1303,14 @@ enum fcoe_err display_adapter_info(const char *ifname)
 	return rc;
 }
 
-enum fcoe_err display_target_info(const char *ifname,
-				  enum disp_style style)
+enum fcoe_status display_target_info(const char *ifname,
+				     enum disp_style style)
 {
 	HBA_STATUS retval;
 	HBA_PORTATTRIBUTES rport_attrs;
 	struct hba_name_table hba_table[MAX_HBA_COUNT];
 	int i, target_index, num_hbas = 0;
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 
 	if (fcoeadm_loadhba())
 		return EHBAAPIERR;

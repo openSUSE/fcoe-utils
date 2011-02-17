@@ -65,10 +65,10 @@ static void fcoeadm_help(void)
 	       "\t [-h|--help]\n\n", progname);
 }
 
-static enum fcoe_err fcoeadm_clif_request(struct clif_sock_info *clif_info,
-					  const struct clif_data *cmd,
-					  size_t cmd_len, char *reply,
-					  size_t *reply_len)
+static enum fcoe_status fcoeadm_clif_request(struct clif_sock_info *clif_info,
+					     const struct clif_data *cmd,
+					     size_t cmd_len, char *reply,
+					     size_t *reply_len)
 {
 	struct timeval tv;
 	int ret;
@@ -95,15 +95,15 @@ static enum fcoe_err fcoeadm_clif_request(struct clif_sock_info *clif_info,
 		}
 	}
 
-	return NOERR;
+	return SUCCESS;
 }
 
-static enum fcoe_err fcoeadm_request(struct clif_sock_info *clif_info,
-				     struct clif_data *data)
+static enum fcoe_status fcoeadm_request(struct clif_sock_info *clif_info,
+					struct clif_data *data)
 {
 	char rbuf[MAX_MSGBUF];
 	size_t len;
-	int rc = NOERR;
+	int rc = SUCCESS;
 
 	/*
 	 * TODO: This is odd that we read the response code back as a
@@ -131,9 +131,9 @@ static inline void fcoeadm_close_cli(struct clif_sock_info *clif_info)
 /*
  * Create fcoeadm client interface
  */
-static enum fcoe_err fcoeadm_open_cli(struct clif_sock_info *clif_info)
+static enum fcoe_status fcoeadm_open_cli(struct clif_sock_info *clif_info)
 {
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 
 	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (clif_info->socket_fd < 0)
@@ -166,11 +166,11 @@ err_close:
 /*
  * Send request to fcoemon
  */
-static enum fcoe_err fcoeadm_action(enum clif_action cmd, char *ifname)
+static enum fcoe_status fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	struct clif_data data;
 	struct clif_sock_info clif_info;
-	enum fcoe_err rc;
+	enum fcoe_status rc;
 
 	strncpy(data.ifname, ifname, sizeof(data.ifname));
 	data.cmd = cmd;
@@ -200,7 +200,7 @@ static enum fcoe_err fcoeadm_action(enum clif_action cmd, char *ifname)
 int main(int argc, char *argv[])
 {
 	enum clif_action cmd = CLIF_NONE;
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 	int opt, stat_interval;
 	char *ifname = NULL;
 

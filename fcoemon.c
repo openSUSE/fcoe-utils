@@ -136,7 +136,7 @@ static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_netif_advance(struct fcm_netif *);
 static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
-static enum fcoe_err fcm_fcoe_if_action(char *, char *);
+static enum fcoe_status fcm_fcoe_if_action(char *, char *);
 
 struct fcm_clif {
 	int cl_fd;
@@ -1952,10 +1952,10 @@ static void fcm_cli_reply(struct sock_info *r, int status)
 			r->fromlen);
 }
 
-static enum fcoe_err fcm_fcoe_if_action(char *path, char *ifname)
+static enum fcoe_status fcm_fcoe_if_action(char *path, char *ifname)
 {
 	FILE *fp = NULL;
-	enum fcoe_err ret = EFAIL;
+	enum fcoe_status ret = EFAIL;
 
 	fp = fopen(path, "w");
 	if (!fp) {
@@ -1970,7 +1970,7 @@ static enum fcoe_err fcm_fcoe_if_action(char *path, char *ifname)
 		goto out;
 	}
 
-	ret = NOERR;
+	ret = SUCCESS;
 out:
 	fclose(fp);
 err_out:
@@ -2022,9 +2022,9 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	char *ifname = p->ifname;
 	char fchost[FCHOSTBUFLEN];
 	char path[256];
-	enum fcoe_err rc;
+	enum fcoe_status rc;
 
-	rc = NOERR;
+	rc = SUCCESS;
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
@@ -2040,7 +2040,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 					fcp_set_next_action(vp, FCP_DESTROY_IF);
 				vp = fcm_find_next_fcoe_port(vp, p->ifname);
 			}
-			rc = NOERR;
+			rc = SUCCESS;
 			break;
 		}
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
@@ -2367,8 +2367,8 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 	return p;
 }
 
-static enum fcoe_err fcm_cli_create(char *ifname, int cmd,
-				    struct sock_info **r)
+static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
+				       struct sock_info **r)
 {
 	struct fcoe_port *p, *vp;
 
@@ -2390,11 +2390,11 @@ static enum fcoe_err fcm_cli_create(char *ifname, int cmd,
 	if (!p)
 		return EFAIL;
 	p->sock_reply = *r;
-	return NOERR;
+	return SUCCESS;
 }
 
-static enum fcoe_err fcm_cli_destroy(char *ifname, int cmd,
-				     struct sock_info **r)
+static enum fcoe_status fcm_cli_destroy(char *ifname, int cmd,
+					struct sock_info **r)
 {
 	struct fcoe_port *p;
 
@@ -2404,7 +2404,7 @@ static enum fcoe_err fcm_cli_destroy(char *ifname, int cmd,
 			p->fcoe_enable = 0;
 			fcp_set_next_action(p, cmd);
 			p->sock_reply = *r;
-			return NOERR;
+			return SUCCESS;
 		} else {
 			/* no action needed */
 			return ENOACTION;
@@ -2415,8 +2415,8 @@ static enum fcoe_err fcm_cli_destroy(char *ifname, int cmd,
 	return EFAIL;
 }
 
-static enum fcoe_err fcm_cli_action(char *ifname, int cmd,
-				    struct sock_info **r)
+static enum fcoe_status fcm_cli_action(char *ifname, int cmd,
+				       struct sock_info **r)
 {
 	struct fcoe_port *p;
 
@@ -2424,7 +2424,7 @@ static enum fcoe_err fcm_cli_action(char *ifname, int cmd,
 	if (p) {
 		fcp_set_next_action(p, cmd);
 		p->sock_reply = *r;
-		return NOERR;
+		return SUCCESS;
 	}
 
 	FCM_LOG_ERR(errno, "%s is not in port list.\n", ifname);

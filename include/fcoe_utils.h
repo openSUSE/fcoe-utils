@@ -59,8 +59,8 @@
 	} while (0)
 
 
-enum fcoe_err {
-	NOERR = 0,    /* No error */
+enum fcoe_status {
+	SUCCESS = 0,  /* Success */
 	EFAIL,        /* Command Failed */
 	ENOACTION,    /* No action was taken */
 	EFCOECONN,    /* FCoE connection already exists */
@@ -77,9 +77,9 @@ enum fcoe_err {
 	EHBAAPIERR,   /* Error using HBAAPI/libhbalinux */
 };
 
-enum fcoe_err fcoe_validate_interface(char *ifname);
-enum fcoe_err fcoe_validate_fcoe_conn(char *ifname);
-enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len);
+enum fcoe_status fcoe_validate_interface(char *ifname);
+enum fcoe_status fcoe_validate_fcoe_conn(char *ifname);
+enum fcoe_status fcoe_find_fchost(char *ifname, char *fchost, int len);
 int fcoe_checkdir(char *dir);
 int check_symbolic_name_for_interface(const char *symbolic_name,
 				      const char *ifname);

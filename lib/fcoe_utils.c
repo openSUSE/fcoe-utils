@@ -65,7 +65,7 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 	return rc;
 }
 
-enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len)
+enum fcoe_status fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
 	int n, dname_len;
 	struct dirent **namelist;
@@ -83,7 +83,7 @@ enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len)
 					strncpy(fchost, namelist[n]->d_name,
 						dname_len + 1);
 					/* rc = 0 indicates found */
-					rc = NOERR;
+					rc = SUCCESS;
 				} else {
 					/*
 					 * The fc_host is too large
@@ -101,9 +101,9 @@ enum fcoe_err fcoe_find_fchost(char *ifname, char *fchost, int len)
 	return rc;
 }
 
-enum fcoe_err fcoe_validate_interface(char *ifname)
+enum fcoe_status fcoe_validate_interface(char *ifname)
 {
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 	char path[MAX_PATH_LEN];
 
 
@@ -124,10 +124,10 @@ enum fcoe_err fcoe_validate_interface(char *ifname)
 /*
  * Validate an existing instance for an FC interface
  */
-enum fcoe_err fcoe_validate_fcoe_conn(char *ifname)
+enum fcoe_status fcoe_validate_fcoe_conn(char *ifname)
 {
 	char fchost[FCHOSTBUFLEN];
-	enum fcoe_err rc = NOERR;
+	enum fcoe_status rc = SUCCESS;
 
 	rc = fcoe_validate_interface(ifname);
 

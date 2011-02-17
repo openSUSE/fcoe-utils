@@ -2371,7 +2371,7 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 	return p;
 }
 
-static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
+static enum fcoe_status fcm_cli_create(char *ifname,
 				       struct sock_info **r)
 {
 	struct fcoe_port *p, *vp;
@@ -2401,7 +2401,7 @@ static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
 	 * into two routines, one that allocs a new port and one
 	 * that executes the command.
 	 */
-	p = fcm_port_create(ifname, cmd);
+	p = fcm_port_create(ifname, FCP_CREATE_IF);
 	if (!p)
 		goto out;
 
@@ -2412,7 +2412,7 @@ out:
 	return rc;
 }
 
-static enum fcoe_status fcm_cli_destroy(char *ifname, int cmd,
+static enum fcoe_status fcm_cli_destroy(char *ifname,
 					struct sock_info **r)
 {
 	struct fcoe_port *p;
@@ -2421,7 +2421,7 @@ static enum fcoe_status fcm_cli_destroy(char *ifname, int cmd,
 	if (p) {
 		if (p->fcoe_enable) {
 			p->fcoe_enable = 0;
-			fcp_set_next_action(p, cmd);
+			fcp_set_next_action(p, FCP_DESTROY_IF);
 			p->sock_reply = *r;
 			return SUCCESS;
 		} else {
@@ -2509,13 +2509,13 @@ static void fcm_srv_receive(void *arg)
 	switch (cmd) {
 	case CLIF_CREATE_CMD:
 		FCM_LOG_DBG("FCMON CREATE\n");
-		rc = fcm_cli_create(ifname, FCP_CREATE_IF, &reply);
+		rc = fcm_cli_create(ifname, &reply);
 		if (rc)
 			goto err_out;
 		break;
 	case CLIF_DESTROY_CMD:
 		FCM_LOG_DBG("FCMON DESTROY\n");
-		rc = fcm_cli_destroy(ifname, FCP_DESTROY_IF, &reply);
+		rc = fcm_cli_destroy(ifname, &reply);
 		if (rc)
 			goto err_out;
 		break;

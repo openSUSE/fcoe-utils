@@ -2375,11 +2375,13 @@ static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
 				       struct sock_info **r)
 {
 	struct fcoe_port *p, *vp;
+	enum fcoe_status rc = EFAIL;
 
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p && p->fcoe_enable) {
 		/* no action needed */
-		return ENOACTION;
+		rc = ENOACTION;
+		goto out;
 	}
 	/* re-enable previous VLANs */
 	if (p && p->auto_vlan) {
@@ -2401,9 +2403,13 @@ static enum fcoe_status fcm_cli_create(char *ifname, int cmd,
 	 */
 	p = fcm_port_create(ifname, cmd);
 	if (!p)
-		return EFAIL;
+		goto out;
+
+	rc = SUCCESS;
+
+out:
 	p->sock_reply = *r;
-	return SUCCESS;
+	return rc;
 }
 
 static enum fcoe_status fcm_cli_destroy(char *ifname, int cmd,
@@ -2503,22 +2509,26 @@ static void fcm_srv_receive(void *arg)
 	switch (cmd) {
 	case CLIF_CREATE_CMD:
 		FCM_LOG_DBG("FCMON CREATE\n");
-		if (fcm_cli_create(ifname, FCP_CREATE_IF, &reply))
+		rc = fcm_cli_create(ifname, FCP_CREATE_IF, &reply);
+		if (rc)
 			goto err_out;
 		break;
 	case CLIF_DESTROY_CMD:
 		FCM_LOG_DBG("FCMON DESTROY\n");
-		if (fcm_cli_destroy(ifname, FCP_DESTROY_IF, &reply))
+		rc = fcm_cli_destroy(ifname, FCP_DESTROY_IF, &reply);
+		if (rc)
 			goto err_out;
 		break;
 	case CLIF_RESET_CMD:
 		FCM_LOG_DBG("FCMON RESET\n");
-		if (fcm_cli_action(ifname, FCP_RESET_IF, &reply))
+		rc = fcm_cli_action(ifname, FCP_RESET_IF, &reply);
+		if (rc)
 			goto err_out;
 		break;
 	case CLIF_SCAN_CMD:
 		FCM_LOG_DBG("FCMON SCAN\n");
-		if (fcm_cli_action(ifname, FCP_SCAN_IF, &reply))
+		rc = fcm_cli_action(ifname, FCP_SCAN_IF, &reply);
+		if (rc)
 			goto err_out;
 		break;
 	default:

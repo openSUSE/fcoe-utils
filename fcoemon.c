@@ -1103,12 +1103,13 @@ static void fcm_fcoe_init(void)
 /*
  * Allocate an FCoE interface state structure.
  */
-static struct fcm_netif *fcm_netif_alloc(void)
+static struct fcm_netif *fcm_netif_alloc(char *ifname)
 {
 	struct fcm_netif *ff;
 
 	ff = calloc(1, sizeof(*ff));
 	if (ff) {
+		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
 		ff->ff_operstate = IF_OPER_UNKNOWN;
 		TAILQ_INSERT_TAIL(&fcm_netif_head, ff, ff_list);
 	} else {
@@ -1133,9 +1134,8 @@ static struct fcm_netif *fcm_netif_lookup_create(char *ifname)
 			return ff;
 	}
 
-	ff = fcm_netif_alloc();
+	ff = fcm_netif_alloc(ifname);
 	if (ff != NULL) {
-		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
 		sa_timer_init(&ff->dcbd_retry_timer, fcm_dcbd_retry_timeout,
 			      (void *)ff);
 		FCM_LOG_DEV_DBG(ff, "Monitoring port %s\n", ifname);

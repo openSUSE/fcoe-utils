@@ -2248,7 +2248,6 @@ static void fcm_handle_changes()
 	while (p) {
 		ff = fcm_netif_lookup(p->real_ifname);
 		if (!ff) {
-			FCM_LOG_DBG("no fcoe_action.\n");
 			if (p->sock_reply) {
 				fcm_cli_reply(p->sock_reply, EFAIL);
 				free(p->sock_reply);

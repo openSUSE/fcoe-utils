@@ -36,12 +36,6 @@
 #define CLIF_CMD_RESPONSE_TIMEOUT 5
 #define MAX_MSGBUF 512
 
-enum clif_status {
-	CLI_SUCCESS = 0,
-	CLI_FAIL,
-	CLI_NO_ACTION
-};
-
 enum clif_action {
 	CLIF_NONE = 0,
 	CLIF_CREATE_CMD,

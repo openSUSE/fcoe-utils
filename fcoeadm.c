@@ -349,6 +349,14 @@ int main(int argc, char *argv[])
 err:
 	if (rc) {
 		switch (rc) {
+		case EFAIL:
+			FCOE_LOG_ERR("Command failed\n");
+			break;
+
+		case ENOACTION:
+			FCOE_LOG_ERR("No action was taken\n");
+			break;
+
 		case EFCOECONN:
 			FCOE_LOG_ERR("Connection already created on "
 				     "interface %s\n", ifname);
@@ -406,7 +414,7 @@ err:
 			/*
 			 * This will catch EOPNOTSUPP which should never happen
 			 */
-			FCOE_LOG_ERR("Unknown error\n");
+			FCOE_LOG_ERR("Unknown error code %d\n", rc);
 			break;
 		}
 

@@ -89,12 +89,6 @@
 #define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
 void fcm_vlan_disc_timeout(void *arg);
 
-enum fcm_srv_status {
-	fcm_success = 0,
-	fcm_fail,
-	fcm_no_action
-};
-
 /*
  * fcoe service configuration data
  * Note: These information are read in from the fcoe service
@@ -142,7 +136,7 @@ static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_netif_advance(struct fcm_netif *);
 static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
-static int fcm_fcoe_if_action(char *, char *);
+static enum fcoe_err fcm_fcoe_if_action(char *, char *);
 
 struct fcm_clif {
 	int cl_fd;
@@ -1958,10 +1952,10 @@ static void fcm_cli_reply(struct sock_info *r, int status)
 			r->fromlen);
 }
 
-static int fcm_fcoe_if_action(char *path, char *ifname)
+static enum fcoe_err fcm_fcoe_if_action(char *path, char *ifname)
 {
 	FILE *fp = NULL;
-	int ret = fcm_fail;
+	enum fcoe_err ret = EFAIL;
 
 	fp = fopen(path, "w");
 	if (!fp) {
@@ -1976,7 +1970,7 @@ static int fcm_fcoe_if_action(char *path, char *ifname)
 		goto out;
 	}
 
-	ret = fcm_success;
+	ret = NOERR;
 out:
 	fclose(fp);
 err_out:
@@ -2028,9 +2022,9 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	char *ifname = p->ifname;
 	char fchost[FCHOSTBUFLEN];
 	char path[256];
-	int rc;
+	enum fcoe_err rc;
 
-	rc = fcm_success;
+	rc = NOERR;
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
@@ -2046,7 +2040,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 					fcp_set_next_action(vp, FCP_DESTROY_IF);
 				vp = fcm_find_next_fcoe_port(vp, p->ifname);
 			}
-			rc = fcm_success;
+			rc = NOERR;
 			break;
 		}
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
@@ -2077,7 +2071,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * the fc_host in sysfs.
 		 */
 		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
-			fcm_cli_reply(p->sock_reply, CLI_FAIL);
+			fcm_cli_reply(p->sock_reply, EFAIL);
 			return;
 		}
 
@@ -2092,7 +2086,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * the fc_host in sysfs.
 		 */
 		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
-			fcm_cli_reply(p->sock_reply, CLI_FAIL);
+			fcm_cli_reply(p->sock_reply, EFAIL);
 			return;
 		}
 
@@ -2256,7 +2250,7 @@ static void fcm_handle_changes()
 		if (!ff) {
 			FCM_LOG_DBG("no fcoe_action.\n");
 			if (p->sock_reply) {
-				fcm_cli_reply(p->sock_reply, CLI_FAIL);
+				fcm_cli_reply(p->sock_reply, EFAIL);
 				free(p->sock_reply);
 				p->sock_reply = NULL;
 				p->action = FCP_WAIT;
@@ -2374,14 +2368,15 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 	return p;
 }
 
-static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
+static enum fcoe_err fcm_cli_create(char *ifname, int cmd,
+				    struct sock_info **r)
 {
 	struct fcoe_port *p, *vp;
 
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p && p->fcoe_enable) {
 		/* no action needed */
-		return CLI_NO_ACTION;
+		return ENOACTION;
 	}
 	/* re-enable previous VLANs */
 	if (p && p->auto_vlan) {
@@ -2394,12 +2389,13 @@ static int fcm_cli_create(char *ifname, int cmd, struct sock_info **r)
 	}
 	p = fcm_port_create(ifname, cmd);
 	if (!p)
-		return fcm_fail;
+		return EFAIL;
 	p->sock_reply = *r;
-	return fcm_success;
+	return NOERR;
 }
 
-static int fcm_cli_destroy(char *ifname, int cmd, struct sock_info **r)
+static enum fcoe_err fcm_cli_destroy(char *ifname, int cmd,
+				     struct sock_info **r)
 {
 	struct fcoe_port *p;
 
@@ -2409,18 +2405,19 @@ static int fcm_cli_destroy(char *ifname, int cmd, struct sock_info **r)
 			p->fcoe_enable = 0;
 			fcp_set_next_action(p, cmd);
 			p->sock_reply = *r;
-			return fcm_success;
+			return NOERR;
 		} else {
 			/* no action needed */
-			return CLI_NO_ACTION;
+			return ENOACTION;
 		}
 	}
 
 	FCM_LOG_ERR(errno, "%s is not in port list.\n", ifname);
-	return fcm_fail;
+	return EFAIL;
 }
 
-static int fcm_cli_action(char *ifname, int cmd, struct sock_info **r)
+static enum fcoe_err fcm_cli_action(char *ifname, int cmd,
+				    struct sock_info **r)
 {
 	struct fcoe_port *p;
 
@@ -2428,11 +2425,11 @@ static int fcm_cli_action(char *ifname, int cmd, struct sock_info **r)
 	if (p) {
 		fcp_set_next_action(p, cmd);
 		p->sock_reply = *r;
-		return fcm_success;
+		return NOERR;
 	}
 
 	FCM_LOG_ERR(errno, "%s is not in port list.\n", ifname);
-	return fcm_fail;
+	return EFAIL;
 }
 
 static struct sock_info *fcm_alloc_reply(struct sockaddr_un *f,
@@ -2521,7 +2518,7 @@ err_out:
 	free(ifname);
 	free(reply);
 err:
-	snprintf(rbuf, MSG_RBUF, "%d", CLI_FAIL);
+	snprintf(rbuf, MSG_RBUF, "%d", EFAIL);
 	sendto(snum, rbuf, MSG_RBUF, 0, (struct sockaddr *)&from, fromlen);
 }
 

@@ -71,21 +71,21 @@ static void
 fp_usage()
 {
 	fprintf(stderr,
-	"Usage: %s [-fqx] -i <interval> [ -c <count> ] -h <hba> "
-	"[ -s <size> ] \n"
-	"              [ -F <FC-ID> | -P <WWPN> | -N <WWNN>]\n"
-	"  flags: \n"
-	"     -f:            Flood ping\n"
-	"     -q:            Quiet! just print summary\n"
-	"     -x:            Hex dump of responses\n"
-	"     -i <interval>: Wait <interval> seconds between each ping\n"
-	"     -c <count>:    Stop after sending <count> pings\n"
-	"     -h <hba>:      eth<n>, MAC address, WWPN, or FC-ID of the HBA\n"
-	"     -s <size>:     Byte-length of ping request payload (max %lu)\n"
-	"     -F <FC-ID>:    Destination port ID\n"
-	"     -P <WWPN>:     Destination world-wide port name\n"
-	"     -N <WWNN>:     Destination world-wide node name\n",
-	cmdname, FC_MAX_PAYLOAD);
+		"Usage: %s [-fqx] -i <interval> [ -c <count> ] -h <hba> "
+		"[ -s <size> ]\n"
+		"              [ -F <FC-ID> | -P <WWPN> | -N <WWNN>]\n"
+		"  flags:\n"
+		"     -f:            Flood ping\n"
+		"     -q:            Quiet! just print summary\n"
+		"     -x:            Hex dump of responses\n"
+		"     -i <interval>: Wait <interval> seconds between each ping\n"
+		"     -c <count>:    Stop after sending <count> pings\n"
+		"     -h <hba>:      eth<n>, MAC address, WWPN, or FC-ID of the HBA\n"
+		"     -s <size>:     Byte-length of ping request payload (max %lu)\n"
+		"     -F <FC-ID>:    Destination port ID\n"
+		"     -P <WWPN>:     Destination world-wide port name\n"
+		"     -N <WWNN>:     Destination world-wide node name\n",
+		cmdname, FC_MAX_PAYLOAD);
 	exit(1);
 }
 
@@ -118,24 +118,24 @@ struct fp_stats {
 };
 static struct fp_stats fp_stats;
 
-#define hton24(p, v) \
-do { \
-	p[0] = (((v) >> 16) & 0xFF);	\
-	p[1] = (((v) >> 8) & 0xFF);	\
-	p[2] = ((v) & 0xFF);		\
-} while (0)
+#define hton24(p, v)				\
+	do {					\
+		p[0] = (((v) >> 16) & 0xFF);	\
+		p[1] = (((v) >> 8) & 0xFF);	\
+		p[2] = ((v) & 0xFF);		\
+	} while (0)
 
-#define hton64(p, v) \
-do { \
-	p[0] = (u_char) ((v) >> 56) & 0xFF;	\
-	p[1] = (u_char) ((v) >> 48) & 0xFF;	\
-	p[2] = (u_char) ((v) >> 40) & 0xFF;	\
-	p[3] = (u_char) ((v) >> 32) & 0xFF;	\
-	p[4] = (u_char) ((v) >> 24) & 0xFF;	\
-	p[5] = (u_char) ((v) >> 16) & 0xFF;	\
-	p[6] = (u_char) ((v) >> 8) & 0xFF;	\
-	p[7] = (u_char) (v) & 0xFF;		\
-} while (0)
+#define hton64(p, v)					\
+	do {						\
+		p[0] = (u_char) ((v) >> 56) & 0xFF;	\
+		p[1] = (u_char) ((v) >> 48) & 0xFF;	\
+		p[2] = (u_char) ((v) >> 40) & 0xFF;	\
+		p[3] = (u_char) ((v) >> 32) & 0xFF;	\
+		p[4] = (u_char) ((v) >> 24) & 0xFF;	\
+		p[5] = (u_char) ((v) >> 16) & 0xFF;	\
+		p[6] = (u_char) ((v) >> 8) & 0xFF;	\
+		p[7] = (u_char) (v) & 0xFF;		\
+	} while (0)
 
 static void sa_log_func(const char *func, const char *format, ...);
 static void sa_log_err(int, const char *func, const char *format, ...);
@@ -144,31 +144,31 @@ static void sa_log_output(const char *buf);
 /*
  * Log message.
  */
-#define SA_LOG(...) \
+#define SA_LOG(...)						\
 	do { sa_log_func(__func__, __VA_ARGS__); } while (0)
 
-#define SA_LOG_ERR(error, ...) \
+#define SA_LOG_ERR(error, ...)					\
 	do { sa_log_err(error, NULL, __VA_ARGS__); } while (0)
 
 /*
  * Logging exits.
  */
-#define SA_LOG_EXIT(...) \
-	do {	sa_log_func(__func__, __VA_ARGS__); \
-		if (fp_debug) \
-			sa_log_func(__func__, \
-			"Exiting at %s:%d", __FILE__, __LINE__); \
-		exit(1); \
+#define SA_LOG_EXIT(...)						\
+	do {	sa_log_func(__func__, __VA_ARGS__);			\
+		if (fp_debug)						\
+			sa_log_func(__func__,				\
+				    "Exiting at %s:%d", __FILE__, __LINE__); \
+		exit(1);						\
 	} while (0)
 
-#define SA_LOG_ERR_EXIT(error, ...) \
-	do {	sa_log_func(__func__, __VA_ARGS__); \
-		if (fp_debug) \
-			sa_log_err(error, __func__, \
-			"Exiting at %s:%d", __FILE__, __LINE__); \
-		else \
-			sa_log_err(error, NULL, NULL); \
-		exit(1); \
+#define SA_LOG_ERR_EXIT(error, ...)					\
+	do {	sa_log_func(__func__, __VA_ARGS__);			\
+		if (fp_debug)						\
+			sa_log_err(error, __func__,			\
+				   "Exiting at %s:%d", __FILE__, __LINE__); \
+		else							\
+			sa_log_err(error, NULL, NULL);			\
+		exit(1);						\
 	} while (0)
 
 #define SA_LOG_BUF_LEN  200     /* on-stack line buffer size */
@@ -251,8 +251,8 @@ sa_log_output(const char *buf)
 
 static char *
 sa_hex_format(char *buf, size_t buflen,
-		const unsigned char *data, size_t data_len,
-		unsigned int group_len, char *inter_group_sep)
+	      const unsigned char *data, size_t data_len,
+	      unsigned int group_len, char *inter_group_sep)
 {
 	size_t rlen, tlen;
 	char *bp, *sep;
@@ -367,7 +367,7 @@ fp_options(int argc, char *argv[])
 			break;
 		case 'i':
 			if (sscanf(optarg, "%f", &sec) != 1 ||
-					sec < FP_MIN_INTVL)
+			    sec < FP_MIN_INTVL)
 				SA_LOG_EXIT("bad interval %s\n", optarg);
 			fp_interval = sec * 1000;
 			break;
@@ -381,18 +381,18 @@ fp_options(int argc, char *argv[])
 			fp_len = strtoul(optarg, &endptr, 0);
 			if (*endptr != '\0' || fp_len > FC_MAX_PAYLOAD)
 				SA_LOG_EXIT("bad size %s max %lu\n",
-					optarg, FC_MAX_PAYLOAD);
+					    optarg, FC_MAX_PAYLOAD);
 			if (fp_len < 4)
 				SA_LOG_EXIT("bad size %s min %d\n",
-					optarg, 4);
+					    optarg, 4);
 			break;
 		case 'x':
 			fp_hex = 1;
 			break;
 
-		/*
-		 * -F specifies the target FC_ID.
-		 */
+			/*
+			 * -F specifies the target FC_ID.
+			 */
 		case 'F':
 			fp_did = strtoull(optarg, &endptr, 16);
 			if (*endptr != '\0')
@@ -400,10 +400,11 @@ fp_options(int argc, char *argv[])
 			targ_spec++;
 			break;
 
-		/*
-		 * The -P and -N flags take a world-wide name in hex,
-		 * or an ethernet addr, or an etherhost entry from /etc/ethers.
-		 */
+			/*
+			 * The -P and -N flags take a world-wide name
+			 * in hex, or an ethernet addr, or an etherhost
+			 * entry from /etc/ethers.
+			 */
 		case 'N':
 			fp_node_wwn = fp_parse_wwn(optarg, "Node", 1, 0);
 			targ_spec++;
@@ -417,8 +418,8 @@ fp_options(int argc, char *argv[])
 		case '?':
 		default:
 			fprintf(stderr, "FC_MAX_PAYLOAD=%lu\n", FC_MAX_PAYLOAD);
-			fp_usage();	/* exits */
-			break;
+		fp_usage();	/* exits */
+		break;
 		}
 	}
 	argc -= optind;
@@ -503,7 +504,7 @@ fp_find_hba(void)
 		retval = HBA_GetAdapterName(i, namebuf);
 		if (retval != HBA_STATUS_OK) {
 			SA_LOG("HBA_GetAdapterName"
-				" failed, retval=%d", retval);
+			       " failed, retval=%d", retval);
 			continue;
 		}
 
@@ -516,16 +517,16 @@ fp_find_hba(void)
 		retval = HBA_GetAdapterAttributes(hba_handle, &hba_attrs);
 		if (retval != HBA_STATUS_OK) {
 			SA_LOG("HBA_GetAdapterAttributes"
-				" failed, retval=%d", retval);
+			       " failed, retval=%d", retval);
 			HBA_CloseAdapter(hba_handle);
 			continue;
 		}
 
 		retval = HBA_GetAdapterPortAttributes(
-				hba_handle, 0, &port_attrs);
+			hba_handle, 0, &port_attrs);
 		if (retval != HBA_STATUS_OK) {
 			SA_LOG("HBA_GetAdapterPortAttributes"
-				" failed, retval=%d", retval);
+			       " failed, retval=%d", retval);
 			HBA_CloseAdapter(hba_handle);
 			continue;
 		}
@@ -560,7 +561,7 @@ fp_find_hba(void)
 		}
 
 		snprintf(fp_dev, sizeof(fp_dev),
-			"fc_%s", port_attrs.OSDeviceName);
+			 "fc_%s", port_attrs.OSDeviceName);
 		found = 1;
 		break;
 	}
@@ -578,10 +579,10 @@ fp_report(void)
 
 	loss = 100.0 * (sp->fp_tx_frames - sp->fp_rx_frames) / sp->fp_tx_frames;
 	printf("%d frames sent, %d received %d errors, %.3f%% loss, "
-		"avg. rt time %.3f ms\n",
-		sp->fp_tx_frames, sp->fp_rx_frames, sp->fp_rx_errors, loss,
-		sp->fp_rx_times ?  sp->fp_transit_time_us * 1.0 /
-		(1000.0 * sp->fp_rx_times) : 0.0);
+	       "avg. rt time %.3f ms\n",
+	       sp->fp_tx_frames, sp->fp_rx_frames, sp->fp_rx_errors, loss,
+	       sp->fp_rx_times ?  sp->fp_transit_time_us * 1.0 /
+	       (1000.0 * sp->fp_rx_times) : 0.0);
 }
 
 /*
@@ -665,29 +666,29 @@ fp_lookup_target()
 		resp_len = sizeof(response);
 		memset(&response, 0, sizeof(response));
 		rc = fp_ns_get_id(FC_NS_GID_PN, fp_port_wwn,
-				response, &resp_len);
+				  response, &resp_len);
 		if (rc == 0) {
 			fp_did = ((response[17] << 16) & 0xff0000) |
-				 ((response[18] << 8) & 0x00ff00) |
-				 (response[19] & 0x0000ff);
+				((response[18] << 8) & 0x00ff00) |
+				(response[19] & 0x0000ff);
 			return 0;
 		}
 		SA_LOG("cannot find fcid of destination @ wwpn 0x%llX",
-			fp_port_wwn);
+		       fp_port_wwn);
 	}
 	if (fp_node_wwn != 0) {
 		resp_len = sizeof(response);
 		memset(&response, 0, sizeof(response));
 		rc = fp_ns_get_id(FC_NS_GID_NN, fp_node_wwn,
-				response, &resp_len);
+				  response, &resp_len);
 		if (rc == 0) {
 			fp_did = ((response[17] << 16) & 0xff0000) |
-				 ((response[18] << 8) & 0x00ff00) |
-				 (response[19] & 0x0000ff);
+				((response[18] << 8) & 0x00ff00) |
+				(response[19] & 0x0000ff);
 			return 0;
 		}
 		SA_LOG("cannot find fcid of destination @ wwnn 0x%llX",
-			fp_node_wwn);
+		       fp_node_wwn);
 	}
 	return 1;
 }
@@ -750,7 +751,7 @@ fp_get_time_usec(void)
 
 static int
 send_els_echo(int fp_fd, void *fp_buf, uint32_t fp_len,
-		unsigned char *resp, uint32_t *resp_len, fc_fid_t fp_did)
+	      unsigned char *resp, uint32_t *resp_len, fc_fid_t fp_did)
 {
 	struct fc_bsg_request cdb;
 	char sense[MAX_SENSE_LEN];
@@ -815,31 +816,31 @@ static int fp_send_ping(void)
 	if (rc) {
 		sp->fp_rx_errors++;
 		printf("echo %4d error: %s\n",
-			sp->fp_tx_frames, strerror(errno));
+		       sp->fp_tx_frames, strerror(errno));
 	} else {
 		usec = fp_get_time_usec();
 		sp->fp_rx_frames++;
 		ep = (struct fcping_echo *) resp;
 		if (usec < tx_time) {
 			snprintf(time_msg, sizeof(time_msg),
-				"time unknown now %llx old %llx",
-				usec, tx_time);
+				 "time unknown now %llx old %llx",
+				 usec, tx_time);
 			usec = 0;	/* as if time went backwards */
 		} else {
 			usec = usec - tx_time;
 			snprintf(time_msg, sizeof(time_msg),
-				"%6.3f ms", usec / 1000.0);
+				 "%6.3f ms", usec / 1000.0);
 			sp->fp_transit_time_us += usec;
 			sp->fp_rx_times++;
 		}
 		if (ep->fe_op == ELS_LS_ACC) {
 			if (memcmp((char *) ep + 1,
-					(char *) fp_buf + 1, fp_len - 1) == 0)
+				   (char *) fp_buf + 1, fp_len - 1) == 0)
 				snprintf(msg, sizeof(msg), "accepted");
 			else {
 				sp->fp_rx_errors++;
 				snprintf(msg, sizeof(msg),
-					"accept data mismatches");
+					 "accept data mismatches");
 			}
 		} else if (ep->fe_op == ELS_LS_RJT) {
 			sp->fp_rx_errors++;
@@ -847,11 +848,11 @@ static int fp_send_ping(void)
 		} else {
 			sp->fp_rx_errors++;
 			snprintf(msg, sizeof(msg),
-				"op %x received", ep->fe_op);
+				 "op %x received", ep->fe_op);
 		}
 		if (fp_quiet == 0)
 			printf("echo %4d %-30s %s\n",
-				sp->fp_tx_frames, msg, time_msg);
+			       sp->fp_tx_frames, msg, time_msg);
 	}
 	if (fp_hex) {
 		printf("response length %u\n", resp_len);
@@ -921,7 +922,7 @@ int main(int argc, char *argv[])
 		fp_fd = open(bsg_dev, O_RDWR);
 		if (fp_fd < 0)
 			SA_LOG_ERR_EXIT(errno,
-				"open of %s failed", bsg_dev);
+					"open of %s failed", bsg_dev);
 
 		if (!fp_lookup_target()) {
 			fp_buf_setup();

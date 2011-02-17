@@ -177,16 +177,16 @@ static const char *lopt_usage[] = {
 	NULL,
 };
 
-#define bsg_error(format...)		\
-({					\
-	fprintf(stderr, "ERROR: " format);	\
-})
+#define bsg_error(format...)				\
+	({						\
+		fprintf(stderr, "ERROR: " format);	\
+	})
 
-#define bsg_debug(format...)		\
-({					\
-	if (!quiet)			\
-		printf("DEBUG: " format);		\
-})
+#define bsg_debug(format...)				\
+	({						\
+		if (!quiet)				\
+			printf("DEBUG: " format);	\
+	})
 
 static char *els_rjt2str(int type, int code)
 {
@@ -206,18 +206,18 @@ static char *els_rjt2str(int type, int code)
 static int els_print_lesb(struct fcoe_fc_els_lesb *lesb)
 {
 	printf("RLS request accepted (LS_ACC), dumping status counters:\n"
-		"\tLink Failure Count                   = %u\n"
-		"\tVirtual Link Failure Count           = %u\n"
-		"\tMissed Discovery Advertisement Count = %u\n"
-		"\tSymbol Error During Carrier Count    = %u\n"
-		"\tErrored Block Count                  = %u\n"
-		"\tFrame Check Sequence Error Count     = %u\n",
-		ntohl(lesb->lesb_link_fail),
-		ntohl(lesb->lesb_vlink_fail),
-		ntohl(lesb->lesb_miss_fka),
-		ntohl(lesb->lesb_symb_err),
-		ntohl(lesb->lesb_err_block),
-		ntohl(lesb->lesb_fcs_error));
+	       "\tLink Failure Count                   = %u\n"
+	       "\tVirtual Link Failure Count           = %u\n"
+	       "\tMissed Discovery Advertisement Count = %u\n"
+	       "\tSymbol Error During Carrier Count    = %u\n"
+	       "\tErrored Block Count                  = %u\n"
+	       "\tFrame Check Sequence Error Count     = %u\n",
+	       ntohl(lesb->lesb_link_fail),
+	       ntohl(lesb->lesb_vlink_fail),
+	       ntohl(lesb->lesb_miss_fka),
+	       ntohl(lesb->lesb_symb_err),
+	       ntohl(lesb->lesb_err_block),
+	       ntohl(lesb->lesb_fcs_error));
 
 	return 0;
 }
@@ -225,10 +225,10 @@ static int els_print_lesb(struct fcoe_fc_els_lesb *lesb)
 static int els_print_rjt(struct rls_rjt *rjt)
 {
 	printf("RLS request rejected (LS_RJT), check reason code below:\n"
-		"\tReason Code  = 0x%02x, %s.\n"
-		"\tExplain Code = 0x%02x, %s.\n",
-		rjt->er_reason, els_rjt2str(0, rjt->er_reason),
-		rjt->er_explan, els_rjt2str(1, rjt->er_explan));
+	       "\tReason Code  = 0x%02x, %s.\n"
+	       "\tExplain Code = 0x%02x, %s.\n",
+	       rjt->er_reason, els_rjt2str(0, rjt->er_reason),
+	       rjt->er_explan, els_rjt2str(1, rjt->er_explan));
 	if (rjt->er_reason == ELS_RJT_VENDOR)
 		printf("\tVendor Code  = 0x%02x (check with your vendor).\n",
 		       rjt->er_vendor);
@@ -265,7 +265,7 @@ static int bsg_rport_els(int bsg, u8 els_code, void *req, int req_len,
 	memset(sense, 0, sizeof(sense));
 	rc = ioctl(bsg, SG_IO, &sgio);
 	bsg_debug("ioctl returned %d: bsg_reply result=%d\n",
-		 rc, reply->result);
+		  rc, reply->result);
 	return rc;
 }
 
@@ -302,7 +302,7 @@ static int rport_getid(struct rport_info *rpi)
 	if (rpi->found)
 		return 0;
 	snprintf(rp_sysfs, sizeof(rp_sysfs), "%s/rport-%d:%d-%d/port_id",
-		SYSFS_FC_RPORTS, rpi->host_no, rpi->channel, rpi->number);
+		 SYSFS_FC_RPORTS, rpi->host_no, rpi->channel, rpi->number);
 	f = fopen(rp_sysfs, "ro");
 	if (!f) {
 		bsg_error("failed to fopen(%s)!\n", rp_sysfs);
@@ -354,7 +354,7 @@ static int rport_check_state(struct rport_info *rpi)
 		return EINVAL;
 
 	snprintf(rp_sysfs, sizeof(rp_sysfs), "%s/rport-%d:%d-%d/port_state",
-		SYSFS_FC_RPORTS, rpi->host_no, rpi->channel, rpi->number);
+		 SYSFS_FC_RPORTS, rpi->host_no, rpi->channel, rpi->number);
 
 	f = fopen(rp_sysfs, "ro");
 	if (!f) {
@@ -368,7 +368,7 @@ static int rport_check_state(struct rport_info *rpi)
 	}
 	if (strncmp(rp_state, RPORT_ONLINE, strlen(RPORT_ONLINE))) {
 		bsg_error("rport 0x%x %s:must be %s\n", rpi->port_id,
-			rp_state, RPORT_ONLINE);
+			  rp_state, RPORT_ONLINE);
 		fclose(f);
 		return ENODEV;
 	}
@@ -444,7 +444,8 @@ int main(int argc, char *argv[])
 		case RLS_PORT:
 			if (rport_parse(optarg, &rpi)) {
 				bsg_error("%s format incorrect, must be:"
-					"rport-host:channel-number\n", optarg);
+					  "rport-host:channel-number\n",
+					  optarg);
 				bsg_usage(EINVAL);
 			}
 			rpi.found = true;

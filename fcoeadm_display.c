@@ -43,11 +43,11 @@
 
 /* #define TEST_HBAAPI_V1 */
 #ifdef TEST_HBAAPI_V1
-  #define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRY
-  #define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPING
+#define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRY
+#define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPING
 #else
-  #define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRYV2
-  #define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPINGV2
+#define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRYV2
+#define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPINGV2
 #endif
 /* #define TEST_REPORT_LUNS */
 /* #define TEST_READ_CAP_V1 */
@@ -120,7 +120,7 @@ struct sa_nameval port_speeds[] = {
  */
 static const char *
 sa_enum_decode(char *buf, size_t len,
-		const struct sa_nameval *tp, u_int32_t val)
+	       const struct sa_nameval *tp, u_int32_t val)
 {
 	snprintf(buf, len, "Unknown");
 	for (; tp->nv_name != NULL; tp++) {
@@ -256,7 +256,7 @@ static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info)
 	printf("    Manufacturer:     %s\n", hba_info->Manufacturer);
 	printf("    Serial Number:    %s\n", hba_info->SerialNumber);
 	printf("    Driver:           %s %s\n", hba_info->DriverName,
-						hba_info->DriverVersion);
+	       hba_info->DriverVersion);
 	printf("    Number of Ports:  %d\n", hba_info->NumberOfPorts);
 	printf("\n");
 }
@@ -268,22 +268,22 @@ static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
 	int len = sizeof(buf);
 
 	printf("        Symbolic Name:     %s\n",
-					lp_info->PortSymbolicName);
+	       lp_info->PortSymbolicName);
 
 	printf("        OS Device Name:    %s\n",
-					lp_info->OSDeviceName);
+	       lp_info->OSDeviceName);
 
 	printf("        Node Name:         0x");
-					show_wwn(lp_info->NodeWWN.wwn);
-					printf("    \n");
+	show_wwn(lp_info->NodeWWN.wwn);
+	printf("\n");
 
 	printf("        Port Name:         0x");
-					show_wwn(lp_info->PortWWN.wwn);
-					printf("    \n");
+	show_wwn(lp_info->PortWWN.wwn);
+	printf("\n");
 
 	printf("        FabricName:        0x");
-					show_wwn(lp_info->FabricName.wwn);
-					printf("    \n");
+	show_wwn(lp_info->FabricName.wwn);
+	printf("\n");
 
 	sa_enum_decode(buf, len, port_speeds, lp_info->PortSpeed);
 	printf("        Speed:             %s\n", buf);
@@ -292,10 +292,10 @@ static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
 	printf("        Supported Speed:   %s\n", buf);
 
 	printf("        MaxFrameSize:      %d\n",
-					lp_info->PortMaxFrameSize);
+	       lp_info->PortMaxFrameSize);
 
 	printf("        FC-ID (Port ID):   0x%06X\n",
-					lp_info->PortFcId);
+	       lp_info->PortFcId);
 
 	sa_enum_decode(buf, sizeof(buf), port_states, lp_info->PortState);
 	printf("        State:             %s\n", buf);
@@ -319,12 +319,12 @@ static void show_target_info(const char *symbolic_name,
 	printf("    Roles:            %s\n", buf);
 
 	printf("    Node Name:        0x");
-				show_wwn(rp_info->NodeWWN.wwn);
-				printf("    \n");
+	show_wwn(rp_info->NodeWWN.wwn);
+	printf("\n");
 
 	printf("    Port Name:        0x");
-				show_wwn(rp_info->PortWWN.wwn);
-				printf("    \n");
+	show_wwn(rp_info->PortWWN.wwn);
+	printf("\n");
 
 	rc = sa_sys_read_u32(rp_info->OSDeviceName, "scsi_target_id", &tgt_id);
 	if (tgt_id != -1)
@@ -333,7 +333,7 @@ static void show_target_info(const char *symbolic_name,
 	printf("    MaxFrameSize:     %d\n", rp_info->PortMaxFrameSize);
 
 	printf("    OS Device Name:   %s\n",
-				strrchr(rp_info->OSDeviceName, '/') + 1);
+	       strrchr(rp_info->OSDeviceName, '/') + 1);
 
 	printf("    FC-ID (Port ID):  0x%06X\n", rp_info->PortFcId);
 
@@ -437,8 +437,8 @@ get_inquiry_data_v2(HBA_HANDLE hba_handle,
 #ifdef TEST_HBAAPI_V1
 static HBA_STATUS
 get_device_capacity_v1(HBA_HANDLE hba_handle,
-		    HBA_FCPSCSIENTRY *ep,
-		    char *buf, size_t len)
+		       HBA_FCPSCSIENTRY *ep,
+		       char *buf, size_t len)
 {
 	char sense[128];
 	HBA_UINT32 rlen;
@@ -475,9 +475,9 @@ get_device_capacity_v1(HBA_HANDLE hba_handle,
 #else
 static HBA_STATUS
 get_device_capacity_v2(HBA_HANDLE hba_handle,
-		    HBA_PORTATTRIBUTES *lp_info,
-		    HBA_FCPSCSIENTRYV2 *ep,
-		    char *buf, size_t len)
+		       HBA_PORTATTRIBUTES *lp_info,
+		       HBA_FCPSCSIENTRYV2 *ep,
+		       char *buf, size_t len)
 {
 	char sense[128];
 	HBA_UINT32 rlen;
@@ -554,7 +554,7 @@ get_device_serial_number(HBA_HANDLE hba_handle,
 	unit_sn = (struct scsi_inquiry_unit_sn *)rspbuf;
 	unit_sn->is_serial[unit_sn->is_page_len] = '\0';
 	sa_strncpy_safe(buf, buflen, (char *)unit_sn->is_serial,
-				     (size_t)unit_sn->is_page_len);
+			(size_t)unit_sn->is_page_len);
 	return HBA_STATUS_OK;
 }
 #endif
@@ -597,11 +597,11 @@ get_report_luns_data_v1(HBA_HANDLE hba_handle, HBA_FCPSCSIENTRYV2 *ep)
 		rlen = (HBA_UINT32) sizeof(rspbuf);
 		slen = (HBA_UINT32) sizeof(sense);
 		status = HBA_SendReportLUNs(hba_handle,
-					     ep->FcpId.PortWWN,
-					     rspbuf,
-					     rlen,
-					     sense,
-					     slen);
+					    ep->FcpId.PortWWN,
+					    rspbuf,
+					    rlen,
+					    sense,
+					    slen);
 		if (status == HBA_STATUS_OK) {
 			show_report_luns_data(rspbuf);
 			return HBA_STATUS_OK;
@@ -621,8 +621,8 @@ get_report_luns_data_v1(HBA_HANDLE hba_handle, HBA_FCPSCSIENTRYV2 *ep)
 
 static HBA_STATUS
 get_report_luns_data_v2(HBA_HANDLE hba_handle,
-		       HBA_PORTATTRIBUTES *lp_info,
-		       HBA_FCPSCSIENTRYV2 *ep)
+			HBA_PORTATTRIBUTES *lp_info,
+			HBA_FCPSCSIENTRYV2 *ep)
 {
 	HBA_STATUS status;
 	char rspbuf[512 * sizeof(u_int64_t)]; /* max 512 luns */
@@ -669,9 +669,9 @@ static void
 show_short_lun_info_header(void)
 {
 	printf("    LUN ID  Device Name   Capacity   "
-		"Block Size  Description\n");
+	       "Block Size  Description\n");
 	printf("    ------  -----------  ----------  ----------  "
-		"----------------------------\n");
+	       "----------------------------\n");
 }
 
 static void
@@ -694,7 +694,7 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 
 	/* Get device capacity */
 	cap = (u_int64_t) net32_get(&rcap_resp->rc_block_len) *
-			  net32_get(&rcap_resp->rc_lba);
+		net32_get(&rcap_resp->rc_lba);
 	cap_abbr = cap / (1024.0 * 1024.0);
 	abbr = "MB";
 	if (cap_abbr >= 1024) {
@@ -721,9 +721,9 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 
 	/* Show the LUN info */
 	printf("%10d  %-11s  %10s  %7d     %s %s (rev %s)\n",
-		ep->ScsiId.ScsiOSLun, ep->ScsiId.OSDeviceName,
-		capstr, net32_get(&rcap_resp->rc_block_len),
-		vendor, model, rev);
+	       ep->ScsiId.ScsiOSLun, ep->ScsiId.OSDeviceName,
+	       capstr, net32_get(&rcap_resp->rc_block_len),
+	       vendor, model, rev);
 }
 
 static void
@@ -765,7 +765,7 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 
 	/* Get device capacity */
 	cap = (u_int64_t) net32_get(&rcap_resp->rc_block_len) *
-			  net32_get(&rcap_resp->rc_lba);
+		net32_get(&rcap_resp->rc_lba);
 	cap_abbr = cap / (1024.0 * 1024.0);
 	abbr = "MB";
 	if (cap_abbr >= 1024) {
@@ -789,25 +789,25 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 	/* Show lun info */
 	printf("    LUN #%d Information:\n", ep->ScsiId.ScsiOSLun);
 	printf("        OS Device Name:     %s\n",
-					ep->ScsiId.OSDeviceName);
+	       ep->ScsiId.OSDeviceName);
 	printf("        Description:        %s %s (rev %s)\n",
-					vendor, model, rev);
+	       vendor, model, rev);
 	printf("        Ethernet Port FCID: 0x%06X\n",
-					lp_info->PortFcId);
+	       lp_info->PortFcId);
 	printf("        Target FCID:        0x%06X\n",
-					rp_info->PortFcId);
+	       rp_info->PortFcId);
 	if (tgt_id == -1)
 		printf("        Target ID:          (None)\n");
 	else
 		printf("        Target ID:          %u\n", tgt_id);
 	printf("        LUN ID:             %d\n",
-					ep->ScsiId.ScsiOSLun);
+	       ep->ScsiId.ScsiOSLun);
 
 	printf("        Capacity:           %s\n", capstr);
 	printf("        Capacity in Blocks: %d\n",
-					net32_get(&rcap_resp->rc_lba));
+	       net32_get(&rcap_resp->rc_lba));
 	printf("        Block Size:         %d bytes\n",
-					net32_get(&rcap_resp->rc_block_len));
+	       net32_get(&rcap_resp->rc_block_len));
 	pqual = inq->is_periph & SCSI_INQ_PQUAL_MASK;
 	if (pqual == SCSI_PQUAL_ATT)
 		printf("        Status:             Attached\n");
@@ -815,7 +815,7 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 		printf("        Status:             Detached\n");
 	else if (pqual == SCSI_PQUAL_NC)
 		printf("        Status:             "
-			"Not capable of attachment\n");
+		       "Not capable of attachment\n");
 
 #ifdef TEST_DEV_SERIAL_NO
 	/* Show the serial number of the device */
@@ -875,7 +875,7 @@ get_device_map(HBA_HANDLE hba_handle, HBA_PORTATTRIBUTES *lp_info,
 		status = HBA_GetFcpTargetMapping(hba_handle, map);
 #else
 		status = HBA_GetFcpTargetMappingV2(
-				hba_handle, lp_info->PortWWN, map);
+			hba_handle, lp_info->PortWWN, map);
 #endif
 		if (map->NumberOfEntries > limit) {
 			limit = map->NumberOfEntries + LUN_COUNT_INCR;
@@ -951,10 +951,10 @@ scan_device_map(HBA_HANDLE hba_handle,
 		/* Issue standard inquiry */
 #ifdef TEST_HBAAPI_V1
 		status = get_inquiry_data_v1(hba_handle, ep,
-					inqbuf, sizeof(inqbuf));
+					     inqbuf, sizeof(inqbuf));
 #else
 		status = get_inquiry_data_v2(hba_handle, lp_info,
-					ep, inqbuf, sizeof(inqbuf));
+					     ep, inqbuf, sizeof(inqbuf));
 #endif
 		if (status != HBA_STATUS_OK)
 			continue;
@@ -963,11 +963,12 @@ scan_device_map(HBA_HANDLE hba_handle,
 		/* Issue read capacity */
 #ifdef TEST_HBAAPI_V1
 		status = get_device_capacity_v1(hba_handle, ep,
-					(char *)&rcap_resp, sizeof(rcap_resp));
+						(char *)&rcap_resp,
+						sizeof(rcap_resp));
 #else
 		status = get_device_capacity_v2(hba_handle, lp_info,
-					ep, (char *)&rcap_resp,
-					sizeof(rcap_resp));
+						ep, (char *)&rcap_resp,
+						sizeof(rcap_resp));
 #endif
 		if (status != HBA_STATUS_OK)
 			continue;
@@ -987,11 +988,11 @@ scan_device_map(HBA_HANDLE hba_handle,
 
 #ifdef TEST_REPORT_LUNS
 		if (i == 0) {	/* only issue report luns to the first LUN */
- #ifdef TEST_HBAAPI_V1
+#ifdef TEST_HBAAPI_V1
 			get_report_luns_data_v1(hba_handle, ep);
- #else
+#else
 			get_report_luns_data_v2(hba_handle, lp_info, ep);
- #endif
+#endif
 		}
 #endif
 	}
@@ -1209,7 +1210,7 @@ enum fcoe_status display_port_stats(const char *ifname, int interval)
 		if (retval != HBA_STATUS_OK &&
 		    retval != HBA_STATUS_ERROR_NOT_SUPPORTED) {
 			fprintf(stderr, "HBA_GetFC4Statistics failed, "
-				 "status=%d\n", retval);
+				"status=%d\n", retval);
 			break;
 		}
 		if (retval == HBA_STATUS_ERROR_NOT_SUPPORTED) {

@@ -232,8 +232,8 @@ fail:
 		print_err("%s ioctl failed: %s\n", __func__, strerror(errno));
 	else
 		print_err("%s command failed: %s, %s\n", __func__,
-				rjt_reason[ct_rjt_reason(rjt)],
-				rjt_explan[ct_rjt_explan(rjt)]);
+			  rjt_reason[ct_rjt_reason(rjt)],
+			  rjt_explan[ct_rjt_explan(rjt)]);
 	return rjt;
 }
 
@@ -253,8 +253,8 @@ fail:
 		print_err("%s ioctl failed: %s\n", __func__, strerror(errno));
 	else
 		print_err("%s command failed: %s, %s\n", __func__,
-				rjt_reason[ct_rjt_reason(rjt)],
-				rjt_explan[ct_rjt_explan(rjt)]);
+			  rjt_reason[ct_rjt_reason(rjt)],
+			  rjt_explan[ct_rjt_explan(rjt)]);
 	return rjt;
 }
 
@@ -288,8 +288,8 @@ static int gspn_id(int bsg, u32 fcid)
 	}
 	if (gspn_resp.hdr.ct_cmd != htons(FC_FS_ACC)) {
 		print_err("%s command failed: %s, %s\n", __func__,
-				rjt_reason[gspn_resp.hdr.ct_reason],
-				rjt_explan[gspn_resp.hdr.ct_explan]);
+			  rjt_reason[gspn_resp.hdr.ct_reason],
+			  rjt_explan[gspn_resp.hdr.ct_explan]);
 		return ct_rjt(gspn_resp.hdr.ct_reason, gspn_resp.hdr.ct_explan);
 	}
 	print_result("Symbolic Port Name", "%s\n", gspn_resp.name);
@@ -325,8 +325,8 @@ static int gsnn_nn(int bsg, u64 wwnn)
 	}
 	if (gsnn_resp.hdr.ct_cmd != htons(FC_FS_ACC)) {
 		print_err("%s command failed: %s, %s\n", __func__,
-				rjt_reason[gsnn_resp.hdr.ct_reason],
-				rjt_explan[gsnn_resp.hdr.ct_explan]);
+			  rjt_reason[gsnn_resp.hdr.ct_reason],
+			  rjt_explan[gsnn_resp.hdr.ct_explan]);
 		return ct_rjt(gsnn_resp.hdr.ct_reason, gsnn_resp.hdr.ct_explan);
 	}
 	print_result("Symbolic Node Name", "%s\n", gsnn_resp.name);
@@ -353,17 +353,17 @@ static const struct option options[] = {
 static void help(int status)
 {
 	printf(
-"Usage: fcnsq <host#> <command> [options]\n"
-"Commands:\n"
-"  --gpn  <port id>\n"
-"  --gnn  <port id>\n"
-"  --gspn <port id>\n"
-"  --gsnn <world wide node name>\n"
-"Options:\n"
-"  --quiet	print minimal results on success, and no error messages\n"
-"\n"
-"Port IDs and World Wide Names must be specified in hexadecimal.\n"
-      );
+		"Usage: fcnsq <host#> <command> [options]\n"
+		"Commands:\n"
+		"  --gpn  <port id>\n"
+		"  --gnn  <port id>\n"
+		"  --gspn <port id>\n"
+		"  --gsnn <world wide node name>\n"
+		"Options:\n"
+		"  --quiet	print minimal results on success, and no error messages\n"
+		"\n"
+		"Port IDs and World Wide Names must be specified in hexadecimal.\n"
+		);
 	exit(status);
 }
 

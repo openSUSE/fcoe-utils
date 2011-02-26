@@ -880,7 +880,7 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 				/* hold off on auto-created VLAN ports until
 				 * VLAN discovery can validate that the setup
 				 * has not changed */
-				if (!p->auto_created)
+				if (!p->auto_created || !p->auto_vlan)
 					fcp_set_next_action(p, FCP_ACTIVATE_IF);
 			}
 		} else {

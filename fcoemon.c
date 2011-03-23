@@ -517,6 +517,12 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	struct fip_tlv_hdr *tlv = (struct fip_tlv_hdr *)(fh + 1);
 	struct fcoe_port *p = arg;
 	struct fcoe_port *vp;
+	int desc_mask = 0;
+
+	enum {
+		VALID_MAC	= 1,
+		VALID_VLAN	= 2,
+	};
 
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN)
 		return -1;
@@ -524,14 +530,12 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	if (fh->fip_subcode != FIP_VLAN_NOTE)
 		return -1;
 
-	/* cancel the retry timer, response received */
-	sa_timer_cancel(&p->vlan_disc_timer);
-
 	while (len > 0) {
 		switch (tlv->tlv_type) {
 		case FIP_TLV_MAC_ADDR:
 			memcpy(mac, ((struct fip_tlv_mac_addr *)tlv)->mac_addr,
 			       ETHER_ADDR_LEN);
+			desc_mask |= VALID_MAC;
 			break;
 			/*
 			 * this expects to see the MAC_ADDR TLV first,
@@ -545,6 +549,7 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
 			vp = fcm_new_vlan(sa->sll_ifindex, vid);
 			vp->dcb_required = p->dcb_required;
+			desc_mask |= VALID_VLAN;
 			break;
 		default:
 			/* unexpected or unrecognized descriptor */
@@ -554,7 +559,14 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 		len -= tlv->tlv_len;
 		tlv = ((void *) tlv) + (tlv->tlv_len << 2);
 	};
-	return 0;
+
+	if (desc_mask == (VALID_MAC | VALID_VLAN)) {
+		/* cancel the retry timer, valid response received */
+		sa_timer_cancel(&p->vlan_disc_timer);
+		return 0;
+	} else {
+		return -1;
+	}
 }
 
 static void fcm_fip_recv(void *arg)

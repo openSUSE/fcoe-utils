@@ -1994,7 +1994,9 @@ void fcm_vlan_disc_timeout(void *arg)
 	struct fcoe_port *p = arg;
 	FCM_LOG_DBG("%s: VLAN discovery TIMEOUT [%d]",
 		    p->ifname, p->vlan_disc_count);
-	if (++(p->vlan_disc_count) > FCM_VLAN_DISC_MAX) {
+	p->vlan_disc_count++;
+	if (!(p->fcoe_enable && p->auto_vlan) &&
+			(p->vlan_disc_count > FCM_VLAN_DISC_MAX)) {
 		FCM_LOG("%s: VLAN discovery failed after %d attempts",
 			p->ifname, FCM_VLAN_DISC_MAX);
 		FCM_LOG("%s: disabling VLAN discovery, trying FCoE on %s",

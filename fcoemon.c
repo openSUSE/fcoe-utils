@@ -46,7 +46,7 @@
 
 #include <lldpad/dcb_types.h>
 #include <lldpad/clif.h>
-#include <lldpad/clif_cmds.h>
+#include <lldpad/lldp_dcbx_cmds.h>
 
 #include "fcoe_utils_version.h"
 #include "fcoemon_utils.h"

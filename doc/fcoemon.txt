@@ -167,8 +167,9 @@ of the *fcoe* service.
 ~~~~~~~~~~~~~~~~~~~~~~
 These files are read by *fcoemon* on initialization. They are used to
 indicate which Ethernet or VLAN interfaces should have FCoE instances
-created. The default options in this file are: *FCOE_ENABLE="yes"*,
-*DCB_REQUIRED="yes"*, and *AUTO_VLAN="yes"*.
+created. The option values in this file normally are: *FCOE_ENABLE="yes"*,
+*DCB_REQUIRED="yes"*, and *AUTO_VLAN="yes"*, though if the variable
+values are omitted, they default to "no".
 
 _FCOE_ENABLE_::
 	is used to enable/disable creation of the FCoE instance.  If

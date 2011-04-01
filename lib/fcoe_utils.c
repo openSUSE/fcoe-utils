@@ -67,11 +67,11 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 
 enum fcoe_status fcoe_find_fchost(char *ifname, char *fchost, int len)
 {
-	int n, dname_len;
+	int n, dname_len, status;
 	struct dirent **namelist;
 	int rc = ENOFCOECONN;
 
-	n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
+	status = n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 
 	for (n-- ; n >= 0 ; n--) {
 		if (rc) {
@@ -94,9 +94,9 @@ enum fcoe_status fcoe_find_fchost(char *ifname, char *fchost, int len)
 			}
 		}
 		free(namelist[n]);
-
 	}
-	free(namelist);
+	if (status >= 0)
+		free(namelist);
 
 	return rc;
 }

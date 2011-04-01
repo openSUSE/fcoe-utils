@@ -39,6 +39,7 @@ static struct option fcoeadm_opts[] = {
 	{"destroy", required_argument, 0, 'd'},
 	{"reset", required_argument, 0, 'r'},
 	{"interface", no_argument, 0, 'i'},
+	{"Scan", required_argument, 0, 'S'},
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
 	{"stats", no_argument, 0, 's'},

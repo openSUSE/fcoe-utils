@@ -27,6 +27,8 @@ SYNOPSIS
 
 *fcoeadm* -i|--interface [_ethX_]
 
+*fcoeadm* -S|--Scan [_ethX_]
+
 *fcoeadm* -t|--target [_ethX_]
 
 *fcoeadm* -l|--lun [_ethX_]
@@ -67,6 +69,9 @@ OPTIONS
 *-i*, *--interface* [_ethX_]::
 	Show information about the FCoE instance on the specified network
 	interface, or all FCoE instances if no network interface is specified.
+
+*-S*, *--Scan* _ethX_::
+	Validates that the interface name has an active FCoE session.
 
 *-t*, *--target* [_ethX_]::
 	Show information about the discovered targets associated with the

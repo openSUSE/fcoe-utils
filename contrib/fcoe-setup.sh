@@ -24,9 +24,8 @@ create_vlan () {
     vif=$(scan_vlan $ifname $vlan)
 
     if [ -z "$vif" ] ; then
-	vconfig set_name_type DEV_PLUS_VID_NO_PAD
-	vconfig add $ifname $vlan > /dev/null
-	vif="$ifname.$vlan"
+        vif="$ifname.$vlan"
+        ip link add dev $vif link $ifname type vlan id $vlan
     fi
     ip link set $vif up
     echo "$vif"

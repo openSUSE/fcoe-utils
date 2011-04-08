@@ -607,7 +607,7 @@ static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
 
 	fd = socket(PF_INET, SOCK_DGRAM, 0);
 
-	if (fd <= 0) {
+	if (fd < 0) {
 		FCM_LOG_ERR(errno, "open vlan query socket error");
 		return;
 	}

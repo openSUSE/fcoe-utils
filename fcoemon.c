@@ -472,6 +472,7 @@ static int fcm_link_init(void)
 	rc = bind(fd, (struct sockaddr *)&l_local, sizeof(l_local));
 	if (rc == -1) {
 		FCM_LOG_ERR(errno, "bind error");
+		close(fd);
 		return rc;
 	}
 	fcm_link_socket = fd;
@@ -1255,8 +1256,10 @@ static void fcm_dcbd_retry_timeout(void *arg)
 static void fcm_dcbd_disconnect(void)
 {
 	if (fcm_clif != NULL && fcm_clif->cl_local.sun_path[0] != '\0') {
-		if (fcm_clif->cl_fd >= 0)
+		if (fcm_clif->cl_fd >= 0) {
 			sa_select_rem_fd(fcm_clif->cl_fd);
+			close(fcm_clif->cl_fd);
+		}
 		unlink(fcm_clif->cl_local.sun_path);
 		fcm_clif->cl_local.sun_path[0] = '\0';
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */

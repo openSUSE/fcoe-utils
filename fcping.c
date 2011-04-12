@@ -47,14 +47,13 @@
 #include <linux/bsg.h>
 #include "net_types.h"
 #include "fc_types.h"
+#include "fcoe_utils.h"
 typedef uint8_t u8;
 #include <scsi/sg.h>
 #include <scsi/fc/fc_ns.h>
 #include <scsi/fc/fc_gs.h>
 #include <scsi/fc/fc_els.h>
 #include <scsi/scsi_bsg_fc.h>
-
-#include "fcoe_utils.h"
 
 static const char *cmdname;
 

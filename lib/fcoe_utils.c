@@ -161,7 +161,6 @@ int fcoe_checkdir(char *dir)
  */
 char *get_ifname_from_symbolic_name(const char *symbolic_name)
 {
-	int symbolic_name_len = strlen(symbolic_name);
 	char *last_space = strrchr(symbolic_name, ' ');
 
 	if (!last_space || strlen(last_space) == 1)

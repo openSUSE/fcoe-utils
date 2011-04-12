@@ -136,6 +136,28 @@ static void fip_ethhdr(int ifindex, unsigned char *mac, struct ethhdr *eh)
 }
 
 /**
+ * drain_socket - Discard receive packets on a socket
+ */
+static void drain_socket(int s)
+{
+	char buf[4096];
+	struct sockaddr_ll sa;
+	struct iovec iov[] = {
+		{ .iov_base = buf, .iov_len = sizeof(buf), },
+	};
+	struct msghdr msg = {
+		.msg_name = &sa,
+		.msg_namelen = sizeof(sa),
+		.msg_iov = iov,
+		.msg_iovlen = ARRAY_SIZE(iov),
+	};
+
+	while (recvmsg(s, &msg, MSG_DONTWAIT) > 0) {
+		/* Drop the packet */
+	}
+}
+
+/**
  * fip_socket - create and bind a packet socket for FIP
  */
 int fip_socket(int ifindex)
@@ -159,6 +181,13 @@ int fip_socket(int ifindex)
 		close(s);
 		return rc;
 	}
+
+	/*
+	 * Drain the packets that were received between socket and bind. We
+	 * could've received packets not meant for our interface. This can
+	 * interfere with vlan discovery
+	 */
+	drain_socket(s);
 
 	return s;
 }

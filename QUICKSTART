@@ -176,6 +176,7 @@ PROCESS
 
 DEPENDENCIES
 
+* libnl (see DCB section)
 * libhbalinux
 * lldpad v0.9.26 or greater (optional configure flag to build without)
 

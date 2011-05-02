@@ -2320,6 +2320,7 @@ static void fcm_pidfile_create(void)
 		}
 		fclose(fp);
 	}
+	umask(~(S_IRUSR | S_IWUSR));
 	fp = fopen(fcm_pidfile, "w+");
 	if (fp) {
 		fprintf(fp, "%d\n", getpid());

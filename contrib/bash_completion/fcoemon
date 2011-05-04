@@ -1,0 +1,42 @@
+# bash completion for fcoemon
+#
+
+## fcoemon --help
+#Usage: fcoemon
+# [-f|--foreground]
+# [-d|--debug]
+# [-s|--syslog]
+# [-v|--version]
+# [-h|--help]
+
+# This file must be updated with any changes to, or additions to the options.
+
+# Could not get numeric value to work for the --stats interval
+# Considered parsing output of --help to complete options
+
+have fcoemon && _fcoemon_options()
+{
+    local cur prev prev_prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="-f --foreground -d --debug -s --syslog -v --version -h --help"
+
+    case "${cur}" in
+        *)
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+	    return 0
+	    ;;
+    esac
+
+    return 0
+}
+complete -F _fcoemon_options fcoemon
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh

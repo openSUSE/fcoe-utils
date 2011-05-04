@@ -1,0 +1,54 @@
+# bash completion for fcoeadm
+#
+## fcoeadm --help
+#Version 1.0.17
+#Usage: fcoeadm
+# [-c|--create] <ethX>
+# [-d|--destroy] <ethX>
+# [-r|--reset] <ethX>
+# [-S|--Scan] <ethX>
+# [-i|--interface] [<ethX>]
+# [-t|--target] [<ethX>]
+# [-l|--lun] [<ethX>]
+# [-s|--stats] <ethX> [<interval>]
+# [-v|--version]
+# [-h|--help]
+
+# This file must be updated with any changes to, or additions to the options.
+
+# Could not get numeric value to work for the --stats interval
+# Considered parsing output of --help to complete options
+
+have fcoeadm && _fcoeadm_options()
+{
+    local cur prev prev_prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="-c --create -d --destroy -r --reset -i --interface -t --target -l --lun -s --stats -S --Scan -h --help -v --version"
+
+    case "${prev}" in
+        -c|--create|-d|--destroy|-r|--reset|-s|--stats|-S|--Scan|-i|--interface|-t|--target|-l|--lun)
+	    _available_interfaces
+	    return 0
+	    ;;
+    esac
+
+    case "${cur}" in
+        *)
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+	    return 0
+	    ;;
+    esac
+
+    return 0
+}
+complete -F _fcoeadm_options fcoeadm
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh

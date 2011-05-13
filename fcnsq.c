@@ -39,9 +39,9 @@ typedef __u32 u32;
 typedef __u64 u64;
 #include <linux/bsg.h>
 #include <scsi/sg.h>
-#include <scsi/fc/fc_gs.h>
-#include <scsi/fc/fc_ns.h>
-#include <scsi/scsi_bsg_fc.h>
+#include "fc_gs.h"
+#include "fc_ns.h"
+#include "scsi_bsg_fc.h"
 
 static bool quiet = false;
 

@@ -40,8 +40,8 @@ typedef __u32 u32;
 typedef __u64 u64;
 #include <linux/bsg.h>
 #include <scsi/sg.h>
-#include <scsi/fc/fc_els.h>
-#include <scsi/scsi_bsg_fc.h>
+#include "fc_els.h"
+#include "scsi_bsg_fc.h"
 
 #define ntoh24(n) (u32) ((n)[0] << 16 | (n)[1] << 8  | (n)[2])
 #define hton24(h) { (h) >> 16 & 0xff, (h) >> 8 & 0xff, (h) & 0xff }

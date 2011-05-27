@@ -459,6 +459,21 @@ static struct fcoe_port *fcm_find_fcoe_port(char *ifname,
 	return NULL;
 }
 
+static struct fcoe_port *fcm_find_port_by_host(uint16_t host_no)
+{
+	struct fcoe_port *p;
+	char host[FCHOSTBUFLEN];
+
+	snprintf(host, FCHOSTBUFLEN, "host%d", host_no);
+	p = fcoe_config.port;
+	while (p) {
+		if (!strncmp(p->fchost, host, FCHOSTBUFLEN))
+			return p;
+		p = p->next;
+	}
+	return NULL;
+}
+
 static void fcm_fc_event_recv(void *arg)
 {
 	struct nlmsghdr *hp;

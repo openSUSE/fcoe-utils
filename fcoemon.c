@@ -54,6 +54,7 @@
 #include "fcoemon.h"
 #include "fcoe_clif.h"
 #include "fcoe_utils.h"
+#include "hbaapi.h"
 
 #include "fip.h"
 #include "rtnetlink.h"
@@ -122,6 +123,7 @@ struct fcoe_port {
 	int vlan_disc_count;
 	int fip_socket;
 	char fchost[FCHOSTBUFLEN];
+	uint32_t last_fc_event_num;
 };
 
 enum fcoeport_ifname {
@@ -141,6 +143,7 @@ static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_netif_advance(struct fcm_netif *);
 static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
+static void fcp_set_next_action(struct fcoe_port *, enum fcp_action);
 static enum fcoe_status fcm_fcoe_if_action(char *, char *);
 
 struct fcm_clif {
@@ -292,6 +295,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		p->last_action = FCP_DESTROY_IF;
 		p->fip_socket = -1;
 		p->fchost[0] = '\0';
+		p->last_fc_event_num = 0;
 		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
 	}
 
@@ -474,6 +478,35 @@ static struct fcoe_port *fcm_find_port_by_host(uint16_t host_no)
 	return NULL;
 }
 
+static void fcm_fc_event_handler(struct fc_nl_event *fc_event)
+{
+	struct fcoe_port *p = fcm_find_port_by_host(fc_event->host_no);
+
+	if (!p)
+		return;
+
+	switch (fc_event->event_code) {
+	case HBA_EVENT_LIP_RESET_OCCURRED:
+		if (!p->last_fc_event_num &&
+		    fc_event->event_num == p->last_fc_event_num)
+			return;
+
+		if (!p->auto_created && !p->auto_vlan)
+			return;
+
+		p->last_fc_event_num = fc_event->event_num;
+
+		/* find real interface port and re-activate again */
+		p = fcm_find_fcoe_port(p->real_ifname, FCP_CFG_IFNAME);
+		if (p)
+			fcp_set_next_action(p, FCP_ACTIVATE_IF);
+		break;
+	default:
+		FCM_LOG("unsupported fc event:%d for host:%d\n",
+			fc_event->event_code, fc_event->host_no);
+	}
+}
+
 static void fcm_fc_event_recv(void *arg)
 {
 	struct nlmsghdr *hp;
@@ -523,6 +556,7 @@ static void fcm_fc_event_recv(void *arg)
 		FCM_LOG("event_num:%d event_code:%d event_data:%d\n",
 			fc_event->event_num, fc_event->event_code,
 			fc_event->event_data);
+		fcm_fc_event_handler(fc_event);
 	}
 free_buf:
 	free(buf);

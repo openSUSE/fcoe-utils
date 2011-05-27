@@ -121,6 +121,7 @@ struct fcoe_port {
 	struct sa_timer vlan_disc_timer;
 	int vlan_disc_count;
 	int fip_socket;
+	char fchost[FCHOSTBUFLEN];
 };
 
 enum fcoeport_ifname {
@@ -290,6 +291,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		 */
 		p->last_action = FCP_DESTROY_IF;
 		p->fip_socket = -1;
+		p->fchost[0] = '\0';
 		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
 	}
 
@@ -2124,7 +2126,6 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
 	struct fcoe_port *vp;
 	char *ifname = p->ifname;
-	char fchost[FCHOSTBUFLEN];
 	char path[256];
 	enum fcoe_status rc = SUCCESS;
 
@@ -2132,6 +2133,16 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
 		rc = fcm_fcoe_if_action(FCOE_CREATE, ifname);
+		/*
+		 * This call validates that the interface name
+		 * has an active fcoe session by checking for
+		 * the fc_host in sysfs.
+		 */
+		if (fcoe_find_fchost(ifname, p->fchost, FCHOSTBUFLEN))
+			FCM_LOG_DBG("filed to get fchost for %s\n", p->ifname);
+
+		FCM_LOG_DBG("OP: created fchost:%s for %s\n",
+			     p->fchost, p->ifname);
 		break;
 	case FCP_DESTROY_IF:
 		FCM_LOG_DBG("OP: DESTROY %s\n", p->ifname);
@@ -2149,6 +2160,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			break;
 		}
 		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
+		p->fchost[0] = '\0';
 		break;
 	case FCP_ENABLE_IF:
 		FCM_LOG_DBG("OP: ENABLE %s\n", p->ifname);
@@ -2170,33 +2182,26 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		break;
 	case FCP_RESET_IF:
 		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);
-		/*
-		 * This call validates that the interface name
-		 * has an active fcoe session by checking for
-		 * the fc_host in sysfs.
-		 */
-		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
+
+		if (strlen(p->fchost) <= 0)  {
 			fcm_cli_reply(p->sock_reply, ENOFCHOST);
 			return;
 		}
 
-		sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, fchost);
+		sprintf(path, "%s/%s/issue_lip", SYSFS_FCHOST, p->fchost);
+		FCM_LOG_DBG("OP: RESET %s\n", path);
 		rc = fcm_fcoe_if_action(path, "1");
 		break;
 	case FCP_SCAN_IF:
 		FCM_LOG_DBG("OP: SCAN %s\n", p->ifname);
-		/*
-		 * This call validates that the interface name
-		 * has an active fcoe session by checking for
-		 * the fc_host in sysfs.
-		 */
-		if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
+		if (strlen(p->fchost) <= 0)  {
 			fcm_cli_reply(p->sock_reply, ENOFCHOST);
 			return;
 		}
 
 		sprintf(path, "%s/%s/device/scsi_host/%s/scan",
-			SYSFS_FCHOST, fchost, fchost);
+			SYSFS_FCHOST, p->fchost, p->fchost);
+		FCM_LOG_DBG("OP: SCAN %s\n", path);
 		rc = fcm_fcoe_if_action(path, "- - -");
 		break;
 	case FCP_VLAN_DISC:

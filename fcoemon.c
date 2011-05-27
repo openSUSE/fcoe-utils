@@ -48,6 +48,7 @@
 #include <lldpad/clif.h>
 #include <lldpad/lldp_dcbx_cmds.h>
 
+#include "scsi_netlink_fc.h"
 #include "fcoe_utils_version.h"
 #include "fcoemon_utils.h"
 #include "fcoemon.h"
@@ -87,6 +88,9 @@
 
 #define FCM_VLAN_DISC_TIMEOUT	(1000 * 1000)	/* 1 seconds */
 #define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
+
+#define DEF_RX_BUF_SIZE		4096
+
 void fcm_vlan_disc_timeout(void *arg);
 
 /*
@@ -153,6 +157,8 @@ static struct sa_timer fcm_dcbd_timer;
 static void print_errors(int errors);
 
 struct fcm_netif_head fcm_netif_head = TAILQ_HEAD_INITIALIZER(fcm_netif_head);
+
+static int fcm_fc_socket;
 
 static int fcm_link_socket;
 static int fcm_link_seq;
@@ -449,6 +455,87 @@ static struct fcoe_port *fcm_find_fcoe_port(char *ifname,
 		p = p->next;
 	}
 	return NULL;
+}
+
+static void fcm_fc_event_recv(void *arg)
+{
+	struct nlmsghdr *hp;
+	struct fc_nl_event *fc_event;
+	int plen;
+	int rlen;
+	char *buf;
+
+	buf = malloc(DEF_RX_BUF_SIZE);
+
+	if (!buf) {
+		FCM_LOG_ERR(errno, "failed to allocate FC event buffer\n");
+		return;
+	}
+
+	rlen = read(fcm_fc_socket, buf, DEF_RX_BUF_SIZE);
+	if (!rlen)
+		goto free_buf;
+
+	if (rlen < 0) {
+		FCM_LOG_ERR(errno, "fc read error");
+		goto free_buf;
+	}
+
+	hp = (struct nlmsghdr *)buf;
+	for (hp = (struct nlmsghdr *)buf; NLMSG_OK(hp, rlen);
+	     hp = NLMSG_NEXT(hp, rlen)) {
+
+		FCM_LOG("received fc event message %d\n", __LINE__);
+		if (hp->nlmsg_type == NLMSG_DONE)
+			break;
+
+		if (hp->nlmsg_type == NLMSG_ERROR) {
+			FCM_LOG("fc nlmsg error");
+			break;
+		}
+
+		plen = NLMSG_PAYLOAD(hp, 0);
+		fc_event = (struct fc_nl_event *)NLMSG_DATA(hp);
+		if (plen < sizeof(*fc_event)) {
+			FCM_LOG("too short (%d) to be an FC event", rlen);
+			break;
+		}
+		FCM_LOG("seconds:%ld host%d event_datalen:%d\n",
+			fc_event->seconds, fc_event->host_no,
+			fc_event->event_datalen);
+		FCM_LOG("event_num:%d event_code:%d event_data:%d\n",
+			fc_event->event_num, fc_event->event_code,
+			fc_event->event_data);
+	}
+free_buf:
+	free(buf);
+}
+
+static int fcm_fc_events_init(void)
+{
+	int fd, rc;
+	struct sockaddr_nl fc_local;
+
+	fd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_SCSITRANSPORT);
+	if (fd < 0) {
+		FCM_LOG_ERR(errno, "fc socket error");
+		return fd;
+	}
+	memset(&fc_local, 0, sizeof(fc_local));
+	fc_local.nl_family = AF_NETLINK;
+	fc_local.nl_groups = ~0;
+	fc_local.nl_pid = getpid();
+	rc = bind(fd, (struct sockaddr *)&fc_local, sizeof(fc_local));
+	if (rc == -1) {
+		FCM_LOG_ERR(errno, "fc socket bind error");
+		close(fd);
+		return rc;
+	}
+	fcm_fc_socket = fd;
+
+	/* Add a given file descriptor readfds set with its rx handler */
+	sa_select_add_fd(fd, fcm_fc_event_recv, NULL, NULL, NULL);
+	return 0;
 }
 
 static int fcm_link_init(void)
@@ -2714,6 +2801,7 @@ int main(int argc, char **argv)
 	}
 
 	fcm_fcoe_init();
+	fcm_fc_events_init();
 	fcm_link_init();	/* NETLINK_ROUTE protocol */
 	fcm_dcbd_init();
 	fcm_srv_create(&srv_info);

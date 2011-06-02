@@ -2,12 +2,12 @@
 .\"     Title: fcoemon
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 03/23/2011
+.\"      Date: 05/25/2011
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEMON" "8" "03/23/2011" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEMON" "8" "05/25/2011" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -33,9 +33,9 @@ The primary function of \fBfcoemon\fR is to control FCoE instances\&. \fBfcoemon
 .sp
 On startup, \fBfcoemon\fR will create FCoE instances defined by the configuration files (see \fIFILES\fR section below)\&. Since FCoE typically relies on the Data Center Bridging (DCB) capabilities of an Ethernet interface, \fBfcoemon\fR establishes a connection with the LLDP daemon \fBlldpad\fR to query the status of the DCB features on relevant Ethernet interfaces and receive DCB configuration change events\&.
 .sp
-During runtime, \fBfcoemon\fR will monitor network and \fBlldpad\fR events for the relevant Ethernet interfaces and perform appropriate actions (create, destroy, enable, disable) on the FCoE instances\&. \fBfcoemon\fR also privides a client interface via which the \fBfcoeadm\fR utility is able to issue commands\&.
+During runtime, \fBfcoemon\fR will monitor network and \fBlldpad\fR events for the relevant Ethernet interfaces and perform appropriate actions (create, destroy, enable, disable) on the FCoE instances\&. \fBfcoemon\fR also provides a client interface via which the \fBfcoeadm\fR utility is able to issue commands\&.
 .sp
-Instalation of the \fIfcoe\-utils\fR package will set up an \fIfcoe\fR service which will control the execution of the \fBfcoemon\fR daemon\&.
+Installation of the \fIfcoe\-utils\fR package will set up an \fIfcoe\fR service which will control the execution of the \fBfcoemon\fR daemon\&.
 .SH "OPTIONS"
 .PP
 \fB\-f\fR, \fB\-\-foreground\fR
@@ -220,7 +220,7 @@ The App:FCoE DCB feature is not enabled\&.
 The App:FCoE and PFC features are operational AND the priority indicated by App:FCoE is not enabled for PFC\&.
 .RE
 .sp
-Otherwise, the FCoE instance will remain enabled, but certain DCB configurations that may be problematic will generate warning messages in the log\&.
+Otherwise, the FCoE instance will always remain enabled\&.
 .SH "CONFIGURATION"
 .sp
 Once the \fIfcoe\-utils\fR and \fBlldpad\fR packages have been installed and the corresponding services are running, there are a few simple configuration steps required to get an FCoE instance up and running\&. The following assumes that DCB will be required for the interface\&.
@@ -312,7 +312,7 @@ Once these configuration steps have been performed, use \fBfcoeadm\fR to query t
 This is the primary configuration file for the \fBfcoe\fR system service\&. The default options in this file are: \fBDEBUG="no"\fR and \fBUSE_SYSLOG="yes"\fR\&. The former is used to enable debugging messages from the fcoe service script and \fBfcoemon\fR (via the \fB\-\-debug\fR option)\&. The latter is to indicate if the log messages are to be output to the system log (via the \fB\-\-syslog\fR option)\&. \fBSUPPORTED_DRIVERS\fR is the list of drivers to automatically load during fcoe service start\&. Any changes to this file will require a restart of the \fBfcoe\fR service\&.
 .SS "/etc/fcoe/cfg\-<ifname>"
 .sp
-These files are read by \fBfcoemon\fR on initialization\&. They are used to indicate which Ethernet or VLAN interfaces should have FCoE instances created\&. The option values in this file are: \fBFCOE_ENABLE="yes"\fR, \fBDCB_REQUIRED="yes"\fR, and \fBAUTO_VLAN="yes"\fR, though if the variable values are omitted, they default to "no"\&.
+These files are read by \fBfcoemon\fR on initialization\&. They are used to indicate which Ethernet or VLAN interfaces should have FCoE instances created\&. The option values in this file normally are: \fBFCOE_ENABLE="yes"\fR, \fBDCB_REQUIRED="yes"\fR, and \fBAUTO_VLAN="yes"\fR, though if the variable values are omitted, they default to "no"\&.
 .PP
 \fIFCOE_ENABLE\fR
 .RS 4

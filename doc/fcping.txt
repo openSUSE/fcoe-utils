@@ -23,7 +23,7 @@ SYNOPSIS
 
 source = _interface_ | _MAC_ | _WWPN_ | _FC-ID_
 
-target = -F _WWPN_ | -N _WWPN_ | -F _FC-ID_
+target = -P _WWPN_ | -N _WWPN_ | -F _FC-ID_
 
 DESCRIPTION
 -----------

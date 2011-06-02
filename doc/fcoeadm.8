@@ -2,12 +2,12 @@
 .\"     Title: fcoeadm
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 04/29/2010
+.\"      Date: 05/24/2011
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEADM" "8" "04/29/2010" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEADM" "8" "05/24/2011" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -27,6 +27,8 @@ fcoeadm \- The Open\-FCoE Administration Tool
 \fBfcoeadm\fR \-r|\-\-reset \fIethX\fR
 .sp
 \fBfcoeadm\fR \-i|\-\-interface [\fIethX\fR]
+.sp
+\fBfcoeadm\fR \-S|\-\-Scan [\fIethX\fR]
 .sp
 \fBfcoeadm\fR \-t|\-\-target [\fIethX\fR]
 .sp
@@ -63,6 +65,11 @@ Resets the FCoE instance on the specified network interface\&.
 \fB\-i\fR, \fB\-\-interface\fR [\fIethX\fR]
 .RS 4
 Show information about the FCoE instance on the specified network interface, or all FCoE instances if no network interface is specified\&.
+.RE
+.PP
+\fB\-S\fR, \fB\-\-Scan\fR \fIethX\fR
+.RS 4
+Validates that the interface name has an active FCoE session\&.
 .RE
 .PP
 \fB\-t\fR, \fB\-\-target\fR [\fIethX\fR]

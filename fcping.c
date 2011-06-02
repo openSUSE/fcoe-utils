@@ -70,7 +70,7 @@ static void
 fp_usage()
 {
 	fprintf(stderr,
-		"Usage: %s [-fqx] -i <interval> [ -c <count> ] -h <hba> "
+		"Usage: %s [-fqx] [ -i <interval> ] [ -c <count> ] -h <hba> "
 		"[ -s <size> ]\n"
 		"              [ -F <FC-ID> | -P <WWPN> | -N <WWNN>]\n"
 		"  flags:\n"

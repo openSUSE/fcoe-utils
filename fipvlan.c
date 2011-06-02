@@ -398,8 +398,8 @@ static void help(int status)
 		"Usage: %s [ options ] [ network interfaces ]\n"
 		"Options:\n"
 		"  -a, --auto           Auto select Ethernet interfaces\n"
-		"  -c, --create		Create system VLAN devices\n"
-		"  -s, --start		Start FCoE login automatically\n"
+		"  -c, --create         Create system VLAN devices\n"
+		"  -s, --start          Start FCoE login automatically\n"
 		"  -h, --help           Display this help and exit\n"
 		"  -v, --version        Display version information and exit\n",
 		exe);

@@ -345,6 +345,8 @@ int main(int argc, char *argv[])
 			rc = EIGNORE;
 			break;
 		}
+	} else {
+		fcoeadm_help();
 	}
 
 err:

@@ -78,25 +78,20 @@ static enum fcoe_status fcoeadm_clif_request(struct clif_sock_info *clif_info,
 	if (send(clif_info->socket_fd, cmd, cmd_len, 0) < 0)
 		return ENOMONCONN;
 
-	for (;;) {
-		tv.tv_sec = CLIF_CMD_RESPONSE_TIMEOUT;
-		tv.tv_usec = 0;
-		FD_ZERO(&rfds);
-		FD_SET(clif_info->socket_fd, &rfds);
-		ret = select(clif_info->socket_fd + 1, &rfds, NULL, NULL, &tv);
-		if (FD_ISSET(clif_info->socket_fd, &rfds)) {
-			ret = recv(clif_info->socket_fd, reply, *reply_len, 0);
-			if (ret < 0)
-				return EINTERR;
-
-			*reply_len = ret;
-			break;
-		} else {
+	tv.tv_sec = CLIF_CMD_RESPONSE_TIMEOUT;
+	tv.tv_usec = 0;
+	FD_ZERO(&rfds);
+	FD_SET(clif_info->socket_fd, &rfds);
+	ret = select(clif_info->socket_fd + 1, &rfds, NULL, NULL, &tv);
+	if (FD_ISSET(clif_info->socket_fd, &rfds)) {
+		ret = recv(clif_info->socket_fd, reply, *reply_len, 0);
+		if (ret < 0)
 			return EINTERR;
-		}
+		*reply_len = ret;
+		return SUCCESS;
+	} else {
+		return EINTERR;
 	}
-
-	return SUCCESS;
 }
 
 static enum fcoe_status fcoeadm_request(struct clif_sock_info *clif_info,

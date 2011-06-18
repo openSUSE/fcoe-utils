@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2010 Intel Corporation. All rights reserved.
+ * Copyright(c) 2010-2011 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -43,6 +43,7 @@
 #include <netlink/netlink.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
+#include <linux/dcbnl.h>
 
 #include <lldpad/dcb_types.h>
 #include <lldpad/clif.h>
@@ -55,6 +56,7 @@
 #include "fcoe_clif.h"
 #include "fcoe_utils.h"
 #include "hbaapi.h"
+#include "strarr.h"
 
 #include "fip.h"
 #include "rtnetlink.h"
@@ -91,6 +93,11 @@
 #define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
 
 #define DEF_RX_BUF_SIZE		4096
+
+#define NLA_DATA(nla)        ((void *)((char *)(nla) + NLA_HDRLEN))
+#define NLA_NEXT(nla) (struct rtattr *)((char *)nla + NLMSG_ALIGN(nla->rta_len))
+
+#define FCOE_ETH_TYPE	0x8906
 
 void fcm_vlan_disc_timeout(void *arg);
 
@@ -605,7 +612,7 @@ static int fcm_link_init(void)
 	}
 	memset(&l_local, 0, sizeof(l_local));
 	l_local.nl_family = AF_NETLINK;
-	l_local.nl_groups = RTMGRP_LINK;
+	l_local.nl_groups = RTMGRP_LINK | (1 << (RTNLGRP_DCB - 1));
 	l_local.nl_pid = 0;
 	rc = bind(fd, (struct sockaddr *)&l_local, sizeof(l_local));
 	if (rc == -1) {
@@ -944,6 +951,91 @@ static void fcp_action_set(char *ifname, enum fcp_action action)
 	}
 }
 
+/*
+ * Send DCB_CMD_IEEE_GET request for an interface.
+ */
+static void ieee_get_req(struct fcm_netif *ff)
+{
+	int iflen;
+	int rc;
+	int seq;
+	struct {
+		struct nlmsghdr nl;
+		struct dcbmsg dcbmsg;
+		struct rtattr rta;
+		char ifname[IFNAMSIZ];
+	} msg;
+
+	seq = ++fcm_link_seq;
+	if (!seq)
+		seq = ++fcm_link_seq;
+
+	iflen = strlen(ff->ifname);
+	if (iflen >= IFNAMSIZ)
+		iflen = IFNAMSIZ - 1;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.nl.nlmsg_len = NLMSG_ALIGN(sizeof(msg) - sizeof(msg.ifname) +
+				iflen + 1);
+	msg.nl.nlmsg_type = RTM_GETDCB;
+	msg.nl.nlmsg_flags = NLM_F_REQUEST;
+	msg.nl.nlmsg_seq = seq;
+	msg.nl.nlmsg_pid = getpid();
+	msg.dcbmsg.cmd = DCB_CMD_IEEE_GET;
+	msg.dcbmsg.dcb_family = AF_UNSPEC;
+	msg.dcbmsg.dcb_pad = 0;
+	msg.rta.rta_len = NLMSG_ALIGN(NLA_HDRLEN + iflen + 1);
+	msg.rta.rta_type = DCB_ATTR_IFNAME;
+	strncpy(msg.ifname, ff->ifname, iflen);
+	ff->ieee_resp_pending = seq;
+	rc = write(fcm_link_socket, &msg, msg.nl.nlmsg_len);
+	if (rc < 0) {
+		printf("%s: %s: write failed\n", __func__, ff->ifname);
+		ff->ieee_resp_pending = 0;
+	}
+}
+
+/*
+ * clear_ieee_info - Clear IEEE info to unknown values
+ */
+static void clear_ieee_info(struct fcm_netif *ff)
+{
+	ff->ieee_pfc_info = 0;
+	ff->ieee_app_info = 0;
+	ff->dcbx_cap = 0;
+}
+
+STR_ARR(ieee_states, "Unknown", "Out of range",
+	[IEEE_INIT] = "IEEE_INIT",
+	[IEEE_GET_STATE] = "IEEE_GET_STATE",
+	[IEEE_DONE] = "IEEE_DONE",
+);
+
+static void
+ieee_state_set(struct fcm_netif *ff, enum ieee_state new_state)
+{
+	if (ff->ff_operstate != IF_OPER_UP) {
+		ff->ieee_state = IEEE_INIT;
+		return;
+	}
+
+	if (fcoe_config.debug) {
+		FCM_LOG_DEV_DBG(ff, "%s -> %s",
+				getstr(&ieee_states, ff->ieee_state),
+				getstr(&ieee_states, new_state));
+	}
+
+	if (new_state == IEEE_GET_STATE) {
+		ff->ieee_state = new_state;
+		clear_ieee_info(ff);
+		ieee_get_req(ff);
+		return;
+	}
+
+	ff->ieee_state = new_state;
+	ff->ieee_resp_pending = 0;
+}
+
 static struct sa_nameval fcm_dcbd_states[] = FCM_DCBD_STATES;
 
 static void fcm_dcbd_state_set(struct fcm_netif *ff,
@@ -1024,9 +1116,11 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 				 */
 				if (!((t == FCP_REAL_IFNAME) &&
 				      strncmp(p->ifname, p->real_ifname,
-					      IFNAMSIZ)))
+					      IFNAMSIZ))) {
 					fcm_dcbd_state_set(ff,
 							   FCD_GET_DCB_STATE);
+					ieee_state_set(ff, IEEE_GET_STATE);
+				}
 			} else {
 				/* hold off on auto-created VLAN ports until
 				 * VLAN discovery can validate that the setup
@@ -1134,6 +1228,161 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 	}
 }
 
+static struct rtattr *find_nested_attr(struct rtattr *rta, __u16 type)
+{
+	struct rtattr *rta_child;
+
+	rta_child = NLA_DATA(rta);
+	rta = NLA_NEXT(rta);
+
+	for (; rta > rta_child; rta_child = NLA_NEXT(rta_child))
+		if (rta_child->rta_type == type)
+			return rta_child;
+
+	return NULL;
+}
+
+static struct rtattr *find_attr(struct nlmsghdr *nlh, __u16 type)
+{
+	struct rtattr *rta;
+	int len;
+
+	rta = (struct rtattr *)(((char *)NLMSG_DATA(nlh)) +
+		NLMSG_ALIGN(sizeof(struct dcbmsg)));
+	len = NLMSG_PAYLOAD(nlh, 0) - sizeof(struct dcbmsg);
+
+	while (RTA_OK(rta, len)) {
+		if (rta->rta_type == type)
+			return rta;
+
+		rta = RTA_NEXT(rta, len);
+	}
+
+	return NULL;
+}
+
+static int ieee_get_dcbx(struct nlmsghdr *nlh)
+{
+	struct rtattr *rta;
+
+	rta = find_attr(nlh, DCB_ATTR_DCBX);
+	if (!rta)
+		return -EIO;
+
+	return *(__u8 *)NLA_DATA(rta);
+}
+
+static int get_pri_mask_from_ieee(struct rtattr *rta, __u8 dcbx_cap)
+{
+	struct rtattr *rta_parent;
+	struct rtattr *rta_child;
+	int rval;
+	__u8 ieee = dcbx_cap & DCB_CAP_DCBX_VER_IEEE;
+
+	rta_parent = find_nested_attr(rta, DCB_ATTR_IEEE_APP_TABLE);
+	if (!rta_parent)
+		return -EIO;
+
+	rta_child = NLA_DATA(rta_parent);
+	rta_parent = NLA_NEXT(rta_parent);
+
+	rval = 0;
+	for (; rta_parent > rta_child; rta_child = NLA_NEXT(rta_child)) {
+		struct dcb_app *app;
+
+		if (rta_child->rta_type != DCB_ATTR_IEEE_APP)
+			continue;
+
+		app = (struct dcb_app *)NLA_DATA(rta_child);
+		if (app->protocol != FCOE_ETH_TYPE)
+			continue;
+
+		if (ieee) {
+			if (app->selector == IEEE_8021QAZ_APP_SEL_ETHERTYPE)
+				rval |= 1 << app->priority;
+		} else {
+			if (app->selector == DCB_APP_IDTYPE_ETHTYPE)
+				return app->priority;
+		}
+	}
+
+	return rval;
+}
+
+static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
+{
+	struct dcbmsg *d;
+	struct rtattr *rta_parent;
+	struct rtattr *rta_child;
+	struct fcm_netif *ff;
+	int dcbx_cap;
+	int pri_mask;
+	char ifname[IFNAMSIZ];
+
+	d = (struct dcbmsg *)NLMSG_DATA(nlh);
+	if (d->cmd != DCB_CMD_IEEE_GET && d->cmd != DCB_CMD_IEEE_SET) {
+		FCM_LOG("%s: Unexpected command type %d\n", __func__, d->cmd);
+		return;
+	}
+
+	rta_parent = (struct rtattr *)(((char *)d) + NLMSG_ALIGN(sizeof(*d)));
+	if (rta_parent->rta_type != DCB_ATTR_IFNAME) {
+		FCM_LOG("%s: ifname not found\n", __func__);
+		return;
+	}
+
+	strncpy(ifname, NLA_DATA(rta_parent), sizeof(ifname));
+	ff = fcm_netif_lookup_create(ifname);
+	if (!ff) {
+		FCM_LOG("%s: if %s not found or created\n", __func__, ifname);
+		return;
+	}
+
+	dcbx_cap = ieee_get_dcbx(nlh);
+	if (dcbx_cap < 0) {
+		FCM_LOG("%s: %s: ieee_get_dcbx returned %d\n", __func__,
+			ifname, dcbx_cap);
+		return;
+	}
+	ff->dcbx_cap = dcbx_cap;
+	if (!ff->ff_dcb_state)
+		ff->ff_dcb_state = !!(dcbx_cap & DCB_CAP_DCBX_VER_IEEE);
+	if (d->cmd == DCB_CMD_IEEE_SET && !(dcbx_cap & DCB_CAP_DCBX_VER_IEEE)) {
+		FCM_LOG("%s: %s: IEEE msg while not in IEEE mode\n", __func__,
+			ifname);
+	}
+
+	rta_parent = find_attr(nlh, DCB_ATTR_IEEE);
+	if (!rta_parent) {
+		FCM_LOG("%s: %s: No IEEE attr found\n", __func__, ifname);
+		return;
+	}
+
+	rta_child = find_nested_attr(rta_parent, DCB_ATTR_IEEE_PFC);
+	if (!rta_child) {
+		FCM_LOG("%s: %s: IEEE PFC attr not found\n", __func__, ifname);
+		return;
+	}
+
+	struct ieee_pfc *ieee_pfc = (struct ieee_pfc *)NLA_DATA(rta_child);
+
+	ff->ieee_pfc_info = ieee_pfc->pfc_en;
+
+	pri_mask = get_pri_mask_from_ieee(rta_parent, dcbx_cap);
+	if (pri_mask < 0) {
+		FCM_LOG("%s: %s: Error getting pri from IEEE attr\n", __func__,
+			ifname);
+		return;
+	}
+	FCM_LOG_DBG("%s: %s: FCoE pri mask = 0x%02X\n", __func__,
+		    ifname, pri_mask);
+	ff->ieee_app_info = pri_mask;
+
+	if (ff->ieee_state == IEEE_GET_STATE && d->cmd == DCB_CMD_IEEE_GET &&
+	    ff->ieee_resp_pending == nlh->nlmsg_seq)
+		ieee_state_set(ff, IEEE_DONE);
+}
+
 static void fcm_link_recv(void *arg)
 {
 	int rc;
@@ -1188,7 +1437,13 @@ static void fcm_link_recv(void *arg)
 			fcm_process_link_msg(ip, plen, type);
 			break;
 
+		case RTM_GETDCB:
+		case RTM_SETDCB:
+			fcm_process_ieee_msg(hp);
+			break;
+
 		default:
+			FCM_LOG_DBG("%s: Unexpected type %d\n", __func__, type);
 			break;
 		}
 	}
@@ -1485,6 +1740,7 @@ static void fcm_dcbd_rx(void *arg)
 				FCM_LOG("unexpected response code from lldpad: "
 					"len %d buf %s rc %d", len, buf, rc);
 			else if (st != cmd_success &&
+				 st != cmd_not_applicable &&
 				 st != cmd_device_not_found) {
 				FCM_LOG("error response from lldpad: "
 					"error %d len %d %s",
@@ -1677,6 +1933,25 @@ static int dcb_rsp_parser(struct fcm_netif *ff, char *rsp)
 	return 0;
 }
 
+/*
+ * validate_ieee_info - Validation IEEE DCB status for FCoE
+ *
+ * Returns:  FCP_ACTIVATE_IF - if the dcb netif qualifies for an fcoe interface
+ *           FCP_DESTROY_IF - if the dcb netif should not support fcoe interface
+ *           FCP_ERROR - if dcb configuration has errors
+ *           FCP_WAIT - if dcb criteria is inconclusive
+ */
+static enum fcp_action validate_ieee_info(struct fcm_netif *ff)
+{
+	if (ff->ieee_pfc_info & ff->ieee_app_info) {
+		FCM_LOG_DBG("%s: %s: IEEE active and valid\n",
+			__func__, ff->ifname);
+		return FCP_ACTIVATE_IF;
+	}
+	FCM_LOG_DBG("%s: %s: IEEE active and invalid, pfc=0x%x, app=0x%x\n",
+		    __func__, ff->ifname, ff->ieee_pfc_info, ff->ieee_app_info);
+	return FCP_WAIT;
+}
 
 /*
  * validate_dcbd_info - Validating DCBD configuration and status
@@ -1692,6 +1967,8 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 	int dcbon;
 
 	dcbon = ff->ff_dcb_state;
+	if (dcbon && (ff->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
+		return validate_ieee_info(ff);
 
 	/* check if dcb state qualifies to create the fcoe interface */
 	if (dcbon &&
@@ -1803,7 +2080,6 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 	return FCP_WAIT;
 }
 
-
 /*
  * clear_dcbd_info - clear dcbd info to unknown values
  *
@@ -1837,7 +2113,8 @@ static void fcm_dcbd_get_config(struct fcm_netif *ff, char *resp)
 	switch (ff->ff_dcbd_state) {
 	case FCD_GET_DCB_STATE:
 		if (!dcb_rsp_parser(ff, resp)) {
-			if (ff->ff_dcb_state)
+			if (ff->ff_dcb_state &&
+			    !(ff->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
 				fcm_dcbd_state_set(ff, FCD_GET_PFC_CONFIG);
 			else
 				fcm_dcbd_state_set(ff, FCD_DONE);
@@ -1985,7 +2262,10 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		/* the response matches the current pending query */
 		ff->response_pending = 0;
 		if (st != cmd_success) {
-			fcm_dcbd_state_set(ff, FCD_ERROR);
+			if (st == cmd_not_applicable)
+				fcm_dcbd_state_set(ff, FCD_DONE);
+			else
+				fcm_dcbd_state_set(ff, FCD_ERROR);
 			return;
 		}
 	}

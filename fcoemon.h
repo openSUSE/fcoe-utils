@@ -73,6 +73,16 @@ enum fcm_dcbd_state {
    FCD_ERROR,           /* DCB error or port unknown by DCB */
 };
 
+/*
+ * States for IEEE DCB devices.
+ */
+enum ieee_state {
+	IEEE_INIT = 0,	/* Starting state */
+	IEEE_GET_STATE,	/* Getting IEEE DCB state */
+	IEEE_DONE,	/* Received IEEE DCB state */
+	IEEE_ERROR,	/* Error receiving IEEE DCB state */
+};
+
 #define MSG_RBUF sizeof(int)
 struct sock_info {
 	int sock;
@@ -132,6 +142,11 @@ struct fcm_netif {
    TAILQ_ENTRY(fcm_netif) ff_list;          /* list linkage */
    u_int32_t             ff_enabled:1;     /* operational status */
    u_int32_t             ff_dcb_state;     /* DCB feature state */
+   u_int32_t		 dcbx_cap;	   /* DCBX capability */
+   enum ieee_state	 ieee_state;	   /* IEEE state */
+   u_int32_t		 ieee_resp_pending;/* IEEE response pending */
+   u_int32_t		 ieee_pfc_info;	   /* IEEE pfc info */
+   u_int32_t		 ieee_app_info;	   /* IEEE app info */
    struct feature_info   ff_pfc_info;      /* PFC feature info */
    struct feature_info   ff_app_info;      /* App feature info */
    u_int8_t              ff_operstate;     /* RFC 2863 operational status */

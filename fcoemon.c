@@ -2730,10 +2730,17 @@ static void fcm_pidfile_create(void)
 
 	fp = fopen(fcm_pidfile, "r+");
 	if (fp) {
-		sp = fgets(buf, sizeof(buf), fp);
-		pid = atoi(sp);
+		if ((sp = fgets(buf, sizeof(buf), fp)) == NULL) {
+			FCM_LOG("Error reading pid file - exiting\n");
+			exit(1);
+		}
+		if (!sscanf(sp, "%d", &pid)) {
+			FCM_LOG("Error reading pid ('%s') - exiting\n",
+				pid);
+			exit(1);
+		}
 		rc = kill(pid, 0);
-		if (sp && (pid > 0) && !rc) {
+		if (pid > 0 && !rc) {
 			FCM_LOG("Another instance"
 				" (pid %d) is running - exiting\n",
 				pid);

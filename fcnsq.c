@@ -150,7 +150,7 @@ static u16 ct_rjt(u8 reason, u8 explan) {
 }
 
 static u8 ct_rjt_reason(u16 rjt) {
-	return (u8) rjt >> 8;
+	return (u8)(rjt >> 8);
 }
 
 static u8 ct_rjt_explan(u16 rjt) {

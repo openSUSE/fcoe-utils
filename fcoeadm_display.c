@@ -107,11 +107,11 @@ struct sa_nameval port_states[] = {
  * table of /sys port speed strings to HBA-API values.
  */
 struct sa_nameval port_speeds[] = {
-	{ "10 Gbit",        HBA_PORTSPEED_10GBIT },
-	{ "2 Gbit",         HBA_PORTSPEED_2GBIT },
-	{ "1 Gbit",         HBA_PORTSPEED_1GBIT },
-	{ "Not Negotiated", HBA_PORTSPEED_NOT_NEGOTIATED },
 	{ "Unknown",        HBA_PORTSPEED_UNKNOWN },
+	{ "1 Gbit",         HBA_PORTSPEED_1GBIT },
+	{ "2 Gbit",         HBA_PORTSPEED_2GBIT },
+	{ "10 Gbit",        HBA_PORTSPEED_10GBIT },
+	{ "Not Negotiated", HBA_PORTSPEED_NOT_NEGOTIATED },
 	{ NULL, 0 }
 };
 
@@ -134,6 +134,38 @@ sa_enum_decode(char *buf, size_t len,
 			break;
 		}
 	}
+	return buf;
+}
+
+/** sa_enum_decode_speed(buf, len, val)
+ *
+ * @param buf buffer for result (may be used or not).
+ * @param len size of buffer (at least 32 bytes recommended).
+ * @param val value to be decoded into a name.
+ * @returns pointer to name string.  Unknown values are put into buffer in hex.
+ * Uses the port_speeds table to decode speed from value
+ */
+static const char *
+sa_enum_decode_speed(char *buf, size_t buflen,
+		     u_int32_t val)
+{
+	char *prefix = "";
+	ssize_t len = 0;
+	struct sa_nameval *tp = port_speeds;
+	char *cp = buf;
+
+	snprintf(buf, buflen, "Unknown");
+	for (; tp->nv_name != NULL; tp++) {
+		if (tp->nv_val & val) {
+			len = snprintf(cp, buflen, "%s%s", prefix, tp->nv_name);
+			if (len <= 0 || len >= buflen)
+				break;
+			cp += len;
+			buflen -= len;
+			prefix = ", ";
+		}
+	}
+
 	return buf;
 }
 
@@ -290,10 +322,12 @@ static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
 	show_wwn(lp_info->FabricName.wwn);
 	printf("\n");
 
-	sa_enum_decode(buf, len, port_speeds, lp_info->PortSpeed);
+	memset(buf, '\0', len);
+	sa_enum_decode_speed(buf, len, lp_info->PortSpeed);
 	printf("        Speed:             %s\n", buf);
 
-	sa_enum_decode(buf, len, port_speeds, lp_info->PortSupportedSpeed);
+	memset(buf, '\0', len);
+	sa_enum_decode_speed(buf, len, lp_info->PortSupportedSpeed);
 	printf("        Supported Speed:   %s\n", buf);
 
 	printf("        MaxFrameSize:      %d\n",

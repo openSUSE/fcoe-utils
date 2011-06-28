@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright(c) 2010 Intel Corporation. All rights reserved.
+# Copyright(c) 2010-2011 Intel Corporation. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -93,8 +93,7 @@ stop()
 
 	action $"Stopping FCoE initiator service: "
 
-	rm -f /var/run/fcoemon.*
-	rm -f /tmp/fcoemon.dcbd.*
+	rm -f ${PID_FILE}
 	rm -f /var/lock/subsys/fcoe
 }
 
@@ -122,7 +121,7 @@ status()
 	if [ -f /var/lock/subsys/fcoe -a $status -eq 3 ]; then
 		status=2
 	fi
-	if [ -f /var/run/fcoe.pid -a $status -eq 3 ]; then
+	if [ -f ${PID_FILE} -a $status -eq 3 ]; then
 		status=1
 	fi
 	return $status

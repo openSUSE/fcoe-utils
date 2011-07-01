@@ -76,7 +76,7 @@
 
 #define VLAN_DIR                "/proc/net/vlan"
 
-#define CLIF_LOCAL_SUN_PATH     _PATH_TMP "fcoemon.dcbd.%d"
+#define CLIF_LOCAL_SUN_PATH     "%s/%d"
 #define DCBD_CONNECT_TIMEOUT    (10 * 1000 * 1000)	/* 10 seconds */
 #define DCBD_CONNECT_RETRY_TIMEOUT   (1 * 1000 * 1000)	/* 1 seconds */
 #define DCBD_REQ_RETRY_TIMEOUT  (200 * 1000)            /* 0.2 seconds */
@@ -1581,6 +1581,7 @@ static int fcm_dcbd_connect(void)
 	int fd;
 	struct sockaddr_un dest;
 	struct sockaddr_un *lp;
+	socklen_t addrlen;
 
 	ASSERT(fcm_clif->cl_fd < 0);
 	fd = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -1590,10 +1591,13 @@ static int fcm_dcbd_connect(void)
 	}
 
 	lp = &fcm_clif->cl_local;
-	lp->sun_family = PF_UNIX;
-	snprintf(lp->sun_path, sizeof(lp->sun_path),
-		 CLIF_LOCAL_SUN_PATH, getpid());
-	rc = bind(fd, (struct sockaddr *)lp, sizeof(*lp));
+	memset(lp, 0, sizeof(*lp));
+	lp->sun_family = AF_LOCAL;
+	lp->sun_path[0] = '\0';
+	snprintf(&lp->sun_path[1], sizeof(lp->sun_path) - 1,
+		 CLIF_LOCAL_SUN_PATH, LLDP_CLIF_SOCK, getpid());
+	addrlen = sizeof(sa_family_t) + strlen(lp->sun_path + 1) + 1;
+	rc = bind(fd, (struct sockaddr *)lp, addrlen);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "clif bind failed");
 		close(fd);
@@ -1601,13 +1605,14 @@ static int fcm_dcbd_connect(void)
 	}
 
 	memset(&dest, 0, sizeof(dest));
-	dest.sun_family = PF_UNIX;
-	snprintf(dest.sun_path, sizeof(dest.sun_path),
-		 LLDP_CLIF_SOCK);
-	rc = connect(fd, (struct sockaddr *)&dest, sizeof(dest));
+	dest.sun_family = AF_LOCAL;
+	dest.sun_path[0] = '\0';
+	snprintf(&dest.sun_path[1], sizeof(dest.sun_path) - 1,
+		 "%s", LLDP_CLIF_SOCK);
+	addrlen = sizeof(sa_family_t) + strlen(dest.sun_path + 1) + 1;
+	rc = connect(fd, (struct sockaddr *)&dest, addrlen);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "Failed to connect to lldpad");
-		unlink(lp->sun_path);
 		close(fd);
 		return 0;
 	}
@@ -1648,13 +1653,12 @@ static void fcm_dcbd_retry_timeout(void *arg)
 
 static void fcm_dcbd_disconnect(void)
 {
-	if (fcm_clif != NULL && fcm_clif->cl_local.sun_path[0] != '\0') {
+	if (fcm_clif != NULL && fcm_clif->cl_local.sun_path[1] != '\0') {
 		if (fcm_clif->cl_fd >= 0) {
 			sa_select_rem_fd(fcm_clif->cl_fd);
 			close(fcm_clif->cl_fd);
 		}
-		unlink(fcm_clif->cl_local.sun_path);
-		fcm_clif->cl_local.sun_path[0] = '\0';
+		fcm_clif->cl_local.sun_path[1] = '\0';
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;

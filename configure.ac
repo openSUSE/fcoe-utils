@@ -9,7 +9,7 @@ PKG_CHECK_MODULES([HBAAPI], [HBAAPI])
 AC_SUBST([HBAAPI_CFLAGS])
 AC_SUBST([HBAAPI_LIBS])
 
-PKG_CHECK_MODULES([LLDPAD], [lldpad])
+PKG_CHECK_MODULES([LLDPAD], [lldpad >= 0.9.43])
 AC_SUBST([LLDPAD_CFLAGS])
 
 AC_CONFIG_FILES([Makefile fcoe-utils.spec include/fcoe_utils_version.h])

@@ -76,7 +76,6 @@
 
 #define VLAN_DIR                "/proc/net/vlan"
 
-#define CLIF_LOCAL_SUN_PATH     "%s/%d"
 #define DCBD_CONNECT_TIMEOUT    (10 * 1000 * 1000)	/* 10 seconds */
 #define DCBD_CONNECT_RETRY_TIMEOUT   (1 * 1000 * 1000)	/* 1 seconds */
 #define DCBD_REQ_RETRY_TIMEOUT  (200 * 1000)            /* 0.2 seconds */
@@ -1594,10 +1593,7 @@ static int fcm_dcbd_connect(void)
 	memset(lp, 0, sizeof(*lp));
 	lp->sun_family = AF_LOCAL;
 	lp->sun_path[0] = '\0';
-	snprintf(&lp->sun_path[1], sizeof(lp->sun_path) - 1,
-		 CLIF_LOCAL_SUN_PATH, LLDP_CLIF_SOCK, getpid());
-	addrlen = sizeof(sa_family_t) + strlen(lp->sun_path + 1) + 1;
-	rc = bind(fd, (struct sockaddr *)lp, addrlen);
+	rc = bind(fd, (struct sockaddr *)lp, sizeof(sa_family_t));
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "clif bind failed");
 		close(fd);
@@ -1653,12 +1649,11 @@ static void fcm_dcbd_retry_timeout(void *arg)
 
 static void fcm_dcbd_disconnect(void)
 {
-	if (fcm_clif != NULL && fcm_clif->cl_local.sun_path[1] != '\0') {
+	if (fcm_clif) {
 		if (fcm_clif->cl_fd >= 0) {
 			sa_select_rem_fd(fcm_clif->cl_fd);
 			close(fcm_clif->cl_fd);
 		}
-		fcm_clif->cl_local.sun_path[1] = '\0';
 		fcm_clif->cl_fd = -1;	/* mark as disconnected */
 		fcm_clif->cl_busy = 0;
 		fcm_clif->cl_ping_pending = 0;

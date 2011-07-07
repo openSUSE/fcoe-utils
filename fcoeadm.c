@@ -217,12 +217,24 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 'c':
 			cmd = CLIF_CREATE_CMD;
+			/* fall through */
 		case 'd':
 			if (cmd == CLIF_NONE)
 				cmd = CLIF_DESTROY_CMD;
+
+			if (argc > 3) {
+				rc = EBADNUMARGS;
+				break;
+			}
+
+			ifname = optarg;
+			rc = fcoeadm_action(cmd, ifname);
+
+			break;
+
 		case 'r':
-			if (cmd == CLIF_NONE)
-				cmd = CLIF_RESET_CMD;
+			cmd = CLIF_RESET_CMD;
+			/* fall through */
 		case 'S':
 			if (cmd == CLIF_NONE)
 				cmd = CLIF_SCAN_CMD;
@@ -233,7 +245,11 @@ int main(int argc, char *argv[])
 			}
 
 			ifname = optarg;
-			rc = fcoeadm_action(cmd, ifname);
+			rc = fcoe_validate_fcoe_conn(ifname);
+
+			if (!rc)
+				rc = fcoeadm_action(cmd, ifname);
+
 			break;
 
 		case 'i':

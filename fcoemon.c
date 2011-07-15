@@ -2868,6 +2868,10 @@ static enum fcoe_status fcm_cli_destroy(char *ifname,
 	if (p) {
 		if (p->fcoe_enable) {
 			p->fcoe_enable = 0;
+
+			if (p->last_action == FCP_DESTROY_IF)
+				return ENOACTION;
+
 			fcp_set_next_action(p, FCP_DESTROY_IF);
 			p->sock_reply = *r;
 			return SUCCESS;

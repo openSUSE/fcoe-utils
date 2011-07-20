@@ -116,6 +116,7 @@ struct fcoe_port {
 	int dcb_required;
 	int auto_vlan;
 	int auto_created;
+	int ready;
 
 	/* following track data required to manage FCoE interface state */
 	enum fcp_action action;      /* current state */
@@ -303,6 +304,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		p->fchost[0] = '\0';
 		p->last_fc_event_num = 0;
 		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
+		p->ready = 1;
 	}
 
 	return p;
@@ -1201,7 +1203,9 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		fcm_vlan_dev_real_dev(ifname, real_dev);
 		if (strlen(real_dev))
 			strncpy(p->real_ifname, real_dev, strlen(real_dev)+1);
-		update_fcoe_port_state(p, type, operstate, FCP_CFG_IFNAME);
+		if (p->ready)
+			update_fcoe_port_state(p, type, operstate,
+					       FCP_CFG_IFNAME);
 		p->last_msg_type = type;
 	} else {
 		/* the ifname is not a VLAN.  handle the case where it has
@@ -1220,8 +1224,9 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		 */
 		p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
 		while (p) {
-			update_fcoe_port_state(p, type, operstate,
-					       FCP_REAL_IFNAME);
+			if (p->ready)
+				update_fcoe_port_state(p, type, operstate,
+						       FCP_REAL_IFNAME);
 			p = fcm_find_next_fcoe_port(p, ifname);
 		}
 	}
@@ -2479,7 +2484,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
 			while (vp) {
 				if (vp->auto_created) {
-					vp->fcoe_enable = 0;
+					vp->ready = 0;
 					fcp_set_next_action(vp, FCP_DESTROY_IF);
 				}
 				vp = fcm_find_next_fcoe_port(vp, p->ifname);
@@ -2500,8 +2505,10 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			/* disable all the VLANs */
 			vp = fcm_find_fcoe_port(p->ifname, FCP_REAL_IFNAME);
 			while (vp) {
-				if (vp->auto_created)
+				if (vp->auto_created) {
+					vp->ready = 0;
 					fcp_set_next_action(vp, FCP_DISABLE_IF);
+				}
 				vp = fcm_find_next_fcoe_port(vp, p->ifname);
 			}
 			break;
@@ -2768,6 +2775,7 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p) {
+		p->ready = 1;
 		if (!p->fcoe_enable) {
 			p->fcoe_enable = 1;
 			fcp_set_next_action(p, cmd);

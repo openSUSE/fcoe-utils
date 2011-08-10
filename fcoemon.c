@@ -1004,7 +1004,8 @@ static void ieee_get_req(struct fcm_netif *ff)
 	ff->ieee_resp_pending = seq;
 	rc = write(fcm_link_socket, &msg, msg.nl.nlmsg_len);
 	if (rc < 0) {
-		printf("%s: %s: write failed\n", __func__, ff->ifname);
+		FCM_LOG_ERR(errno, "%s: %s: write failed\n", __func__,
+			    ff->ifname);
 		ff->ieee_resp_pending = 0;
 	}
 }

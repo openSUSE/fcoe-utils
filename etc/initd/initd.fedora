@@ -87,6 +87,7 @@ stop()
 	then
 		action "Destroying any active fcoe interface/s"
 		[ "$pid" ] && kill -HUP $pid
+		modprobe -r $SUPPORTED_DRIVERS libfc
 	else
 		[ "$pid" ] && kill -TERM $pid
 	fi

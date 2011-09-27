@@ -478,7 +478,19 @@ fp_find_hba(void)
 			SA_LOG_EXIT("invalid hba name %s", fp_hba);
 		fp_hba_type = FP_HBA_HOST_TYPE;
 	} else if (strstr(fp_hba, ":")) {
-		wwn = fp_parse_wwn(fp_hba, "HBA", 2, 0);
+		if (strlen(fp_hba) == strlen("xx:yy:aa:bb:cc:dd:ee:ff")) {
+			fc_wwn_t wwn1;
+
+			wwn1 = fp_parse_wwn(fp_hba, "HBA", 2, 0);
+			wwn1 &= 0xffff000000000000;
+			wwn = fp_parse_wwn(&fp_hba[6], "HBA", 2, 0);
+			wwn &= 0x0000ffffffffffff;
+			wwn |= wwn1;
+		} else if (strlen(fp_hba) == strlen("aa:bb:cc:dd:ee:ff")) {
+			wwn = fp_parse_wwn(fp_hba, "HBA", 2, 0);
+		} else {
+			SA_LOG_EXIT("invalid WWPN or MAC address %s", fp_hba);
+		}
 		hton64(wwpn.wwn, wwn);
 		fp_hba_type = FP_HBA_WWPN_TYPE;
 	} else {

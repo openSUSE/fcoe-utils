@@ -33,7 +33,7 @@
 
 #define CLIF_PID_FILE _PATH_VARRUN "fcoemon.pid"
 
-#define CLIF_CMD_RESPONSE_TIMEOUT 5
+#define CLIF_CMD_RESPONSE_TIMEOUT 30
 #define MAX_MSGBUF 512
 
 enum clif_action {

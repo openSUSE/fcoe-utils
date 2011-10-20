@@ -843,7 +843,7 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 	       ep->ScsiId.ScsiOSLun);
 
 	printf("        Capacity:           %s\n", capstr);
-	printf("        Capacity in Blocks: %d\n",
+	printf("        Capacity in Blocks: %u\n",
 	       net32_get(&rcap_resp->rc_lba));
 	printf("        Block Size:         %d bytes\n",
 	       net32_get(&rcap_resp->rc_block_len));

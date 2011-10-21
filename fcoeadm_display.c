@@ -33,6 +33,7 @@
 #include <byteswap.h>
 #include <net/if.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "net_types.h"
 #include "fc_types.h"
@@ -715,7 +716,8 @@ show_short_lun_info_header(void)
 
 static void
 show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
-		    struct scsi_rcap10_resp *rcap_resp)
+		    u_int32_t blksize,
+		    u_int64_t lba)
 {
 	struct scsi_inquiry_std *inq = (struct scsi_inquiry_std *)inqbuf;
 	char vendor[10];
@@ -732,8 +734,8 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 	memset(rev, 0, sizeof(rev));
 
 	/* Get device capacity */
-	cap = (u_int64_t) net32_get(&rcap_resp->rc_block_len) *
-		net32_get(&rcap_resp->rc_lba);
+	cap = (u_int64_t)blksize * lba;
+
 	cap_abbr = cap / (1024.0 * 1024.0);
 	abbr = "MB";
 	if (cap_abbr >= 1024) {
@@ -761,7 +763,7 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 	/* Show the LUN info */
 	printf("%10d  %-11s  %10s  %7d     %s %s (rev %s)\n",
 	       ep->ScsiId.ScsiOSLun, ep->ScsiId.OSDeviceName,
-	       capstr, net32_get(&rcap_resp->rc_block_len),
+	       capstr, blksize,
 	       vendor, model, rev);
 }
 
@@ -772,7 +774,8 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 		   HBA_PORTATTRIBUTES *rp_info,
 		   HBA_FCP_SCSI_ENTRY *ep,
 		   char *inqbuf,
-		   struct scsi_rcap10_resp *rcap_resp)
+		   u_int32_t blksize,
+		   u_int64_t lba)
 {
 	struct scsi_inquiry_std *inq = (struct scsi_inquiry_std *)inqbuf;
 	char vendor[10];
@@ -803,8 +806,8 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 			sizeof(inq->is_rev_level));
 
 	/* Get device capacity */
-	cap = (u_int64_t) net32_get(&rcap_resp->rc_block_len) *
-		net32_get(&rcap_resp->rc_lba);
+	cap = (u_int64_t)blksize * lba;
+
 	cap_abbr = cap / (1024.0 * 1024.0);
 	abbr = "MB";
 	if (cap_abbr >= 1024) {
@@ -843,10 +846,8 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 	       ep->ScsiId.ScsiOSLun);
 
 	printf("        Capacity:           %s\n", capstr);
-	printf("        Capacity in Blocks: %u\n",
-	       net32_get(&rcap_resp->rc_lba));
-	printf("        Block Size:         %d bytes\n",
-	       net32_get(&rcap_resp->rc_block_len));
+	printf("        Capacity in Blocks: %" PRIu64 "\n", lba);
+	printf("        Block Size:         %" PRIu32 " bytes\n", blksize);
 	pqual = inq->is_periph & SCSI_INQ_PQUAL_MASK;
 	if (pqual == SCSI_PQUAL_ATT)
 		printf("        Status:             Attached\n");
@@ -969,6 +970,9 @@ scan_device_map(HBA_HANDLE hba_handle,
 	char *dev;
 	char inqbuf[256];
 	struct scsi_rcap10_resp rcap_resp;
+	struct scsi_rcap16_resp rcap16_resp;
+	u_int64_t lba;
+	u_int32_t blksize;
 	int lun_count = 0;
 	int print_header = 0;
 
@@ -1011,17 +1015,42 @@ scan_device_map(HBA_HANDLE hba_handle,
 #endif
 		if (status != HBA_STATUS_OK)
 			continue;
+
+		if (net32_get(&rcap_resp.rc_lba) == 0xFFFFFFFFUL) {
+			/* Issue read capacity (16) */
+#ifdef TEST_HBAAPI_V1
+			status = get_device_capacity_v1(hba_handle, ep,
+							(char *)&rcap16_resp,
+							sizeof(rcap16_resp));
+#else
+			status = get_device_capacity_v2(hba_handle, lp_info,
+							ep, (char *)&rcap16_resp,
+							sizeof(rcap16_resp));
+#endif
+			if (status != HBA_STATUS_OK)
+				continue;
+
+			blksize = net32_get(&rcap16_resp.rc_block_len);
+			lba = (u_int64_t)net64_get(&rcap16_resp.rc_lba);
+		} else {
+			blksize = net32_get(&rcap_resp.rc_block_len);
+			lba = (u_int64_t)net32_get(&rcap_resp.rc_lba);
+		}
+
+		/* Total Number of Blocks */
+		lba = lba + 1;
+
 		switch (style) {
 		case DISP_TARG:
 			if (!print_header) {
 				show_short_lun_info_header();
 				print_header = 1;
 			}
-			show_short_lun_info(ep, inqbuf, &rcap_resp);
+			show_short_lun_info(ep, inqbuf, blksize, lba);
 			break;
 		case DISP_LUN:
 			show_full_lun_info(hba_handle, hba_info, lp_info,
-					   rp_info, ep, inqbuf, &rcap_resp);
+					   rp_info, ep, inqbuf, blksize, lba);
 			break;
 		}
 

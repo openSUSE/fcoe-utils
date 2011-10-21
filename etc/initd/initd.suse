@@ -121,6 +121,10 @@ status()
 	echo -n "Checking status for fcoe service "
 	checkproc -p ${PID_FILE} ${FCOEMON}
 	rc_status -v
+	if [ $? -ne 0 ]; then
+		return;
+	fi
+
 	interfaces=`$FCOEADM -i 2>&1 | \
 		    awk '/Symbolic Name:/{print $6}' | \
 		    sort | awk '{printf("%s ", $1)}'`

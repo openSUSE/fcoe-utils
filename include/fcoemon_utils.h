@@ -39,6 +39,8 @@
 
 #include "fc_types.h"
 
+#define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
+
 void sa_log(const char *format, ...);
 void sa_log_debug(const char *format, ...);
 void sa_log_err(int, const char *func, const char *format, ...);

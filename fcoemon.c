@@ -528,6 +528,58 @@ static void log_nlmsg_error(struct nlmsghdr *hp, int rlen, const char *str)
 	}
 }
 
+static void fcm_fc_event_log(struct fc_nl_event *fe)
+{
+	/* from kernel "include/scsi/scsi_transport_fc.h" */
+	enum fc_host_event_code  {
+		FCH_EVT_LIP                     = 0x1,
+		FCH_EVT_LINKUP                  = 0x2,
+		FCH_EVT_LINKDOWN                = 0x3,
+		FCH_EVT_LIPRESET                = 0x4,
+		FCH_EVT_RSCN                    = 0x5,
+		FCH_EVT_ADAPTER_CHANGE          = 0x103,
+		FCH_EVT_PORT_UNKNOWN            = 0x200,
+		FCH_EVT_PORT_OFFLINE            = 0x201,
+		FCH_EVT_PORT_ONLINE             = 0x202,
+		FCH_EVT_PORT_FABRIC             = 0x204,
+		FCH_EVT_LINK_UNKNOWN            = 0x500,
+		FCH_EVT_VENDOR_UNIQUE           = 0xffff,
+	};
+	/* from kernel "drivers/scsi/scsi_transport_fc.c" */
+	const struct {
+		enum fc_host_event_code         value;
+		char                            *name;
+	} fc_host_event_code_names[] = {
+		{ FCH_EVT_LIP,                  "lip" },
+		{ FCH_EVT_LINKUP,               "link_up" },
+		{ FCH_EVT_LINKDOWN,             "link_down" },
+		{ FCH_EVT_LIPRESET,             "lip_reset" },
+		{ FCH_EVT_RSCN,                 "rscn" },
+		{ FCH_EVT_ADAPTER_CHANGE,       "adapter_chg" },
+		{ FCH_EVT_PORT_UNKNOWN,         "port_unknown" },
+		{ FCH_EVT_PORT_ONLINE,          "port_online" },
+		{ FCH_EVT_PORT_OFFLINE,         "port_offline" },
+		{ FCH_EVT_PORT_FABRIC,          "port_fabric" },
+		{ FCH_EVT_LINK_UNKNOWN,         "link_unknown" },
+		{ FCH_EVT_VENDOR_UNIQUE,        "vendor_unique" },
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fc_host_event_code_names); i++) {
+		if (fe->event_code == fc_host_event_code_names[i].value) {
+			/* only do u32 data even len is not, e.g. vendor */
+			FCM_LOG("FC_HOST_EVENT %d at %lld secs on host%d:"
+				"code %d=%s datalen %d data=%d\n",
+				fe->event_num, fe->seconds,
+				fe->host_no, fe->event_code,
+				fc_host_event_code_names[i].name,
+				fe->event_datalen, fe->event_data);
+			break;
+		}
+	}
+
+}
+
 static void fcm_fc_event_recv(void *arg)
 {
 	struct nlmsghdr *hp;
@@ -556,7 +608,6 @@ static void fcm_fc_event_recv(void *arg)
 	for (hp = (struct nlmsghdr *)buf; NLMSG_OK(hp, rlen);
 	     hp = NLMSG_NEXT(hp, rlen)) {
 
-		FCM_LOG("received fc event message %d\n", __LINE__);
 		if (hp->nlmsg_type == NLMSG_DONE)
 			break;
 
@@ -571,12 +622,7 @@ static void fcm_fc_event_recv(void *arg)
 			FCM_LOG("too short (%d) to be an FC event", rlen);
 			break;
 		}
-		FCM_LOG("seconds:%ld host%d event_datalen:%d\n",
-			fc_event->seconds, fc_event->host_no,
-			fc_event->event_datalen);
-		FCM_LOG("event_num:%d event_code:%d event_data:%d\n",
-			fc_event->event_num, fc_event->event_code,
-			fc_event->event_data);
+		fcm_fc_event_log(fc_event);
 		fcm_fc_event_handler(fc_event);
 	}
 free_buf:

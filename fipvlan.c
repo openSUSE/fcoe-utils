@@ -50,8 +50,6 @@
 #include "fcoe_utils.h"
 #include "rtnetlink.h"
 
-#define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
-
 #define FIP_LOG(...)		sa_log(__VA_ARGS__)
 #define FIP_LOG_ERR(error, ...)	sa_log_err(error, __func__, __VA_ARGS__)
 #define FIP_LOG_ERRNO(...)	sa_log_err(errno, __func__, __VA_ARGS__)

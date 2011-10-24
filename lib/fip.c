@@ -48,8 +48,6 @@
 #define FIP_LOG_ERRNO(...)		sa_log_err(errno, __func__, __VA_ARGS__)
 #define FIP_LOG_DBG(...)		sa_log_debug(__VA_ARGS__)
 
-#define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
-
 static int fip_mac_is_valid(unsigned char *mac)
 {
 	if (0x01 & mac[0])

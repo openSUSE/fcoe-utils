@@ -2895,7 +2895,7 @@ static enum fcoe_status fcm_cli_create(char *ifname,
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p && p->fcoe_enable) {
 		/* no action needed */
-		rc = ENOACTION;
+		rc = EFCOECONN;
 		goto out;
 	}
 	/* re-enable previous VLANs */

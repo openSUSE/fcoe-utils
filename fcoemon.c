@@ -1385,7 +1385,7 @@ static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
 
 	d = (struct dcbmsg *)NLMSG_DATA(nlh);
 	if (d->cmd != DCB_CMD_IEEE_GET && d->cmd != DCB_CMD_IEEE_SET) {
-		FCM_LOG("%s: Unexpected command type %d\n", __func__, d->cmd);
+		FCM_LOG_DBG("%s: Unexpected command type %d\n", __func__, d->cmd);
 		return;
 	}
 

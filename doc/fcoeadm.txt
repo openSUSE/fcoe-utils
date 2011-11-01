@@ -61,17 +61,21 @@ OPTIONS
 	FCoE instance will not require DCB.
 
 *-d*, *--destroy* _ethX_::
-	Destroys the FCoE instance on the specified network interface.
+	Destroys the FCoE instance on the specified network interface. This
+	will not destroy FCoE instances created by fipvlan.
 
 *-r*, *--reset* _ethX_::
-	Resets the FCoE instance on the specified network interface.
+	Resets the FCoE instance on the specified network interface. This
+	will not reset FCoE instances created by fipvlan.
 
 *-i*, *--interface* [_ethX_]::
 	Show information about the FCoE instance on the specified network
 	interface, or all FCoE instances if no network interface is specified.
 
 *-S*, *--Scan* _ethX_::
-	Validates that the interface name has an active FCoE session.
+	Rescan for new targets and LUNs on the provided instance. This
+	command will not rescan any NPIV instances created on the same port.
+	This will not rescan any FCoE instance created by fipvlan.
 
 *-t*, *--target* [_ethX_]::
 	Show information about the discovered targets associated with the

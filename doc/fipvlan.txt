@@ -34,9 +34,10 @@ Initialization Protocol (FIP) VLAN Discovery over Ethernet interfaces.
 *fipvlan* can be used as a diagnostic tool to determine which VLANs have
 FCoE services available on a network, prior to configuring VLAN interfaces
 and the _Open-FCoE_ initiator. *fipvlan* can also be used to create VLAN
-interfaces as the are discovered, and to start the _Open-FCoE_ initiator.
+interfaces as they are discovered, and to start the _Open-FCoE_ initiator.
 The *--create* and *--start* options are primarily intended to be used as
-part of an _Open-FCoE_ boot solution.
+part of an _Open-FCoE_ boot solution. FCoE instances started in this way
+cannot be destroyed or reset by fcoeadm.
 
 *fipvlan* takes a list of network interface names to run the VLAN discovery
 protocol over, or the *--auto* option to use all available Ethernet

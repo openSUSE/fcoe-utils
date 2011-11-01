@@ -2,12 +2,12 @@
 .\"     Title: fipvlan
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 04/01/2010
+.\"      Date: 10/06/2011
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FIPVLAN" "8" "04/01/2010" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FIPVLAN" "8" "10/06/2011" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ fipvlan \- Fibre Channel over Ethernet VLAN Discovery
 \fBfipvlan\fR \-v|\-\-version
 .SH "DESCRIPTION"
 .sp
-The \fBfipvlan\fR command performs Fibre Channel over Ethernet (FCoE) Initialization Protocol (FIP) VLAN Discovery over Ethernet interfaces\&. \fBfipvlan\fR can be used as a diagnostic tool to determine which VLANs have FCoE services available on a network, prior to configuring VLAN interfaces and the \fIOpen\-FCoE\fR initiator\&. \fBfipvlan\fR can also be used to create VLAN interfaces as the are discovered, and to start the \fIOpen\-FCoE\fR initiator\&. The \fB\-\-create\fR and \fB\-\-start\fR options are primarily intended to be used as part of an \fIOpen\-FCoE\fR boot solution\&.
+The \fBfipvlan\fR command performs Fibre Channel over Ethernet (FCoE) Initialization Protocol (FIP) VLAN Discovery over Ethernet interfaces\&. \fBfipvlan\fR can be used as a diagnostic tool to determine which VLANs have FCoE services available on a network, prior to configuring VLAN interfaces and the \fIOpen\-FCoE\fR initiator\&. \fBfipvlan\fR can also be used to create VLAN interfaces as they are discovered, and to start the \fIOpen\-FCoE\fR initiator\&. The \fB\-\-create\fR and \fB\-\-start\fR options are primarily intended to be used as part of an \fIOpen\-FCoE\fR boot solution\&. FCoE instances started in this way cannot be destroyed or reset by fcoeadm\&.
 .sp
 \fBfipvlan\fR takes a list of network interface names to run the VLAN discovery protocol over, or the \fB\-\-auto\fR option to use all available Ethernet interfaces\&.
 .SH "OPTIONS"

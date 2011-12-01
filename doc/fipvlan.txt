@@ -43,6 +43,10 @@ cannot be destroyed or reset by fcoeadm.
 protocol over, or the *--auto* option to use all available Ethernet
 interfaces.
 
+*fipvlan* will enable any interface which is found disabled. If no
+response is received on that interface it will be shutdown again when
+*fipvlan* terminates.
+
 OPTIONS
 -------
 *-a*, *--auto*::

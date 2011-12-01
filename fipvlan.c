@@ -707,6 +707,40 @@ retry:
 		}
 }
 
+void cleanup_interfaces(void)
+{
+	struct iff *iff;
+	int i;
+	int skipped = 0;
+
+	if (config.automode) {
+		TAILQ_FOREACH(iff, &interfaces, list_node) {
+			if (iff->linkup_sent &&
+			    (!iff->running || !iff->req_sent || !iff->resp_recv)) {
+				FIP_LOG_DBG("shutdown if %d",
+					    iff->ifindex);
+				rtnl_set_iff_down(iff->ifindex, NULL);
+				iff->linkup_sent = false;
+			}
+		}
+	} else {
+		for (i = 0; i < config.namec; i++) {
+			iff = lookup_iff(0, config.namev[i]);
+			if (!iff) {
+				skipped++;
+				continue;
+			}
+			if (iff->linkup_sent &&
+			    (!iff->running || !iff->req_sent || !iff->resp_recv)) {
+				FIP_LOG_DBG("shutdown if %d",
+					    iff->ifindex);
+				rtnl_set_iff_down(iff->ifindex, NULL);
+				iff->linkup_sent = false;
+			}
+		}
+	}
+
+}
 /* this is to not require headers from libcap */
 static inline int capget(cap_user_header_t hdrp, cap_user_data_t datap)
 {
@@ -774,6 +808,9 @@ int main(int argc, char **argv)
 	}
 	if (config.start)
 		start_fcoe();
+
+	cleanup_interfaces();
+
 	close(ns);
 ns_err:
 	exit(rc);

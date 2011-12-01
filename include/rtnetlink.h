@@ -25,6 +25,7 @@ typedef int rtnl_handler(struct nlmsghdr *nh, void *arg);
 int rtnl_recv(int s, rtnl_handler *fn, void *arg);
 ssize_t send_getlink_dump(int s);
 int rtnl_set_iff_up(int ifindex, char *ifname);
+int rtnl_set_iff_down(int ifindex, char *ifname);
 int vlan_create(int ifindex, int vid, char *name);
 int rtnl_find_vlan(int ifindex, int vid, char *ifname);
 int rtnl_get_linkname(int ifindex, char *name);

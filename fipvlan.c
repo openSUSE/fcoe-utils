@@ -123,6 +123,7 @@ struct iff {
 	bool running;
 	bool is_vlan;
 	short int vid;
+	bool linkup_sent;
 	bool req_sent;
 	bool resp_recv;
 	TAILQ_ENTRY(iff) list_node;
@@ -610,6 +611,17 @@ int send_vlan_requests(void)
 			if (iff->resp_recv)
 				continue;
 			if (!iff->running) {
+				if (iff->linkup_sent) {
+					FIP_LOG_DBG("if %d not running, "
+						    "waiting for link up",
+						    iff->ifindex);
+				} else {
+					FIP_LOG_DBG("if %d not running, "
+						    "starting",
+						    iff->ifindex);
+					rtnl_set_iff_up(iff->ifindex, NULL);
+					iff->linkup_sent = true;
+				}
 				skipped++;
 				iff->req_sent = false;
 				continue;
@@ -632,6 +644,17 @@ int send_vlan_requests(void)
 			if (iff->resp_recv)
 				continue;
 			if (!iff->running) {
+				if (iff->linkup_sent) {
+					FIP_LOG_DBG("if %d not running, "
+						    "waiting for link up",
+						    iff->ifindex);
+				} else {
+					FIP_LOG_DBG("if %d not running, "
+						    "starting",
+						    iff->ifindex);
+					rtnl_set_iff_up(iff->ifindex, NULL);
+					iff->linkup_sent = true;
+				}
 				skipped++;
 				iff->req_sent = false;
 				continue;

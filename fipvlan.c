@@ -568,14 +568,14 @@ void start_fcoe()
 	}
 }
 
-void print_results()
+int print_results()
 {
 	struct iff *iff;
 	struct fcf *fcf;
 
 	if (TAILQ_EMPTY(&fcfs)) {
 		printf("No Fibre Channel Forwarders Found\n");
-		return;
+		return ENODEV;
 	}
 
 	printf("Fibre Channel Forwarders Discovered\n");
@@ -589,6 +589,8 @@ void print_results()
 		       fcf->mac_addr[3], fcf->mac_addr[4], fcf->mac_addr[5]);
 	}
 	printf("\n");
+
+	return 0;
 }
 
 void recv_loop(int timeout)
@@ -804,8 +806,8 @@ int main(int argc, char **argv)
 
 	do_vlan_discovery();
 
-	print_results();
-	if (config.create) {
+	rc = print_results();
+	if (!rc && config.create) {
 		create_missing_vlans();
 		/*
 		 * need to listen for the RTM_NETLINK messages
@@ -813,7 +815,7 @@ int main(int argc, char **argv)
 		 */
 		recv_loop(500);
 	}
-	if (config.start)
+	if (!rc && config.start)
 		start_fcoe();
 
 	cleanup_interfaces();

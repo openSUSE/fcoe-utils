@@ -21,7 +21,8 @@ SYNOPSIS
 --------
 *fipvlan* [-c|--create] [-s|--start] _interfaces_
 
-*fipvlan* -a|--auto [-c|--create] [-d|--debug] [-s|--start]
+*fipvlan* -a|--auto [-c|--create] [-d|--debug]
+ [-s|--start] [-l|--link-retry _count_]
 
 *fipvlan* -h|--help
 
@@ -65,6 +66,10 @@ OPTIONS
 
 *-f*, *--suffix* _suffix_::
 	Append the specified string _suffix_ to VLAN interface names.
+
+*-l*, *--link-retry* _count_::
+	Retry check for link up to _count_ times. The link state is
+	checked every 500 ms. The default number of retries is 20.
 
 *-h*, *--help*::
 	Display a help message with basic usage instructions

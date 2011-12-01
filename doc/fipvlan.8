@@ -22,7 +22,8 @@ fipvlan \- Fibre Channel over Ethernet VLAN Discovery
 .sp
 \fBfipvlan\fR [\-c|\-\-create] [\-s|\-\-start] \fIinterfaces\fR
 .sp
-\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start]
+\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug]
+[\-s|\-\-start] [\-l|\-\-link-retry <num>]
 .sp
 \fBfipvlan\fR \-h|\-\-help
 .sp
@@ -75,6 +76,12 @@ initiator on discovered FCoE VLANs
 \fB\-f\fR, \fB\-\-suffix \fI<suffix string>\fR
 .RS 4
 Append the specified string \fI<suffix string>\fR to VLAN interface names.
+.RE
+.PP
+\fB\-l\fR, \fB\-\-link-retry \fI<number of retries>\fR
+.RS 4
+Retry check for link up up to \fI<number of retries>\fR times. The
+link state is retried every 500 ms. The default is 20.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

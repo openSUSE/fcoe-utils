@@ -64,6 +64,7 @@ struct {
 	bool create;
 	bool start;
 	bool debug;
+	int link_retry;
 	char suffix[256];
 } config = {
 	.namev = NULL,
@@ -71,6 +72,7 @@ struct {
 	.automode = false,
 	.create = false,
 	.debug = false,
+	.link_retry = 20,
 	.suffix = "",
 };
 
@@ -406,7 +408,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 /* command line arguments */
 
-#define GETOPT_STR "acdf:shv"
+#define GETOPT_STR "acdf:l:shv"
 
 static const struct option long_options[] = {
 	{ "auto", no_argument, NULL, 'a' },
@@ -414,6 +416,7 @@ static const struct option long_options[] = {
 	{ "start", no_argument, NULL, 's' },
 	{ "debug", no_argument, NULL, 'd' },
 	{ "suffix", required_argument, NULL, 'f' },
+	{ "link-retry", required_argument, NULL, 'l' },
 	{ "help", no_argument, NULL, 'h' },
 	{ "version", no_argument, NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
@@ -429,6 +432,7 @@ static void help(int status)
 		"  -d, --debug          Enable debugging output\n"
 		"  -s, --start          Start FCoE login automatically\n"
 		"  -f, --suffix		Append the suffix to VLAN interface name\n"
+		"  -l, --link-retry     Number of retries for link up\n"
 		"  -h, --help           Display this help and exit\n"
 		"  -v, --version        Display version information and exit\n",
 		exe);
@@ -460,6 +464,9 @@ void parse_cmdline(int argc, char **argv)
 		case 'f':
 			if (optarg && strlen(optarg))
 				strncpy(config.suffix, optarg, 256);
+			break;
+		case 'l':
+			config.link_retry = strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 			help(0);
@@ -691,7 +698,7 @@ void do_vlan_discovery(void)
 	int skipped = 0;
 retry:
 	skipped += send_vlan_requests();
-	if (skipped && skip_retry_count++ < 30) {
+	if (skipped && skip_retry_count++ < config.link_retry) {
 		FIP_LOG_DBG("waiting for IFF_RUNNING [%d]\n", skip_retry_count);
 		recv_loop(500);
 		skipped = 0;

@@ -63,11 +63,13 @@ struct {
 	bool automode;
 	bool create;
 	bool start;
+	char suffix[256];
 } config = {
 	.namev = NULL,
 	.namec = 0,
 	.automode = false,
 	.create = false,
+	.suffix = "",
 };
 
 char *exe;
@@ -402,12 +404,13 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 /* command line arguments */
 
-#define GETOPT_STR "acshv"
+#define GETOPT_STR "acf:shv"
 
 static const struct option long_options[] = {
 	{ "auto", no_argument, NULL, 'a' },
 	{ "create", no_argument, NULL, 'c' },
 	{ "start", no_argument, NULL, 's' },
+	{ "suffix", required_argument, NULL, 'f' },
 	{ "help", no_argument, NULL, 'h' },
 	{ "version", no_argument, NULL, 'v' },
 	{ NULL, 0, NULL, 0 }
@@ -421,6 +424,7 @@ static void help(int status)
 		"  -a, --auto           Auto select Ethernet interfaces\n"
 		"  -c, --create         Create system VLAN devices\n"
 		"  -s, --start          Start FCoE login automatically\n"
+		"  -f, --suffix		Append the suffix to VLAN interface name\n"
 		"  -h, --help           Display this help and exit\n"
 		"  -v, --version        Display version information and exit\n",
 		exe);
@@ -445,6 +449,10 @@ void parse_cmdline(int argc, char **argv)
 			break;
 		case 's':
 			config.start = true;
+			break;
+		case 'f':
+			if (optarg && strlen(optarg))
+				strncpy(config.suffix, optarg, 256);
 			break;
 		case 'h':
 			help(0);
@@ -500,8 +508,8 @@ void create_missing_vlans()
 				    real_dev->ifname, fcf->vlan, vlan->ifname);
 			continue;
 		}
-		snprintf(vlan_name, IFNAMSIZ, "%s.%d-fcoe",
-			 real_dev->ifname, fcf->vlan);
+		snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+			 real_dev->ifname, fcf->vlan, config.suffix);
 		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
 		if (rc < 0)
 			printf("Failed to crate VLAN device %s\n\t%s\n",

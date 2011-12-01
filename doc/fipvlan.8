@@ -51,6 +51,11 @@ Start the
 initiator on discovered FCoE VLANs
 .RE
 .PP
+\fB\-f\fR, \fB\-\-suffix \fI<suffix string>\fR
+.RS 4
+Append the specified string \fI<suffix string>\fR to VLAN interface names.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Display a help message with basic usage instructions
@@ -64,7 +69,10 @@ version string
 .RE
 .SH "VLAN NAMING CONVENTIONS"
 .sp
-If a new VLAN device is created, it will have the name \fIdev\fR\&.\fIvlan\fR\-fcoe; where \fIdev\fR is the name of the Ethernet parent device and \fIvlan\fR is the discovered VLAN ID number\&.
+The default VLAN device name is \fIdev\fR\&.\fIvlan\fR; where
+\fIdev\fR is the name of the Ethernet parent device and \fIvlan\fR is
+the discovered VLAN ID number\&. An optional suffix can be appended to
+this with \fI-f\fR commandline option.
 .SH "EXAMPLES"
 .sp
 Display all discoverable VLANs with FCoE services

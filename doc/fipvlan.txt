@@ -56,6 +56,9 @@ OPTIONS
 *-s*, *--start*::
 	Start the _Open-FCoE_ initiator on discovered FCoE VLANs
 
+*-f*, *--suffix* _suffix_::
+	Append the specified string _suffix_ to VLAN interface names.
+
 *-h*, *--help*::
 	Display a help message with basic usage instructions
 
@@ -64,9 +67,11 @@ OPTIONS
 
 VLAN NAMING CONVENTIONS
 -----------------------
-If a new VLAN device is created, it will have the name _dev_._vlan_-fcoe;
+If a new VLAN device is created, it will have the name _dev_._vlan_;
 where _dev_ is the name of the Ethernet parent device and _vlan_ is the
-discovered VLAN ID number.
+discovered VLAN ID number. An optional suffix may be appended to this
+with the the *-f* command line option.
+
 
 EXAMPLES
 --------
@@ -80,7 +85,7 @@ _Open-FCoE_ initiator
 	fipvlan --create --start eth2
 
 In this example if FCoE services were available on VLAN 101 of network
-interface eth2, then a VLAN interface eth2.101-fcoe would be created and
+interface eth2, then a VLAN interface eth2.101 would be created and
 used as the parent device for the initiator.
 
 SEE ALSO

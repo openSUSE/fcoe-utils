@@ -22,7 +22,7 @@ fipvlan \- Fibre Channel over Ethernet VLAN Discovery
 .sp
 \fBfipvlan\fR [\-c|\-\-create] [\-s|\-\-start] \fIinterfaces\fR
 .sp
-\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-s|\-\-start]
+\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start]
 .sp
 \fBfipvlan\fR \-h|\-\-help
 .sp
@@ -42,6 +42,11 @@ Use all Ethernet interfaces currently available
 \fB\-c\fR, \fB\-\-create\fR
 .RS 4
 Create network interfaces for discovered FCoE VLANs\&. If a VLAN device already exists for a discovered VLAN, a new VLAN device will not be created\&.
+.RE
+.PP
+\fB\-d\fR, \fB\-\-debug\fR
+.RS 4
+Enable debugging output
 .RE
 .PP
 \fB\-s\fR, \fB\-\-start\fR

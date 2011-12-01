@@ -21,7 +21,7 @@ SYNOPSIS
 --------
 *fipvlan* [-c|--create] [-s|--start] _interfaces_
 
-*fipvlan* -a|--auto [-c|--create] [-s|--start]
+*fipvlan* -a|--auto [-c|--create] [-d|--debug] [-s|--start]
 
 *fipvlan* -h|--help
 
@@ -52,6 +52,9 @@ OPTIONS
 	Create network interfaces for discovered FCoE VLANs. If a VLAN
 	device already exists for a discovered VLAN, a new VLAN device will
 	not be created.
+
+*-d*, *--debug*::
+	Enable debugging output
 
 *-s*, *--start*::
 	Start the _Open-FCoE_ initiator on discovered FCoE VLANs

@@ -63,12 +63,14 @@ struct {
 	bool automode;
 	bool create;
 	bool start;
+	bool debug;
 	char suffix[256];
 } config = {
 	.namev = NULL,
 	.namec = 0,
 	.automode = false,
 	.create = false,
+	.debug = false,
 	.suffix = "",
 };
 
@@ -329,8 +331,8 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	int origdev = 1;
 	bool running;
 
-	FIP_LOG_DBG("RTM_NEWLINK: ifindex %d, type %d",
-		    ifm->ifi_index, ifm->ifi_type);
+	FIP_LOG_DBG("RTM_NEWLINK: ifindex %d, type %d, flags %x",
+		    ifm->ifi_index, ifm->ifi_type, ifm->ifi_flags);
 
 	/* We only deal with Ethernet interfaces */
 	if (ifm->ifi_type != ARPHRD_ETHER)
@@ -404,12 +406,13 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 /* command line arguments */
 
-#define GETOPT_STR "acf:shv"
+#define GETOPT_STR "acdf:shv"
 
 static const struct option long_options[] = {
 	{ "auto", no_argument, NULL, 'a' },
 	{ "create", no_argument, NULL, 'c' },
 	{ "start", no_argument, NULL, 's' },
+	{ "debug", no_argument, NULL, 'd' },
 	{ "suffix", required_argument, NULL, 'f' },
 	{ "help", no_argument, NULL, 'h' },
 	{ "version", no_argument, NULL, 'v' },
@@ -423,6 +426,7 @@ static void help(int status)
 		"Options:\n"
 		"  -a, --auto           Auto select Ethernet interfaces\n"
 		"  -c, --create         Create system VLAN devices\n"
+		"  -d, --debug          Enable debugging output\n"
 		"  -s, --start          Start FCoE login automatically\n"
 		"  -f, --suffix		Append the suffix to VLAN interface name\n"
 		"  -h, --help           Display this help and exit\n"
@@ -446,6 +450,9 @@ void parse_cmdline(int argc, char **argv)
 			break;
 		case 'c':
 			config.create = true;
+			break;
+		case 'd':
+			config.debug = true;
 			break;
 		case 's':
 			config.start = true;
@@ -733,7 +740,7 @@ int main(int argc, char **argv)
 	parse_cmdline(argc, argv);
 	sa_log_prefix = exe;
 	sa_log_flags = 0;
-	enable_debug_log(0);
+	enable_debug_log(config.debug);
 
 	if (checkcaps()) {
 		FIP_LOG("must run as root or with the NET_RAW capability");

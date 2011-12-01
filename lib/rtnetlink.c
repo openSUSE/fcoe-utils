@@ -481,13 +481,22 @@ int rtnl_get_sanmac(const char *ifname, unsigned char *addr)
 		goto err_close;
 	}
 
+	if (nh->nlmsg_type != RTM_GETDCB) {
+		RTNL_LOG_DBG("Ignoring netlink msg %x\n", nh->nlmsg_type);
+		rc = -EIO;
+		goto err_close;
+	}
 	dcb = (struct dcbmsg *)NLMSG_DATA(nh);
+	if (dcb->cmd != DCB_CMD_GPERM_HWADDR) {
+		RTNL_LOG_DBG("Unexpected response for DCB command %x\n",
+			     dcb->cmd);
+		rc = -EIO;
+		goto err_close;
+	}
 	rta = (struct rtattr *)(((char *)dcb) +
 	      NLMSG_ALIGN(sizeof(struct dcbmsg)));
-	if ((nh->nlmsg_type != RTM_GETDCB) ||
-	    (dcb->cmd != DCB_CMD_GPERM_HWADDR) ||
-	    (rta->rta_type != DCB_ATTR_PERM_HWADDR)) {
-		RTNL_LOG_DBG("Unexpected netlink response for GPERM_HWADDR\n");
+	if (rta->rta_type != DCB_ATTR_PERM_HWADDR) {
+		RTNL_LOG_DBG("Unexpected DCB RTA attr %x\n", rta->rta_type);
 		rc = -EIO;
 		goto err_close;
 	}

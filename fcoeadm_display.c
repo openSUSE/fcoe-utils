@@ -737,18 +737,18 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 	cap = (u_int64_t)blksize * lba;
 
 	cap_abbr = cap / (1024.0 * 1024.0);
-	abbr = "MB";
+	abbr = "MiB";
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "GB";
+		abbr = "GiB";
 	}
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "TB";
+		abbr = "TiB";
 	}
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "PB";
+		abbr = "PiB";
 	}
 	snprintf(capstr, sizeof(capstr), "%0.2f %s", cap_abbr, abbr);
 
@@ -809,18 +809,18 @@ show_full_lun_info(HBA_HANDLE hba_handle,
 	cap = (u_int64_t)blksize * lba;
 
 	cap_abbr = cap / (1024.0 * 1024.0);
-	abbr = "MB";
+	abbr = "MiB";
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "GB";
+		abbr = "GiB";
 	}
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "TB";
+		abbr = "TiB";
 	}
 	if (cap_abbr >= 1024) {
 		cap_abbr /= 1024.0;
-		abbr = "PB";
+		abbr = "PiB";
 	}
 	snprintf(capstr, sizeof(capstr), "%0.2f %s", cap_abbr, abbr);
 

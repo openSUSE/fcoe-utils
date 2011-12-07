@@ -19,6 +19,22 @@
 # Could not get numeric value to work for the --stats interval
 # Considered parsing output of --help to complete options
 
+have fcoeadm && _available_fcoe_interfaces()
+{
+    if [ "${1:-}" = -a ]; then
+        # list only devices that are up
+        COMPREPLY=( $( for f in /sys/class/net/* ; do if grep -q up $f/operstate ; then echo ${f##*/} ; fi ; done 2>/dev/null ))
+    else
+        # list all devices
+        COMPREPLY=( $( for f in /sys/class/net/* ; do  echo ${f##*/} ; done 2>/dev/null ))
+    fi
+
+    COMPREPLY=( $( compgen -W '${COMPREPLY[@]/%[[:punct:]]/}' -- "$cur" ) )
+}
+
+
+
+
 have fcoeadm && _fcoeadm_options()
 {
     local cur prev prev_prev opts
@@ -29,7 +45,8 @@ have fcoeadm && _fcoeadm_options()
 
     case "${prev}" in
         -c|--create|-d|--destroy|-r|--reset|-s|--stats|-S|--Scan|-i|--interface|-t|--target|-l|--lun)
-	    _available_interfaces
+	    # only show interfaces that are up
+	    _available_fcoe_interfaces -a
 	    return 0
 	    ;;
     esac

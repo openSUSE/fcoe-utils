@@ -2921,9 +2921,9 @@ static enum fcoe_status fcm_cli_create(char *ifname,
 		goto out;
 
 	rc = SUCCESS;
+	p->sock_reply = *r;
 
 out:
-	p->sock_reply = *r;
 	return rc;
 }
 

@@ -36,6 +36,12 @@ system_info()
 {
 	echo -e "\n###System Info###"
 
+	echo -e "#date"
+	date
+
+	echo -e "#ps axf"
+	ps axf
+
 	echo -e "#lsscsi"
 	lsscsi
 

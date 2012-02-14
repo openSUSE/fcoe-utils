@@ -57,14 +57,26 @@ typedef uint8_t u8;
 
 static const char *cmdname;
 
-#define FC_MAX_PAYLOAD  (2112UL - sizeof(net32_t))
+#define FC_MAX_PAYLOAD  2112UL	/* Max FC payload */
 #define MAX_SENSE_LEN	96	/* SCSI_SENSE_BUFFERSIZE */
 #define MAX_HBA_COUNT	128
+/* FC ELS ECHO Command takes 4 bytes */
+#define FP_LEN_ECHO	sizeof(net32_t)
+/* default max ping data length, excluding 4 bytes of ELS ECHO command */
+#define FP_LEN_MAX	(FC_MAX_PAYLOAD - FP_LEN_ECHO)
+#define FP_LEN_MIN	4	/* fcping needs 4 bytes as sequence number */
 #define FP_LEN_DEF	32	/* default ping payload length */
 #define FP_LEN_PAD	32	/* extra length for response */
 #define FP_MIN_INTVL	0.001	/* minimum interval in seconds */
 #define FP_DEF_INTVL	1.000	/* default sending interval in seconds */
 #define SYSFS_HBA_DIR   "/sys/class/net"
+
+/* Check if it is WKA accoriding to FC-FS-3 Rev 1.00 Clause 11 Table 30 */
+#define FCID_IS_WKA(i) ((((i) >= 0xfffc01) && ((i) <= 0xfffcfe)) || \
+			(((i) >= 0xfffff0) && ((i) <= 0xffffff)))
+
+#define FC_WKA_FABRIC_CONTROLLER ((fc_fid_t)0xfffffd)
+#define FC_WKA_DIRECTORY_SERVICE ((fc_fid_t)0xfffffc)
 
 static void
 fp_usage()
@@ -84,7 +96,14 @@ fp_usage()
 		"     -F <FC-ID>:    Destination port ID\n"
 		"     -P <WWPN>:     Destination world-wide port name\n"
 		"     -N <WWNN>:     Destination world-wide node name\n",
-		cmdname, FC_MAX_PAYLOAD);
+		cmdname, FP_LEN_MAX);
+
+	fprintf(stderr, "\nNote that the default maximum FC payload allowed "
+		"is %lu bytes and the default maxmaxium fcping payload, "
+		"i.e., the FC ELS ECHO data, allowed is %lu "
+		"bytes.\n",
+		FC_MAX_PAYLOAD, FP_LEN_MAX);
+
 	exit(1);
 }
 
@@ -92,7 +111,7 @@ static fc_fid_t fp_did;
 static fc_wwn_t fp_port_wwn;
 static fc_wwn_t fp_node_wwn;
 static int fp_count = -1;	/* send indefinitely by default */
-static uint32_t fp_len = FP_LEN_DEF;
+static uint32_t fp_len = FP_LEN_DEF + FP_LEN_ECHO;
 static int fp_flood;			/* send as fast as possible */
 static uint32_t fp_interval = FP_DEF_INTVL * 1000; /* in milliseconds */
 static int fp_quiet;
@@ -107,6 +126,10 @@ static char fp_dev[64];
 static int fp_fd;	/* file descriptor for openfc ioctls */
 static void *fp_buf;	/* sending buffer */
 static int fp_debug;
+
+static HBA_HANDLE hba_handle;
+static HBA_ADAPTERATTRIBUTES hba_attrs;
+static HBA_PORTATTRIBUTES port_attrs;
 
 struct fp_stats {
 	uint32_t fp_tx_frames;
@@ -354,7 +377,7 @@ fp_options(int argc, char *argv[])
 	if (argc <= 1)
 		fp_usage();
 
-	while ((opt = getopt(argc, argv, "c:fi:h:qs:xF:P:N:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:fi:h:qs:xF:P:N:")) != -1) {
 		switch (opt) {
 		case 'c':
 			fp_count = (int) strtoul(optarg, &endptr, 10);
@@ -377,13 +400,18 @@ fp_options(int argc, char *argv[])
 			fp_quiet = 1;
 			break;
 		case 's':
+			/* maximum ECHO data allowed is 2108 */
 			fp_len = strtoul(optarg, &endptr, 0);
-			if (*endptr != '\0' || fp_len > FC_MAX_PAYLOAD)
-				SA_LOG_EXIT("bad size %s max %lu\n",
-					    optarg, FC_MAX_PAYLOAD);
-			if (fp_len < 4)
-				SA_LOG_EXIT("bad size %s min %d\n",
-					    optarg, 4);
+			if (*endptr != '\0' || fp_len > FP_LEN_MAX)
+				SA_LOG_EXIT("Bad size %s for FC ELS ECHO "
+					    "data, max %lu bytes allowed.\n",
+					    optarg, FP_LEN_MAX);
+			if (fp_len < FP_LEN_MIN)
+				SA_LOG_EXIT("Bad size %s for FC ELS ECHO "
+					    "data, min %d bytes allowed.\n",
+					    optarg, FP_LEN_MIN);
+			/* add 4 bytes for the ECHO command */
+			fp_len += FP_LEN_ECHO;
 			break;
 		case 'x':
 			fp_hex = 1;
@@ -416,9 +444,8 @@ fp_options(int argc, char *argv[])
 
 		case '?':
 		default:
-			fprintf(stderr, "FC_MAX_PAYLOAD=%lu\n", FC_MAX_PAYLOAD);
-		fp_usage();	/* exits */
-		break;
+			fp_usage();	/* exits */
+			break;
 		}
 	}
 	argc -= optind;
@@ -445,9 +472,6 @@ fp_find_hba(void)
 {
 	HBA_STATUS retval;
 	HBA_UINT32 hba_cnt;
-	HBA_HANDLE hba_handle = 0;
-	HBA_ADAPTERATTRIBUTES hba_attrs;
-	HBA_PORTATTRIBUTES port_attrs;
 	HBA_UINT32 fcid = 0;
 	struct stat statbuf;
 	char namebuf[1028];
@@ -529,7 +553,6 @@ fp_find_hba(void)
 		if (retval != HBA_STATUS_OK) {
 			SA_LOG("HBA_GetAdapterAttributes"
 			       " failed, retval=%d", retval);
-			HBA_CloseAdapter(hba_handle);
 			continue;
 		}
 
@@ -538,36 +561,27 @@ fp_find_hba(void)
 		if (retval != HBA_STATUS_OK) {
 			SA_LOG("HBA_GetAdapterPortAttributes"
 			       " failed, retval=%d", retval);
-			HBA_CloseAdapter(hba_handle);
 			continue;
 		}
 
 		switch (fp_hba_type) {
 		case FP_HBA_FCID_TYPE:
-			if (port_attrs.PortFcId != fcid) {
-				HBA_CloseAdapter(hba_handle);
+			if (port_attrs.PortFcId != fcid)
 				continue;
-			}
 			break;
 		case FP_HBA_WWPN_TYPE:
-			if (memcmp(&port_attrs.PortWWN, &wwpn, sizeof(wwpn))) {
-				HBA_CloseAdapter(hba_handle);
+			if (memcmp(&port_attrs.PortWWN, &wwpn, sizeof(wwpn)))
 				continue;
-			}
 			break;
 		case FP_HBA_HOST_TYPE:
-			if (!strstr(port_attrs.OSDeviceName, fp_hba)) {
-				HBA_CloseAdapter(hba_handle);
+			if (!strstr(port_attrs.OSDeviceName, fp_hba))
 				continue;
-			}
 			break;
 		default:
 			if (check_symbolic_name_for_interface(
 				    port_attrs.PortSymbolicName,
-				    fp_hba)) {
-				HBA_CloseAdapter(hba_handle);
+				    fp_hba))
 				continue;
-			}
 			break;
 		}
 
@@ -702,6 +716,112 @@ fp_lookup_target()
 		       fp_node_wwn);
 	}
 	return 1;
+}
+
+/*
+ * fp_get_max_data_len - get the maximum ECHO data size by FCID
+ * @fcid: the fcid
+ *
+ * Returns the maximum allowed ECHO data size. The ECHO data plus the 4 bytes
+ * ECHO ELS command is the maximum payload allowed.
+ */
+static uint32_t fp_get_max_data_len(fc_fid_t fcid)
+{
+	HBA_STATUS retval;
+	HBA_PORTATTRIBUTES rport_attrs;
+	int i;
+	uint32_t dlen = 0;
+
+	if (!hba_handle) {
+		SA_LOG("%s: Invalid handle! HBA_OpenAdapter failed?", fp_dev);
+		goto out;
+	}
+
+
+	/* locate targets */
+	for (i = 0; i < port_attrs.NumberofDiscoveredPorts; i++) {
+		retval = HBA_GetDiscoveredPortAttributes(hba_handle, 0, i,
+							 &rport_attrs);
+		if (retval != HBA_STATUS_OK) {
+			SA_LOG("HBA_GetDiscoveredPortAttributes() "
+			       "failed for HBA %s on target index %d, "
+			       "status=%d\n", fp_dev, i, retval);
+			continue;
+		}
+		if (rport_attrs.PortFcId == fcid) {
+			dlen = rport_attrs.PortMaxFrameSize - FP_LEN_ECHO;
+			goto out;
+		}
+
+	}
+
+	/* not found from disovered ports, if it's one of the
+	 * WKA from FC-LS Table 30, use FC_MAX_PAYLOAD */
+	if (FCID_IS_WKA(fcid)) {
+		dlen = FP_LEN_MAX;
+		goto out;
+	}
+	dlen = FP_LEN_DEF;
+out:
+	/* returns maximum allowed ECHO data length, excluding the 4
+	 * bytes ECHO command in the payload */
+	return dlen;
+}
+
+/*
+ * fp_check_data_len - figure out maximum allowed ECHO data size
+ *
+ * From FC-LS 4.2.4, for maximum allowed payload when Login exists
+ *
+ * "If a Login with the destination Nx_Port exists, the ECHO data field size
+ * is limited by 4 less than the smallest Receive Data_Field Size supported by
+ * the destination Nx_Port, the Fabric, and the source Nx_Port for the class
+ * of service being use."
+ *
+ * So, here we figure out the minimum of the source PortMaxFrameSize, the target
+ * PortMaxFraemSize, and the Domain Controller (Fabric) PortMaxFrameSize
+ * (default to be FC_MAX_PAYLOAD). For any FCID that is in FC-LS Table 30 WKA,
+ * use FP_LEN_MAX for ECHO data, i.e., FC_MAX_PAYLOAD - 4.
+ */
+static void fp_check_data_len()
+{
+	fc_fid_t sid;
+	uint32_t slen = 0;
+	uint32_t dlen = 0;
+	uint32_t flen = 0;
+	uint32_t plen = FP_LEN_DEF;
+
+	/* find out maximum payload supported by the fabric */
+	flen = fp_get_max_data_len(FC_WKA_FABRIC_CONTROLLER);
+	if (!flen) {
+		flen = fp_get_max_data_len(FC_WKA_DIRECTORY_SERVICE);
+		if (!flen)
+			flen = FP_LEN_MAX;
+	}
+
+	/* find out maximum payload supported by the target */
+	dlen = fp_get_max_data_len(fp_did);
+	if (!dlen)
+		dlen = FP_LEN_DEF;
+
+	sid = port_attrs.PortFcId;
+	slen = port_attrs.PortMaxFrameSize - FP_LEN_ECHO;
+	plen = MIN(flen, MIN(slen, dlen));
+
+	printf("Maximum ECHO data allowed by the Fabric (0x%06x) : %d bytes.\n"
+	       "Maximum ECHO data allowed by the Source (0x%06x) : %d bytes.\n"
+	       "Maximum ECHO data allowed by the Target (0x%06x) : %d bytes.\n"
+	       "Maximum ECHO data requested from user input (-s) : %lu "
+	       "(default %d) bytes.\n",
+	       FC_WKA_FABRIC_CONTROLLER, flen, sid, slen, fp_did, dlen,
+	       fp_len - FP_LEN_ECHO, FP_LEN_DEF);
+
+	/* fp_len is the total payload, including 4 bytes for ECHO command */
+	fp_len = MIN(fp_len, plen + FP_LEN_ECHO);
+	printf("Actual FC ELS ECHO data size used : %lu bytes.\n"
+	       "Actual FC ELS ECHO payload size used : %d bytes "
+	       "(including %ld bytes ECHO command).\n",
+	       fp_len - FP_LEN_ECHO, fp_len, FP_LEN_ECHO);
 }
 
 /*
@@ -901,7 +1021,9 @@ static void fp_start(void)
 	sigaction(SIGQUIT, &act, NULL);		/* Signal 3: Ctrl-\ */
 	sigaction(SIGINT,  &act, NULL);		/* Signal 2: Ctrl-C */
 
-	printf("sending echo to 0x%X\n", fp_did);
+	printf("Sending FC ELS ECHO from 0x%X (%s) to 0x%X:\n",
+	       port_attrs.PortFcId, fp_dev, fp_did);
+
 	for (i = 0; fp_count == -1 || i < fp_count; i++) {
 		rc = fp_send_ping();
 		if (rc != 0 && errno == EMSGSIZE)
@@ -928,6 +1050,7 @@ int main(int argc, char *argv[])
 	if (HBA_LoadLibrary() != HBA_STATUS_OK)
 		SA_LOG_ERR_EXIT(errno, "HBA_LoadLibrary failed");
 
+	hba_handle = 0;
 	if (fp_find_hba()) {
 		sprintf(bsg_dev, "/dev/bsg/%s", fp_dev);
 		fp_fd = open(bsg_dev, O_RDWR);
@@ -936,6 +1059,7 @@ int main(int argc, char *argv[])
 					"open of %s failed", bsg_dev);
 
 		if (!fp_lookup_target()) {
+			fp_check_data_len();
 			fp_buf_setup();
 			fp_start();
 			fp_report();
@@ -943,6 +1067,9 @@ int main(int argc, char *argv[])
 		}
 		close(fp_fd);
 	}
+
+	if (hba_handle)
+		HBA_CloseAdapter(hba_handle);
 
 	HBA_FreeLibrary();
 	return rc;

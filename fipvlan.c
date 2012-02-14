@@ -163,14 +163,21 @@ struct fcf *lookup_fcf(int ifindex, uint16_t vlan, unsigned char *mac)
 struct iff *lookup_iff(int ifindex, char *ifname)
 {
 	struct iff *iff;
+	struct iff *vlan;
 
 	if (!ifindex && !ifname)
 		return NULL;
 
-	TAILQ_FOREACH(iff, &interfaces, list_node)
+	TAILQ_FOREACH(iff, &interfaces, list_node) {
 		if ((!ifindex || ifindex == iff->ifindex) &&
 		    (!ifname  || strcmp(ifname, iff->ifname) == 0))
 			return iff;
+
+		TAILQ_FOREACH(vlan, &iff->vlans, list_node)
+			if ((!ifindex || ifindex == vlan->ifindex) &&
+			    (!ifname  || strcmp(ifname, vlan->ifname) == 0))
+				return vlan;
+	}
 	return NULL;
 }
 
@@ -389,7 +396,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 				return;
 			}
 			TAILQ_INSERT_TAIL(&real_dev->vlans, iff, list_node);
-			return;
+			goto add_vlan;
 		}
 		/* ignore bonding interfaces */
 		if (linkinfo[IFLA_INFO_KIND] &&
@@ -398,12 +405,13 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 			return;
 		}
 	}
+	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
+add_vlan:
 	iff->ps = fip_socket(iff->ifindex);
 	setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
 		   &origdev, sizeof(origdev));
 	if (iff->running)
 		pfd_add(iff->ps);
-	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
 }
 
 /* command line arguments */

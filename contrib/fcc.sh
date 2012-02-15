@@ -22,6 +22,7 @@
 VERSION="fcc v1.0.13 11/10/2010"
 
 fcoe_dir=/sys/module/fcoe
+fcoe_lib_dir=/sys/module/libfcoe
 fdir=/sys/class/fc_host
 sdir=/sys/class/scsi_host
 cmdname=`basename $0`
@@ -348,7 +349,7 @@ repeat() {
 fcoe_ctl() {
 	local cmd=$1
 	local hba=$2
-	local file=$fcoe_dir/parameters/$cmd
+	local file=$fcoe_lib_dir/parameters/$cmd
 
 	if [ -w "$file" ]
 	then
@@ -483,9 +484,9 @@ case "$cmd" in
 		repeat "fcoe_ctl create_vn2vn" $hbas
 		;;
 	delete | del | destroy)
-		if [ ! -d $fcoe_dir ]
+		if [ ! -d $fcoe_lib_dir ]
 		then
-			echo "$cmdname: $fcoe_dir not found" >&2
+			echo "$cmdname: $fcoe_lib_dir not found" >&2
 			exit 2
 		fi
 		hba_required

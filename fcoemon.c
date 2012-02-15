@@ -2891,6 +2891,15 @@ static enum fcoe_status fcm_cli_create(char *ifname,
 {
 	struct fcoe_port *p, *vp;
 	enum fcoe_status rc = EFAIL;
+	char fchost[FCHOSTBUFLEN];
+
+	/* existing fchost already? e.g., from fipvlan -cs */
+	if (!fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
+		FCM_LOG_DBG("Existing fchost %s found for %s\n",
+			    fchost, ifname);
+		rc = EFCOECONN;
+		goto out;
+	}
 
 	p = fcm_find_fcoe_port(ifname, FCP_CFG_IFNAME);
 	if (p && p->fcoe_enable) {

@@ -753,8 +753,17 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 				break;
 			}
 			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
-			vp = fcm_new_vlan(sa->sll_ifindex, vid);
-			vp->dcb_required = p->dcb_required;
+
+			if (vid) {
+				vp = fcm_new_vlan(sa->sll_ifindex, vid);
+				vp->dcb_required = p->dcb_required;
+			} else {
+				/* We received a 0 vlan id. Activate the
+				 * physical port itself
+				 */
+				fcp_set_next_action(p, FCP_ACTIVATE_IF);
+				p->auto_vlan = 0;
+			}
 			desc_mask |= VALID_VLAN;
 			break;
 		default:

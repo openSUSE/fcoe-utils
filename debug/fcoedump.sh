@@ -103,8 +103,17 @@ dcb_info()
 	echo -e "#tc config"
 	tc qdisc
 	tc filter show dev $PHYSDEV | grep -v filter
-	echo -e "#service lldpad status:"
+
+	## Intentionally allow both services status to show
+	## even though they should be mutually exclusive. If
+	## you see both in a dump you know there's a problem.
+	[ -f /etc/init.d/boot.lldpad ] &&
+	echo -e "#service boot.lldpad status:" &&
+	service boot.lldpad status
+	[ -f /etc/init.d/lldpad ] &&
+	echo -e "#service lldpad status:" &&
 	service lldpad status
+
 	echo -e "\n########## Showing dcb for $PHYSDEV"
 	dcbtool -v
 	dcbtool gc $PHYSDEV dcb
@@ -137,8 +146,17 @@ dcb_info()
 fcoe_info()
 {
 	echo -e "\n###FCOE Info"
-	echo -e "#service fcoe status"
+
+	## Intentionally allow both services status to show
+	## even though they should be mutually exclusive. If
+	## you see both in a dump you know there's a problem.
+	[ -f /etc/init.d/boot.fcoe ] &&
+	echo -e "#service boot.fcoe status" &&
+	service boot.fcoe status
+	[ -f /etc/init.d/fcoe ] &&
+	echo -e "#service fcoe status" &&
 	service fcoe status
+
 	echo -e "#fcoeadm output "
 	fcoeadm -v
 	echo -e "#fcoeadm -i "

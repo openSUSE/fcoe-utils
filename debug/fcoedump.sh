@@ -97,24 +97,9 @@ adapter_info()
 	ifconfig $PHYSDEV
 }
 
-dcb_info()
+dcbtool_info()
 {
-	echo -e "\n###DCB INFO"
-	echo -e "#tc config"
-	tc qdisc
-	tc filter show dev $PHYSDEV | grep -v filter
-
-	## Intentionally allow both services status to show
-	## even though they should be mutually exclusive. If
-	## you see both in a dump you know there's a problem.
-	[ -f /etc/init.d/boot.lldpad ] &&
-	echo -e "#service boot.lldpad status:" &&
-	service boot.lldpad status
-	[ -f /etc/init.d/lldpad ] &&
-	echo -e "#service lldpad status:" &&
-	service lldpad status
-
-	echo -e "\n########## Showing dcb for $PHYSDEV"
+	echo -e "\n#### Showing dcbtool info for $PHYSDEV"
 	dcbtool -v
 	dcbtool gc $PHYSDEV dcb
 	echo -e "\n########## Getting dcb config for $PHYSDEV"
@@ -141,6 +126,54 @@ dcb_info()
 	dcbtool gp $PHYSDEV app:0
 	echo
 	dcbtool gp $PHYSDEV ll:0
+}
+
+lldptool_info()
+{
+    echo -e "\n#### Showing lldptool info for $PHYSDEV"
+    lldptool -v
+
+    echo -e "\n########## Showing last received TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV -n
+
+    echo -e "\n########## Showing last sent TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV
+
+    echo -e "\n########## Showing configured APP TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV -V APP -c
+
+    echo -e "\n########## Showing configured PFC TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV -V PFC -c
+
+    echo -e "\n########## Showing configured ETS-CFG TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV -V ETS-CFG -c
+
+    echo -e "\n########## Showing configured ETS-REC TLV for $PHYSDEV"
+    lldptool -t -i $PHYSDEV -V ETS-REC -c
+}
+
+dcb_info()
+{
+	echo -e "\n###DCB INFO"
+	echo -e "#tc config"
+	tc qdisc
+	tc filter show dev $PHYSDEV | grep -v filter
+
+	## Intentionally allow both services status to show
+	## even though they should be mutually exclusive. If
+	## you see both in a dump you know there's a problem.
+	[ -f /etc/init.d/boot.lldpad ] &&
+	echo -e "#service boot.lldpad status:" &&
+	service boot.lldpad status
+	[ -f /etc/init.d/lldpad ] &&
+	echo -e "#service lldpad status:" &&
+	service lldpad status
+
+	which dcbtool 2>&1 > /dev/null
+	[ $? -eq 0 ] && dcbtool_info
+
+	which lldptool 2>&1 > /dev/null
+	[ $? -eq 0 ] && lldptool_info
 }
 
 fcoe_info()

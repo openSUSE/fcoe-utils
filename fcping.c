@@ -82,9 +82,8 @@ static void
 fp_usage()
 {
 	fprintf(stderr,
-		"Usage: %s [-fqx] [ -i <interval> ] [ -c <count> ] -h <hba> "
-		"[ -s <size> ]\n"
-		"              [ -F <FC-ID> | -P <WWPN> | -N <WWNN>]\n"
+		"Usage: %s [ -fqx ] [ -i <interval> ] [ -c <count> ] -h <hba> "
+		"[ -s <size> ] { -F <FC-ID> | -P <WWPN> | -N <WWNN> }\n"
 		"  flags:\n"
 		"     -f:            Flood ping\n"
 		"     -q:            Quiet! just print summary\n"

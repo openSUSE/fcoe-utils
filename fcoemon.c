@@ -98,6 +98,8 @@
 
 #define FCOE_ETH_TYPE	0x8906
 
+static sigset_t block_sigset;
+
 void fcm_vlan_disc_timeout(void *arg);
 
 /*
@@ -321,6 +323,8 @@ static int fcm_read_config_files(void)
 	struct fcoe_port *next = NULL;
 	int rc;
 
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
+
 	dir = opendir(CONFIG_DIR);
 	if (dir == NULL) {
 		FCM_LOG_ERR(errno, "Failed reading directory %s\n", CONFIG_DIR);
@@ -409,6 +413,9 @@ static int fcm_read_config_files(void)
 		}
 	}
 	closedir(dir);
+
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
+
 	return 0;
 }
 
@@ -423,6 +430,9 @@ static struct fcoe_port *fcm_find_next_fcoe_port(struct fcoe_port *p,
 						 char *ifname)
 {
 	struct fcoe_port *np;
+	struct fcoe_port *found_port = NULL;
+
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
 
 	np = fcoe_config.port;
 	while (np) {
@@ -435,19 +445,26 @@ static struct fcoe_port *fcm_find_next_fcoe_port(struct fcoe_port *p,
 		np = np->next;
 
 	while (np) {
-		if (!strncmp(ifname, np->real_ifname, IFNAMSIZ))
-			return np;
+		if (!strncmp(ifname, np->real_ifname, IFNAMSIZ)) {
+			found_port = np;
+			break;
+		}
 		np = np->next;
 	}
 
-	return NULL;
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
+
+	return found_port;
 }
 
 static struct fcoe_port *fcm_find_fcoe_port(char *ifname,
 					    enum fcoeport_ifname t)
 {
 	struct fcoe_port *p;
+	struct fcoe_port *found_port = NULL;
 	char *fp_ifname;
+
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
 
 	p = fcoe_config.port;
 	while (p) {
@@ -461,29 +478,43 @@ static struct fcoe_port *fcm_find_fcoe_port(char *ifname,
 		default:
 			FCM_LOG("unhandled interface type [%d] for %s",
 				t, ifname);
-			return NULL;
+			goto found;
 		}
 
-		if (!strncmp(ifname, fp_ifname, IFNAMSIZ))
-			return p;
+		if (!strncmp(ifname, fp_ifname, IFNAMSIZ)) {
+			found_port = p;
+			goto found;
+		}
+
 		p = p->next;
 	}
-	return NULL;
+
+found:
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
+	return found_port;
 }
 
 static struct fcoe_port *fcm_find_port_by_host(uint16_t host_no)
 {
 	struct fcoe_port *p;
+	struct fcoe_port *found_port = NULL;
 	char host[FCHOSTBUFLEN];
+
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
 
 	snprintf(host, FCHOSTBUFLEN, "host%d", host_no);
 	p = fcoe_config.port;
 	while (p) {
-		if (!strncmp(p->fchost, host, FCHOSTBUFLEN))
-			return p;
+		if (!strncmp(p->fchost, host, FCHOSTBUFLEN)) {
+			found_port = p;
+			break;
+		}
 		p = p->next;
 	}
-	return NULL;
+
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
+
+	return found_port;
 }
 
 static void fcm_fc_event_handler(struct fc_nl_event *fc_event)
@@ -1586,6 +1617,8 @@ static struct fcm_netif *fcm_netif_alloc(char *ifname)
 {
 	struct fcm_netif *ff;
 
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
+
 	ff = calloc(1, sizeof(*ff));
 	if (ff) {
 		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
@@ -1594,6 +1627,9 @@ static struct fcm_netif *fcm_netif_alloc(char *ifname)
 	} else {
 		FCM_LOG_ERR(errno, "failed to allocate fcm_netif");
 	}
+
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
+
 	return ff;
 }
 
@@ -1749,6 +1785,8 @@ static void fcm_cleanup(void)
 	struct fcoe_port *curr, *next;
 	struct fcm_netif *ff, *head;
 
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
+
 	for (curr = fcoe_config.port; curr; curr = next) {
 		FCM_LOG_DBG("OP: DESTROY %s\n", curr->ifname);
 		fcm_fcoe_if_action(FCOE_DESTROY,  curr->ifname);
@@ -1761,6 +1799,8 @@ static void fcm_cleanup(void)
 		TAILQ_REMOVE(&fcm_netif_head, head, ff_list);
 		free(head);
 	}
+
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
 
 	free(fcm_link_buf);
 }
@@ -2790,9 +2830,68 @@ static void fcm_usage(void)
 	exit(1);
 }
 
+static void fcm_dump(void)
+{
+	struct fcoe_port *curr, *next;
+	struct fcm_netif *ff, *head;
+
+	FCM_LOG("*** !!! fcoemon dump begin !!! ***\n");
+
+	FCM_LOG("*** Listing of fcoe_port instances ***\n");
+	for (curr = fcoe_config.port; curr; curr = next) {
+		FCM_LOG("** ifname: %s\n", curr->ifname);
+		FCM_LOG("ifindex: %d\n", curr->ifindex);
+		FCM_LOG("real_ifname: %s\n", curr->real_ifname);
+		FCM_LOG("fcoe_enable: %d\n", curr->fcoe_enable);
+		FCM_LOG("dcb_required: %d\n", curr->dcb_required);
+		FCM_LOG("auto_vlan: %d\n", curr->auto_vlan);
+		FCM_LOG("auto_created: %d\n", curr->auto_created);
+		FCM_LOG("ready: %d\n", curr->ready);
+		FCM_LOG("action: %d\n", curr->action);
+		FCM_LOG("last_action: %d\n", curr->last_action);
+		FCM_LOG("last_msg_type: %d\n", curr->last_msg_type);
+		FCM_LOG("mac: %s\n", curr->mac); //TODO
+		FCM_LOG("vlan_disc_count: %d\n", curr->vlan_disc_count);
+		FCM_LOG("fip_socket: %d\n", curr->fip_socket); //TODO
+		FCM_LOG("fchost: %s\n", curr->fchost);
+		FCM_LOG("last_fc_event_num: %d\n", curr->last_fc_event_num);
+
+		next = curr->next;
+	}
+
+	FCM_LOG("*** Listing of fcm_netif instances ***\n");
+	for (head = TAILQ_FIRST(&fcm_netif_head); head; head = ff) {
+		FCM_LOG("** ifname: %s", head->ifname);
+		FCM_LOG("ff_enabled: %d\n", head->ff_enabled);
+		FCM_LOG("ff_dcb_state: %d\n", head->ff_dcb_state);
+		FCM_LOG("dcbx_cap: %d\n", head->dcbx_cap);
+		FCM_LOG("ieee_state: %d\n", head->ieee_state);
+		FCM_LOG("ieee_resp_pending: %d\n", head->ieee_resp_pending);
+		FCM_LOG("ieee_pfc_info: %d\n", head->ieee_pfc_info);
+		FCM_LOG("ieee_app_info: %d\n", head->ieee_app_info);
+		FCM_LOG("ff_pfc_info: %d\n", head->ff_pfc_info);
+		FCM_LOG("ff_app_info: %d\n", head->ff_app_info);
+		FCM_LOG("ff_operstate: %d\n", head->ff_operstate);
+		FCM_LOG("ff_dcb_state: %d\n", head->ff_dcb_state);
+		FCM_LOG("response_pending: %d\n", head->response_pending);
+		FCM_LOG("dcbd_retry_cnt: %d\n", head->dcbd_retry_cnt);
+
+		ff = TAILQ_NEXT(head, ff_list);
+	}
+
+	FCM_LOG("*** !!! fcoemon dump end !!! ***\n");
+}
+
 static void fcm_sig(int sig)
 {
-	sa_select_exit(sig);
+	switch (sig) {
+	case SIGUSR1:
+		fcm_dump();
+		break;
+	default:
+		sa_select_exit(sig);
+		break;
+	}
 }
 
 static void fcm_pidfile_create(void)
@@ -2877,6 +2976,8 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 	fcp_set_next_action(p, cmd);
 	p->next = NULL;
 
+	sigprocmask(SIG_BLOCK, &block_sigset, NULL);
+
 	if (!fcoe_config.port)
 		fcoe_config.port = p;
 	else {
@@ -2885,6 +2986,8 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 			curr = curr->next;
 		curr->next = p;
 	}
+
+	sigprocmask(SIG_UNBLOCK, &block_sigset, NULL);
 
 	/* check and add the real_ifname to the network interface list */
 	ff = fcm_netif_lookup_create(p->real_ifname);
@@ -3207,6 +3310,16 @@ int main(int argc, char **argv)
 	memset(&sig, 0, sizeof(sig));
 	sig.sa_handler = fcm_sig;
 
+	/*
+	 * SIGUSR1 will walk the fcoe_port and fcm_netif lists,
+	 * therefore we need to disable this interrupt when we
+	 * do any list manipulations. The 'block_sigset' is the
+	 * set of signals that will be blocked before list
+	 * manipulations on either of the aforementioned lists.
+	 */
+	sigemptyset(&block_sigset);
+	sigaddset(&block_sigset, SIGUSR1);
+
 	rc = sigaction(SIGINT, &sig, NULL);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "Failed to register handler for SIGINT");
@@ -3220,6 +3333,11 @@ int main(int argc, char **argv)
 	rc = sigaction(SIGHUP, &sig, NULL);
 	if (rc < 0) {
 		FCM_LOG_ERR(errno, "Failed to register handler for SIGHUP");
+		exit(1);
+	}
+	rc = sigaction(SIGUSR1, &sig, NULL);
+	if (rc < 0) {
+		FCM_LOG_ERR(errno, "Failed to register handler for SIGUSR1");
 		exit(1);
 	}
 	fcm_pidfile_create();

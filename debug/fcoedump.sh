@@ -196,6 +196,11 @@ fcoe_info()
 	fcoeadm -i
 	echo -e "#fcoeadm -t "
 	fcoeadm -t
+
+	# Trigger fcoemon to dump its internal structures
+	# to the log file that we will capture later in
+	# this script.
+	kill -10 `pidof fcoemon`
 }
 
 bsg_info()

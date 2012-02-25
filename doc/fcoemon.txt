@@ -5,7 +5,7 @@
 // page using asciidoc and the DocBook XSL stylesheets.
 //
 // If you are going to update this documentation, please modify this file
-// and then regenerate the nroff formated man page using the Makefile.
+// and then regenerate the nroff formatted man page using the Makefile.
 ///////////////////////////////////////////////////////////////////////////
 
 FCOEMON(8)
@@ -76,7 +76,7 @@ _DCB_::
 _DCBX_::
 	DCB Capabilities Exchange Protocol, implemented by the DCB module
 	of *lldpad*. DCBX exchanges DCB capabilities and configuration with
-	a link partner as a series of values transfered using the Link Layer
+	a link partner as a series of values transferred using the Link Layer
 	Discovery Protocol (LLDP).
 
 _PFC_::

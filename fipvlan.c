@@ -794,6 +794,7 @@ int main(int argc, char **argv)
 {
 	int ns;
 	int rc = 0;
+	int find_cnt = 0;
 
 	exe = strrchr(argv[0], '/');
 	if (exe)
@@ -819,6 +820,10 @@ int main(int argc, char **argv)
 	pfd_add(ns);
 
 	find_interfaces(ns);
+	while ((TAILQ_EMPTY(&interfaces)) && ++find_cnt < 5) {
+		FIP_LOG_DBG("no interfaces found, trying again");
+		find_interfaces(ns);
+	}
 
 	if (TAILQ_EMPTY(&interfaces)) {
 		FIP_LOG_ERR(ENODEV, "no interfaces to perform discovery on");

@@ -392,11 +392,11 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 			parse_vlaninfo(vlan, linkinfo[IFLA_INFO_DATA]);
 			iff->vid = *(int *)RTA_DATA(vlan[IFLA_VLAN_ID]);
 			real_dev = find_vlan_real_dev(iff);
-			if (!real_dev) {
-				FIP_LOG_ERR(ENODEV, "VLAN found without parent");
-				return;
-			}
-			TAILQ_INSERT_TAIL(&real_dev->vlans, iff, list_node);
+			if (real_dev)
+				TAILQ_INSERT_TAIL(&real_dev->vlans,
+						  iff, list_node);
+			else
+				free(iff);
 			return;
 		}
 		/* ignore bonding interfaces */

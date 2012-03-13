@@ -132,6 +132,7 @@ struct iff {
 	bool linkup_sent;
 	bool req_sent;
 	bool resp_recv;
+	bool fip_ready;
 	TAILQ_ENTRY(iff) list_node;
 	struct iff_list_head vlans;
 };
@@ -337,7 +338,6 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 	struct rtattr *linkinfo[__IFLA_INFO_MAX];
 	struct rtattr *vlan[__IFLA_VLAN_MAX];
 	struct iff *iff, *real_dev;
-	int origdev = 1;
 	bool running;
 
 	FIP_LOG_DBG("RTM_NEWLINK: ifindex %d, type %d, flags %x",
@@ -375,6 +375,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 
 	iff->ifindex = ifm->ifi_index;
 	iff->running = running;
+	iff->fip_ready = false;
 	if (ifla[IFLA_LINK])
 		iff->iflink = *(int *)RTA_DATA(ifla[IFLA_LINK]);
 	else
@@ -396,7 +397,7 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 				return;
 			}
 			TAILQ_INSERT_TAIL(&real_dev->vlans, iff, list_node);
-			goto add_vlan;
+			return;
 		}
 		/* ignore bonding interfaces */
 		if (linkinfo[IFLA_INFO_KIND] &&
@@ -406,12 +407,6 @@ void rtnl_recv_newlink(struct nlmsghdr *nh)
 		}
 	}
 	TAILQ_INSERT_TAIL(&interfaces, iff, list_node);
-add_vlan:
-	iff->ps = fip_socket(iff->ifindex);
-	setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
-		   &origdev, sizeof(origdev));
-	if (iff->running)
-		pfd_add(iff->ps);
 }
 
 /* command line arguments */
@@ -637,6 +632,7 @@ int send_vlan_requests(void)
 	struct iff *iff;
 	int i;
 	int skipped = 0;
+	int origdev = 1;
 
 	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node) {
@@ -660,6 +656,14 @@ int send_vlan_requests(void)
 			}
 			if (iff->req_sent)
 				continue;
+
+			if (!iff->fip_ready) {
+				iff->ps = fip_socket(iff->ifindex);
+				setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
+					   &origdev, sizeof(origdev));
+				pfd_add(iff->ps);
+				iff->fip_ready = true;
+			}
 
 			fip_send_vlan_request(iff->ps,
 					      iff->ifindex,
@@ -691,6 +695,15 @@ int send_vlan_requests(void)
 				iff->req_sent = false;
 				continue;
 			}
+
+			if (!iff->fip_ready) {
+				iff->ps = fip_socket(iff->ifindex);
+				setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
+					   &origdev, sizeof(origdev));
+				pfd_add(iff->ps);
+				iff->fip_ready = true;
+			}
+
 			fip_send_vlan_request(iff->ps,
 					      iff->ifindex,
 					      iff->mac_addr);

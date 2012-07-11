@@ -55,6 +55,8 @@
 #define FIP_LOG_ERRNO(...)	sa_log_err(errno, __func__, __VA_ARGS__)
 #define FIP_LOG_DBG(...)	sa_log_debug(__VA_ARGS__)
 
+#define MAX_VLAN_RETRIES	50
+
 /* global configuration */
 
 struct {
@@ -733,7 +735,8 @@ retry:
 	recv_loop(200);
 	TAILQ_FOREACH(iff, &interfaces, list_node)
 		/* if we did not receive a response, retry */
-		if (iff->req_sent && !iff->resp_recv && retry_count++ < 10) {
+		if (iff->req_sent && !iff->resp_recv &&
+		    retry_count++ < MAX_VLAN_RETRIES) {
 			FIP_LOG_DBG("VLAN discovery RETRY [%d]", retry_count);
 			goto retry;
 		}

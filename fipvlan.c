@@ -521,6 +521,15 @@ void create_missing_vlans()
 				    fcf->ifindex);
 			continue;
 		}
+		if (!fcf->vlan) {
+			/*
+			 * If the vlan notification has VLAN id 0,
+			 * skip creating vlan interface, and FCoE is
+			 * started on the physical interface itself.
+			 */
+			FIP_LOG_DBG("VLAN id is 0 for %s\n", real_dev->ifname);
+			continue;
+		}
 		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
 		if (vlan) {
 			FIP_LOG_DBG("VLAN %s.%d already exists as %s",
@@ -562,7 +571,10 @@ void start_fcoe()
 	struct iff *iff;
 
 	TAILQ_FOREACH(fcf, &fcfs, list_node) {
-		iff = lookup_vlan(fcf->ifindex, fcf->vlan);
+		if (fcf->vlan)
+			iff = lookup_vlan(fcf->ifindex, fcf->vlan);
+		else
+			iff = lookup_iff(fcf->ifindex, NULL);
 		if (!iff) {
 			FIP_LOG_ERR(ENODEV,
 				    "Cannot start FCoE on VLAN %d, ifindex %d, "

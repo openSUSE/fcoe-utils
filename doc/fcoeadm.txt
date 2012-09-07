@@ -37,6 +37,8 @@ SYNOPSIS
 
 *fcoeadm* -s|--stats _ethX_ [_interval_]
 
+*fcoeadm* -b|--lesb _ethX_ [_interval_]
+
 *fcoeadm* -h|--help
 
 *fcoeadm* -v|--version
@@ -104,6 +106,14 @@ OPTIONS
 	greater than 0. It specifies the time interval in the unit of
 	seconds. If _interval_ is not specified, the default interval is
 	one second.
+
+*-b*, *--lesb* _ethX_ [_interval_]::
+	Show the Link Error Statistics Block (LESB) of the FCoE connection
+	on the specified network interface. The information will be displayed
+	repeatedly until the user cancels the command. The LESB statistics
+	will be printed every specified _interval_ (in seconds). _interval_
+	should be specified in whole integers greater than 0. If the
+	_interval_ is not specified, a default interval of one second is used.
 
 *-h*, *--help*::
 	Displays the usage message of the *fcoeadm* command.

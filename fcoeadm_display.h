@@ -33,5 +33,7 @@ enum fcoe_status display_target_info(const char *ifname,
 				     enum disp_style style);
 enum fcoe_status display_port_stats(const char *ifname,
 				    int stat_interval);
+enum fcoe_status display_port_lesb_stats(const char *ifname,
+					 int stat_interval);
 
 #endif /* _FCOEADM_DISPLAY_H_ */

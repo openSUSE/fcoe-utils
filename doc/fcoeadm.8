@@ -47,6 +47,8 @@ fcoeadm \- The Open\-FCoE Administration Tool
 .sp
 \fBfcoeadm\fR \-s|\-\-stats \fIethX\fR [\fIinterval\fR]
 .sp
+\fBfcoeadm\fR \-b|\-\-lesb \fIethX\fR [\fIinterval\fR]
+.sp
 \fBfcoeadm\fR \-h|\-\-help
 .sp
 \fBfcoeadm\fR \-v|\-\-version
@@ -105,6 +107,17 @@ Show the statistics (including FC4 statistics) of the FCoE interface on the spec
 should be specified in whole integers greater than 0\&. It specifies the time interval in the unit of seconds\&. If
 \fIinterval\fR
 is not specified, the default interval is one second\&.
+.RE
+.PP
+\fB\-b\fR, \fB\-\-lesb\fR \fIethX\fR [\fIinterval\fR]
+.RS 4
+Show the Link Error Statistics Block (LESB) of the FCoE connection on the specified network interface\&. The information will be displayed repeatedly until the user cancels the command\&. The LESB statistics will be printed every specified
+\fIinterval\fR
+(in seconds)\&.
+\fIinterval\fR
+should be specified in whole integers greater than 0\&. If the
+\fIinterval\fR
+is not specified, a default interval of one second is used\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

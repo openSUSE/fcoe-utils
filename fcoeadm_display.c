@@ -1469,3 +1469,62 @@ enum fcoe_status display_fcf_info(const char *ifname)
 
 	return rc;
 }
+
+void print_interface_fcoe_lesb_stats(void *ep, void *arg)
+{
+	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
+	const char *ifname = arg;
+
+	if (!ifname || !strncmp(ifname, ctlr->ifname, IFNAMSIZ)) {
+		printf("%-8u ", ctlr->lesb_link_fail);
+		printf("%-9u ", ctlr->lesb_vlink_fail);
+		printf("%-7u ", ctlr->lesb_miss_fka);
+		printf("%-7u ", ctlr->lesb_symb_err);
+		printf("%-9u ", ctlr->lesb_err_block);
+		printf("%-9u ", ctlr->lesb_fcs_error);
+		printf("\n");
+	}
+}
+
+void print_interface_fcoe_lesb_stats_header(const char *ifname,
+					    int interval)
+{
+	printf("\n");
+	printf("%-7s interval: %-2d\n", ifname, interval);
+	printf("LinkFail VLinkFail MissFKA SymbErr ErrBlkCnt FCSErrCnt\n");
+	printf("-------- --------- ------- ------- --------- ---------\n");
+}
+
+enum fcoe_status display_port_lesb_stats(const char *ifname,
+					 int interval)
+{
+	enum fcoe_status rc = SUCCESS;
+	int i = 0;
+
+	while (1) {
+		unsigned int secs_left;
+
+		sa_table_init(&fcoe_ctlr_table);
+		read_fcoe_ctlr(&fcoe_ctlr_table);
+
+		if (!(i % 52))
+			print_interface_fcoe_lesb_stats_header(ifname,
+							       interval);
+
+		sa_table_iterate(&fcoe_ctlr_table,
+				 print_interface_fcoe_lesb_stats,
+				 (void *)ifname);
+
+		sa_table_iterate(&fcoe_ctlr_table,
+				 free_fcoe_ctlr_device, NULL);
+
+		i++;
+
+		secs_left = interval;
+		do {
+			secs_left = sleep(secs_left);
+		} while (secs_left);
+	}
+
+	return rc;
+}

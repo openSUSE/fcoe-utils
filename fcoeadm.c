@@ -33,7 +33,7 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char *optstring = "c:d:r:S:iftlshv";
+static const char *optstring = "c:d:r:S:iftlsbhv";
 static struct option fcoeadm_opts[] = {
 	{"create", required_argument, 0, 'c'},
 	{"destroy", required_argument, 0, 'd'},
@@ -44,6 +44,7 @@ static struct option fcoeadm_opts[] = {
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
 	{"stats", no_argument, 0, 's'},
+	{"lesb", no_argument, 0, 'b'},
 	{"help", no_argument, 0, 'h'},
 	{"version", no_argument, 0, 'v'},
 	{0, 0, 0, 0}
@@ -64,6 +65,7 @@ static void fcoeadm_help(void)
 	       "\t [-t|--target] [<ethX>]\n"
 	       "\t [-l|--lun] [<ethX>]\n"
 	       "\t [-s|--stats] <ethX> [<interval>]\n"
+	       "\t [-b|--lesb] <ethX> [<interval>]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
 }
@@ -354,6 +356,29 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_port_stats(ifname, stat_interval);
+			break;
+
+		case 'b':
+			if (argc > 4) {
+				rc = EBADNUMARGS;
+				break;
+			}
+
+			if (optind != argc) {
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
+			}
+
+			if (!rc && ++optind != argc) {
+				stat_interval = atoi(argv[optind]);
+				if (stat_interval <= 0)
+					rc = EINVALARG;
+			} else if (!rc && optind == argc)
+				stat_interval = DEFAULT_STATS_INTERVAL;
+
+			if (!rc)
+				rc = display_port_lesb_stats(ifname,
+							     stat_interval);
 			break;
 
 		case 'v':

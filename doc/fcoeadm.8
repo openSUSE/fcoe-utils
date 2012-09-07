@@ -1,13 +1,22 @@
 '\" t
 .\"     Title: fcoeadm
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 10/18/2011
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 01/30/2012
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEADM" "8" "10/18/2011" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEADM" "8" "01/30/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -26,9 +35,11 @@ fcoeadm \- The Open\-FCoE Administration Tool
 .sp
 \fBfcoeadm\fR \-r|\-\-reset \fIethX\fR
 .sp
+\fBfcoeadm\fR \-S|\-\-Scan [\fIethX\fR]
+.sp
 \fBfcoeadm\fR \-i|\-\-interface [\fIethX\fR]
 .sp
-\fBfcoeadm\fR \-S|\-\-Scan [\fIethX\fR]
+\fBfcoeadm\fR \-f|\-\-fcfs [\fIethX\fR]
 .sp
 \fBfcoeadm\fR \-t|\-\-target [\fIethX\fR]
 .sp
@@ -62,14 +73,19 @@ Destroys the FCoE instance on the specified network interface\&. This will not d
 Resets the FCoE instance on the specified network interface\&. This will not reset FCoE instances created by fipvlan\&.
 .RE
 .PP
+\fB\-S\fR, \fB\-\-Scan\fR \fIethX\fR
+.RS 4
+Rescan for new targets and LUNs on the provided instance\&. This command will not rescan any NPIV instances created on the same port\&. This will not rescan any FCoE instance created by fipvlan\&.
+.RE
+.PP
 \fB\-i\fR, \fB\-\-interface\fR [\fIethX\fR]
 .RS 4
 Show information about the FCoE instance on the specified network interface, or all FCoE instances if no network interface is specified\&.
 .RE
 .PP
-\fB\-S\fR, \fB\-\-Scan\fR \fIethX\fR
+\fB\-f\fR, \fB\-\-fcfs\fR [\fIethX\fR]
 .RS 4
-Rescan for new targets and LUNs on the provided instance\&. This command will not rescan any NPIV instances created on the same port\&. This will not rescan any FCoE instance created by fipvlan\&.
+Show information about the discovered Fibre Channel Forwarders (FCFs) on the specified network interface, or all discovered FCFs if no network interface is specified\&.
 .RE
 .PP
 \fB\-t\fR, \fB\-\-target\fR [\fIethX\fR]

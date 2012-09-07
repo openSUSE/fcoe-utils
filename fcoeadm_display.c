@@ -42,6 +42,7 @@
 #include "fcoeadm_display.h"
 #include "fcoe_utils.h"
 #include "fcoemon_utils.h"
+#include "libopenfcoe.h"
 
 /* #define TEST_HBAAPI_V1 */
 #ifdef TEST_HBAAPI_V1
@@ -65,6 +66,8 @@
 #define MIN_INQ_DATA_SIZE       36
 
 #define FCP_TARG_STR "FCP Target"
+
+#define SYSFS_HOST_DIR     "/sys/class/fc_host"
 
 /*
  * HBA and port objects are one-to-one since there
@@ -1398,6 +1401,71 @@ enum fcoe_status display_target_info(const char *ifname,
 	hba_table_list_destroy(hba_table_list);
 out:
 	HBA_FreeLibrary();
+
+	return rc;
+}
+
+static struct sa_table fcoe_ctlr_table;
+
+void print_fcoe_fcf_device(void *ep, void *arg)
+{
+	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
+	char temp[MAX_STR_LEN];
+	char mac[MAX_STR_LEN];
+	int len = sizeof(temp);
+	const char *buf;
+
+	printf("\n");
+	printf("    FCF #%u Information\n", fcf->index);
+	buf = sa_enum_decode(temp, len, fcf_state_table, fcf->state);
+	if (!buf)
+		buf = temp;
+	printf("        Connection Mode:  %s\n", buf);
+	printf("        Fabric Name:      0x%016lx\n", fcf->fabric_name);
+	printf("        Switch Name       0x%016lx\n", fcf->switch_name);
+	mac2str(fcf->mac, mac, MAX_STR_LEN);
+	printf("        MAC Address:      %s\n", mac);
+	printf("        FCF Priority:     %u\n", fcf->priority);
+	printf("        FKA Period:       %u seconds\n", fcf->fka_period);
+	printf("        Selected:         ");
+	(fcf->selected == 1) ? printf("Yes\n") : printf("No\n");
+	printf("        VLAN ID:          %u\n", fcf->vlan_id);
+	printf("\n");
+}
+
+void print_interface_fcoe_fcf_device(void *ep, void *arg)
+{
+	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
+	const char *ifname = arg;
+	const char *buf;
+	char temp[MAX_STR_LEN];
+	int len = sizeof(temp);
+
+	if (!ifname || !strncmp(ifname, ctlr->ifname, IFNAMSIZ)) {
+		printf("    Interface:        %s\n", ctlr->ifname);
+		buf = sa_enum_decode(temp, len, fip_conn_type_table,
+				     ctlr->mode);
+		if (!buf)
+			buf = temp;
+		printf("    Connection Type:  %s\n", buf);
+
+		sa_table_iterate(&ctlr->fcfs, print_fcoe_fcf_device, NULL);
+	}
+}
+
+/*
+ * NULL ifname indicates to dispaly all fcfs
+ */
+enum fcoe_status display_fcf_info(const char *ifname)
+{
+	enum fcoe_status rc = SUCCESS;
+
+	sa_table_init(&fcoe_ctlr_table);
+	read_fcoe_ctlr(&fcoe_ctlr_table);
+
+	sa_table_iterate(&fcoe_ctlr_table, print_interface_fcoe_fcf_device,
+			 (void *)ifname);
+	sa_table_iterate(&fcoe_ctlr_table, free_fcoe_ctlr_device, NULL);
 
 	return rc;
 }

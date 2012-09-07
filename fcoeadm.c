@@ -33,13 +33,14 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char *optstring = "c:d:r:S:itlshv";
+static const char *optstring = "c:d:r:S:iftlshv";
 static struct option fcoeadm_opts[] = {
 	{"create", required_argument, 0, 'c'},
 	{"destroy", required_argument, 0, 'd'},
 	{"reset", required_argument, 0, 'r'},
 	{"interface", no_argument, 0, 'i'},
 	{"Scan", required_argument, 0, 'S'},
+	{"fcf", no_argument, 0, 'f'},
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
 	{"stats", no_argument, 0, 's'},
@@ -59,6 +60,7 @@ static void fcoeadm_help(void)
 	       "\t [-r|--reset] <ethX>\n"
 	       "\t [-S|--Scan] <ethX>\n"
 	       "\t [-i|--interface] [<ethX>]\n"
+	       "\t [-f]--fcf] [<ethX>]\n"
 	       "\t [-t|--target] [<ethX>]\n"
 	       "\t [-l|--lun] [<ethX>]\n"
 	       "\t [-s|--stats] <ethX> [<interval>]\n"
@@ -269,6 +271,26 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_adapter_info(ifname);
+
+			break;
+
+		case 'f':
+			if (argc > 3) {
+				rc = EBADNUMARGS;
+				break;
+			}
+
+			/*
+			 * If there's an aditional argument
+			 * treat it as the interface name.
+			 */
+			if (optind != argc) {
+				ifname = argv[optind];
+				rc = fcoe_validate_fcoe_conn(ifname);
+			}
+
+			if (!rc)
+				rc = display_fcf_info(ifname);
 
 			break;
 

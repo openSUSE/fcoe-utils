@@ -9,7 +9,7 @@ AM_CFLAGS = -Wall
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
-fcoeadm_LDADD = lib/libutil.a
+fcoeadm_LDADD = lib/libutil.a libopenfcoe.a
 fcoeadm_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
 fcoeadm_LDFLAGS = $(AM_LDFLAGS) $(HBAAPI_LIBS)
 
@@ -30,9 +30,10 @@ fipvlan_SOURCES = fipvlan.c
 fipvlan_LDADD = lib/libutil.a
 
 AUTOMAKE_OPTIONS=subdir-objects
-noinst_LIBRARIES = lib/libutil.a
+noinst_LIBRARIES = lib/libutil.a libopenfcoe.a
 lib_libutil_a_SOURCES = lib/fcoe_utils.c lib/sa_log.c lib/sa_select.c \
 	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c lib/sa_sys.c
+libopenfcoe_a_SOURCES = libopenfcoe.c
 
 ## header files that need to be distributed
 noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \

@@ -41,6 +41,7 @@
 #include "hbaapi.h"
 #include "fcoeadm_display.h"
 #include "fcoe_utils.h"
+#include "fcoemon_utils.h"
 
 /* #define TEST_HBAAPI_V1 */
 #ifdef TEST_HBAAPI_V1
@@ -64,11 +65,6 @@
 #define MIN_INQ_DATA_SIZE       36
 
 #define FCP_TARG_STR "FCP Target"
-
-struct sa_nameval {
-	char        *nv_name;
-	u_int32_t   nv_val;
-};
 
 /*
  * HBA and port objects are one-to-one since there
@@ -116,28 +112,6 @@ struct sa_nameval port_speeds[] = {
 	{ NULL, 0 }
 };
 
-/** sa_enum_decode(buf, len, tp, val)
- *
- * @param buf buffer for result (may be used or not).
- * @param len size of buffer (at least 32 bytes recommended).
- * @param tp pointer to table of names and values, struct sa_nameval.
- * @param val value to be decoded into a name.
- * @returns pointer to name string.  Unknown values are put into buffer in hex.
- */
-static const char *
-sa_enum_decode(char *buf, size_t len,
-	       const struct sa_nameval *tp, u_int32_t val)
-{
-	snprintf(buf, len, "Unknown");
-	for (; tp->nv_name != NULL; tp++) {
-		if (tp->nv_val == val) {
-			strncpy(buf, tp->nv_name, len);
-			break;
-		}
-	}
-	return buf;
-}
-
 /** sa_enum_decode_speed(buf, len, val)
  *
  * @param buf buffer for result (may be used or not).
@@ -181,92 +155,6 @@ sa_dump_wwn(void *Data, int Length, int Break)
 		if ((Break != 0) && (!(i % Break)))
 			printf("     ");
 	}
-}
-
-/*
- * Make a printable NUL-terminated copy of the string.
- * The source buffer might not be NUL-terminated.
- */
-static char *
-sa_strncpy_safe(char *dest, size_t len, const char *src, size_t src_len)
-{
-	char *dp = dest;
-	const char *sp = src;
-
-	while (len-- > 1 && src_len-- > 0 && *sp != '\0') {
-		*dp++ = isprint(*sp) ? *sp : (isspace(*sp) ? ' ' : '.');
-		sp++;
-	}
-	*dp = '\0';
-
-	/*
-	 * Take off trailing blanks.
-	 */
-	while (--dp >= dest && isspace(*dp))
-		*dp = '\0';
-
-	return dest;
-}
-
-/*
- * Read a line from the specified file in the specified directory
- * into the buffer.  The file is opened and closed.
- * Any trailing white space is trimmed off.
- * This is useful for accessing /sys files.
- * Returns 0 or an error number.
- */
-static int
-sa_sys_read_line(const char *dir, const char *file, char *buf, size_t len)
-{
-	FILE *fp;
-	char file_name[256];
-	char *cp;
-	int rc = 0;
-
-	snprintf(file_name, sizeof(file_name), "%s/%s", dir, file);
-	fp = fopen(file_name, "r");
-	if (fp == NULL)
-		rc = -1;
-	else {
-		cp = fgets(buf, len, fp);
-		if (cp == NULL) {
-			fprintf(stderr, "read error or empty file %s,"
-				" errno=0x%x\n", file_name, errno);
-			rc = -1;
-		} else {
-
-			/*
-			 * Trim off trailing newline or other white space.
-			 */
-			cp = buf + strlen(buf);
-			while (--cp >= buf && isspace(*cp))
-				*cp = '\0';
-		}
-		fclose(fp);
-	}
-	return rc;
-}
-
-static int
-sa_sys_read_u32(const char *dir, const char *file, u_int32_t *vp)
-{
-	char buf[256];
-	int rc;
-	u_int32_t val;
-	char *endptr;
-
-	rc = sa_sys_read_line(dir, file, buf, sizeof(buf));
-	if (rc == 0) {
-		val = strtoul(buf, &endptr, 0);
-		if (*endptr != '\0') {
-			fprintf(stderr,
-				"parse error. file %s/%s line '%s'\n",
-				dir, file, buf);
-			rc = -1;
-		} else
-			*vp = val;
-	}
-	return rc;
 }
 
 static int is_fcp_target(HBA_PORTATTRIBUTES *rp_info)

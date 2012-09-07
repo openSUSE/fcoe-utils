@@ -19,7 +19,7 @@
 
 #include "fcoe_utils.h"
 
-static int fcoe_sysfs_read(char *buf, int size, const char *path)
+int fcoe_sysfs_read(char *buf, int size, const char *path)
 {
 	FILE *fp;
 	int i, rc = -EINVAL;

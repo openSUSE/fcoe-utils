@@ -76,5 +76,5 @@ int fcoe_checkdir(char *dir);
 int check_symbolic_name_for_interface(const char *symbolic_name,
 				      const char *ifname);
 char *get_ifname_from_symbolic_name(const char *symbolic_name);
-
+int fcoe_sysfs_read(char *buf, int size, const char *path);
 #endif /* _FCOE_UTILS_H_ */

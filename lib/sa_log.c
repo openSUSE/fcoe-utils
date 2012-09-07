@@ -243,15 +243,35 @@ sa_strncpy_safe(char *dest, size_t len, const char *src, size_t src_len)
  * @param len size of buffer (at least 32 bytes recommended).
  * @param tp pointer to table of names and values, struct sa_nameval.
  * @param val value to be decoded into a name.
- * @returns pointer to name string.  Unknown values are put into buffer in hex.
+ * @returns pointer to name string and in buf.  Unknown values are put into buffer in hex.
  */
 const char *
 sa_enum_decode(char *buf, size_t len, const struct sa_nameval *tp, u_int val)
 {
 	for (; tp->nv_name != NULL; tp++) {
-		if (tp->nv_val == val)
+		if (tp->nv_val == val) {
+			snprintf(buf, len, "%s", tp->nv_name);
 			return tp->nv_name;
+		}
 	}
 	snprintf(buf, len, "Unknown (code 0x%X)", val);
 	return buf;
+}
+
+/** sa_enum_encode(tp, name, valp)
+ *
+ * @param tp pointer to table of names and values, struct sa_nameval.
+ * @param name string to be encoded into a value
+ * @returns zero on success, non-zero if no matching string found.
+ */
+int
+sa_enum_encode(const struct sa_nameval *tp, const char *name, u_int32_t *valp)
+{
+	for (; tp->nv_name != NULL; tp++) {
+		if (strcasecmp(tp->nv_name, name) == 0) {
+			*valp = tp->nv_val;
+			return 0;
+		}
+	}
+	return -1;
 }

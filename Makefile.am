@@ -32,7 +32,7 @@ fipvlan_LDADD = lib/libutil.a
 AUTOMAKE_OPTIONS=subdir-objects
 noinst_LIBRARIES = lib/libutil.a
 lib_libutil_a_SOURCES = lib/fcoe_utils.c lib/sa_log.c lib/sa_select.c \
-	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c
+	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c lib/sa_sys.c
 
 ## header files that need to be distributed
 noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \

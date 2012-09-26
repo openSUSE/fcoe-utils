@@ -69,6 +69,7 @@ start()
 	echo -n $"Starting FCoE initiator service: "
 
 	modprobe -q libfc
+	modprobe -q sg
 	modprobe -q -a $SUPPORTED_DRIVERS
 
 	daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}

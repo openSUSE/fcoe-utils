@@ -2584,7 +2584,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * the fc_host in sysfs.
 		 */
 		if (fcoe_find_fchost(ifname, p->fchost, FCHOSTBUFLEN))
-			FCM_LOG_DBG("filed to get fchost for %s\n", p->ifname);
+			FCM_LOG_DBG("Failed to find fc_host for %s\n", p->ifname);
 
 		FCM_LOG_DBG("OP: created fchost:%s for %s\n",
 			     p->fchost, p->ifname);

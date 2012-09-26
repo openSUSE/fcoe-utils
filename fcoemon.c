@@ -98,6 +98,11 @@
 
 #define FCOE_ETH_TYPE	0x8906
 
+#define CFG_IF_VAR_FCOEENABLE  "FCOE_ENABLE"
+#define CFG_IF_VAR_DCBREQUIRED "DCB_REQUIRED"
+#define CFG_IF_VAR_AUTOVLAN    "AUTO_VLAN"
+
+
 static sigset_t block_sigset;
 
 void fcm_vlan_disc_timeout(void *arg);
@@ -365,9 +370,10 @@ static int fcm_read_config_files(void)
 
 		/* FCOE_ENABLE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
-					      fp, "FCOE_ENABLE");
+					      fp, CFG_IF_VAR_FCOEENABLE);
 		if (rc < 0) {
-			FCM_LOG("%s invalid format for FCOE_ENABLE setting");
+			FCM_LOG("Invalid format for %s variable in %s",
+				CFG_IF_VAR_FCOEENABLE, file);
 			fclose(fp);
 			free(next);
 			continue;
@@ -378,9 +384,10 @@ static int fcm_read_config_files(void)
 
 		/* DCB_REQUIRED */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
-					      fp, "DCB_REQUIRED");
+					      fp, CFG_IF_VAR_DCBREQUIRED);
 		if (rc < 0) {
-			FCM_LOG("%s invalid format for DCB_REQUIRED setting");
+			FCM_LOG("Invalid format for %s variable in %s",
+				CFG_IF_VAR_DCBREQUIRED, file);
 			fclose(fp);
 			free(next);
 			continue;
@@ -391,9 +398,10 @@ static int fcm_read_config_files(void)
 
 		/* AUTO_VLAN */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
-					      fp, "AUTO_VLAN");
+					      fp, CFG_IF_VAR_AUTOVLAN);
 		if (rc < 0) {
-			FCM_LOG("%s invalid format for AUTO_VLAN setting");
+			FCM_LOG("Invalid format for %s variable in %s",
+				CFG_IF_VAR_AUTOVLAN, file);
 			fclose(fp);
 			free(next);
 			continue;

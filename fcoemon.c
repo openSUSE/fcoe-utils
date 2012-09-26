@@ -1121,7 +1121,7 @@ ieee_state_set(struct fcm_netif *ff, enum ieee_state new_state)
 	}
 
 	if (fcoe_config.debug) {
-		FCM_LOG_DEV_DBG(ff, "%s -> %s",
+		FCM_LOG_DEV_DBG(ff, "IEEE state change: %s -> %s",
 				getstr(&ieee_states, ff->ieee_state),
 				getstr(&ieee_states, new_state));
 	}
@@ -1151,7 +1151,7 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 		char old[32];
 		char new[32];
 
-		FCM_LOG_DEV_DBG(ff, "%s -> %s",
+		FCM_LOG_DEV_DBG(ff, "DCBD state change: %s -> %s",
 				sa_enum_decode(old, sizeof(old),
 					       fcm_dcbd_states,
 					       ff->ff_dcbd_state),
@@ -1269,7 +1269,6 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 			sa_strncpy_safe(ifname, sizeof(ifname),
 					RTA_DATA(ap),
 					RTA_PAYLOAD(ap));
-			FCM_LOG_DBG("ifname %s", ifname);
 			break;
 
 		case IFLA_OPERSTATE:
@@ -1425,46 +1424,47 @@ static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
 
 	d = (struct dcbmsg *)NLMSG_DATA(nlh);
 	if (d->cmd != DCB_CMD_IEEE_GET && d->cmd != DCB_CMD_IEEE_SET) {
-		FCM_LOG_DBG("%s: Unexpected command type %d\n", __func__, d->cmd);
+		FCM_LOG_DBG("Unexpected command type %d\n", d->cmd);
 		return;
 	}
 
 	rta_parent = (struct rtattr *)(((char *)d) + NLMSG_ALIGN(sizeof(*d)));
-	if (rta_parent->rta_type != DCB_ATTR_IFNAME) {
-		FCM_LOG("%s: ifname not found\n", __func__);
+	if (rta_parent->rta_type != DCB_ATTR_IFNAME)
 		return;
-	}
 
 	strncpy(ifname, NLA_DATA(rta_parent), sizeof(ifname));
 	ff = fcm_netif_lookup_create(ifname);
 	if (!ff) {
-		FCM_LOG("%s: if %s not found or created\n", __func__, ifname);
+		FCM_LOG("Processing IEEE message: %s not found or created\n",
+			ifname);
 		return;
 	}
 
 	dcbx_cap = ieee_get_dcbx(nlh);
 	if (dcbx_cap < 0) {
-		FCM_LOG("%s: %s: ieee_get_dcbx returned %d\n", __func__,
-			ifname, dcbx_cap);
+		FCM_LOG("Processing IEEE message: No DCBx capabilities on %s\n",
+			ifname);
 		return;
 	}
 	ff->dcbx_cap = dcbx_cap;
 	if (!ff->ff_dcb_state)
 		ff->ff_dcb_state = !!(dcbx_cap & DCB_CAP_DCBX_VER_IEEE);
 	if (d->cmd == DCB_CMD_IEEE_SET && !(dcbx_cap & DCB_CAP_DCBX_VER_IEEE)) {
-		FCM_LOG("%s: %s: IEEE msg while not in IEEE mode\n", __func__,
+		FCM_LOG("Processing IEEE messgae: %s not in IEEE mode\n",
 			ifname);
 	}
 
 	rta_parent = find_attr(nlh, DCB_ATTR_IEEE);
 	if (!rta_parent) {
-		FCM_LOG("%s: %s: No IEEE attr found\n", __func__, ifname);
+		FCM_LOG("Processing IEEE message: No DCB attribute found on %s\n",
+			ifname);
 		return;
 	}
 
 	rta_child = find_nested_attr(rta_parent, DCB_ATTR_IEEE_PFC);
 	if (!rta_child) {
-		FCM_LOG("%s: %s: IEEE PFC attr not found\n", __func__, ifname);
+		FCM_LOG("Processing IEEE messgae: No PFC attribute found on %s\n",
+			ifname);
 		return;
 	}
 
@@ -1474,11 +1474,11 @@ static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
 
 	pri_mask = get_pri_mask_from_ieee(rta_parent, dcbx_cap);
 	if (pri_mask < 0) {
-		FCM_LOG("%s: %s: Error getting pri from IEEE attr\n", __func__,
+		FCM_LOG("Processing IEEE message: No Priority mask found on %s\n",
 			ifname);
 		return;
 	}
-	FCM_LOG_DBG("%s: %s: FCoE pri mask = 0x%02X\n", __func__,
+	FCM_LOG_DBG("Processing IEEE message: FCoE Priority mask on %s is 0x%02X\n",
 		    ifname, pri_mask);
 	ff->ieee_app_info = pri_mask;
 
@@ -1501,7 +1501,9 @@ static void fcm_link_recv(void *arg)
 	rc = read(fcm_link_socket, buf, fcm_link_buf_size);
 	if (rc <= 0) {
 		if (rc < 0)
-			FCM_LOG_ERR(errno, "read error");
+			FCM_LOG_ERR(errno, "Error reading from "
+				    "netlink socket with fd %d",
+				    fcm_link_socket);
 		return;
 	}
 
@@ -1842,8 +1844,6 @@ static void fcm_dcbd_rx(void *arg)
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
-		if (len > FCM_PING_RSP_LEN)
-			FCM_LOG_DBG("received len %d buf '%s'", len, buf);
 
 		switch (buf[CLIF_RSP_MSG_OFF]) {
 		case CMD_RESPONSE:
@@ -3128,7 +3128,8 @@ static void fcm_srv_receive(void *arg)
 	res = recvfrom(snum, buf, sizeof(buf) - 1,
 		       MSG_DONTWAIT, (struct sockaddr *)&from, &fromlen);
 	if (res < 0) {
-		FCM_LOG_ERR(errno, "Fail in fcm_srv_receive()");
+		FCM_LOG_ERR(errno, "Failed to receive data from socket %d",
+			    snum);
 		return;
 	}
 
@@ -3148,31 +3149,32 @@ static void fcm_srv_receive(void *arg)
 
 	switch (cmd) {
 	case CLIF_CREATE_CMD:
-		FCM_LOG_DBG("FCMON CREATE\n");
+		FCM_LOG_DBG("Received command to create %s\n", ifname);
 		rc = fcm_cli_create(ifname, &reply);
 		if (rc)
 			goto err_out;
 		break;
 	case CLIF_DESTROY_CMD:
-		FCM_LOG_DBG("FCMON DESTROY\n");
+		FCM_LOG_DBG("Received command to destroy %s\n", ifname);
 		rc = fcm_cli_destroy(ifname, &reply);
 		if (rc)
 			goto err_out;
 		break;
 	case CLIF_RESET_CMD:
-		FCM_LOG_DBG("FCMON RESET\n");
+		FCM_LOG_DBG("Received command to reset %s\n", ifname);
 		rc = fcm_cli_action(ifname, FCP_RESET_IF, &reply);
 		if (rc)
 			goto err_out;
 		break;
 	case CLIF_SCAN_CMD:
-		FCM_LOG_DBG("FCMON SCAN\n");
+		FCM_LOG_DBG("Received command to scan %s\n", ifname);
 		rc = fcm_cli_action(ifname, FCP_SCAN_IF, &reply);
 		if (rc)
 			goto err_out;
 		break;
 	default:
-		FCM_LOG_DBG("FCMON INVALID CMD\n");
+		FCM_LOG_DBG("Received invalid command for %s\n",
+			    ifname);
 		goto err_out;
 	}
 

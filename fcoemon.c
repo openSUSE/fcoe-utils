@@ -3176,8 +3176,8 @@ static void fcm_srv_receive(void *arg)
 			goto err_out;
 		break;
 	default:
-		FCM_LOG_DBG("Received invalid command for %s\n",
-			    ifname);
+		FCM_LOG_DBG("Received invalid command %d for %s\n",
+			    cmd, ifname);
 		goto err_out;
 	}
 

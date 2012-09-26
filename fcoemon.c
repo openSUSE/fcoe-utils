@@ -2568,7 +2568,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
 	struct fcoe_port *vp;
 	char *ifname = p->ifname;
-	char path[256];
+	char path[MAX_PATH_LEN];
 	enum fcoe_status rc = SUCCESS;
 
 	switch (p->action) {

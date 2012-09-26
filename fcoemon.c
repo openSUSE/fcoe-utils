@@ -83,11 +83,6 @@
 #define FCM_PING_REQ_LEN	1 /* byte-length of dcbd PING request */
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
-#define FCOE_CREATE	SYSFS_FCOE "/create"
-#define FCOE_DESTROY	SYSFS_FCOE "/destroy"
-#define FCOE_ENABLE 	SYSFS_FCOE "/enable"
-#define FCOE_DISABLE	SYSFS_FCOE "/disable"
-
 #define FCM_VLAN_DISC_TIMEOUT	(1000 * 1000)	/* 1 seconds */
 #define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
 

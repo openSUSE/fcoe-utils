@@ -553,9 +553,9 @@ int fcoe_instance_start(char *ifname)
 {
 	int fd, rc;
 	FIP_LOG_DBG("%s on %s\n", __func__, ifname);
-	fd = open(SYSFS_FCOE "/create", O_WRONLY);
+	fd = open(FCOE_CREATE, O_WRONLY);
 	if (fd < 0) {
-		FIP_LOG_ERRNO("Failed to open file:%s", SYSFS_FCOE "/create");
+		FIP_LOG_ERRNO("Failed to open file:%s", FCOE_CREATE);
 		FIP_LOG_ERRNO("May be fcoe stack not loaded, starting"
 			       " fcoe service will fix that");
 		return fd;

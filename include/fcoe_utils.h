@@ -40,6 +40,11 @@
 #define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
 #define SYSFS_FCOE	SYSFS_MOUNT "/module/libfcoe/parameters"
 
+#define FCOE_CREATE	SYSFS_FCOE "/create"
+#define FCOE_DESTROY	SYSFS_FCOE "/destroy"
+#define FCOE_ENABLE 	SYSFS_FCOE "/enable"
+#define FCOE_DISABLE	SYSFS_FCOE "/disable"
+
 #define FCHOSTBUFLEN 64
 
 /*

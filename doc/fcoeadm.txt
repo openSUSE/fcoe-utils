@@ -100,12 +100,12 @@ OPTIONS
 
 *-s*, *--stats* _ethX_ [_interval_]::
 	Show the statistics (including FC4 statistics) of the FCoE
-	interface on the specified network interface.
-	The information will be display in one line on the screen per given
-	time interval. _interval_ should be specified in whole integers
-	greater than 0. It specifies the time interval in the unit of
-	seconds. If _interval_ is not specified, the default interval is
-	one second.
+	connection on the specified network interface. The information will
+	be displayed repeatedly until the user cancels the command. The
+	statistics will be printed every specified _interval_ (in seconds).
+	_interval_ should be specified as a whole number greater than 0.
+	If _interval_ is not specified, a default interval of one second is
+	used.
 
 *-b*, *--lesb* _ethX_ [_interval_]::
 	Show the Link Error Statistics Block (LESB) of the FCoE connection

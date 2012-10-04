@@ -2,12 +2,12 @@
 .\"     Title: fcoeadm
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 01/30/2012
+.\"      Date: 07/20/2012
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEADM" "8" "01/30/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEADM" "8" "07/20/2012" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -102,11 +102,13 @@ Show detailed information about the discovered SCSI LUNs associated with the FCo
 .PP
 \fB\-s\fR, \fB\-\-stats\fR \fIethX\fR [\fIinterval\fR]
 .RS 4
-Show the statistics (including FC4 statistics) of the FCoE interface on the specified network interface\&. The information will be display in one line on the screen per given time interval\&.
+Show the statistics (including FC4 statistics) of the FCoE connection on the specified network interface\&. The information will be displayed repeatedly until the user cancels the command\&. The statistics will be printed every specified
 \fIinterval\fR
-should be specified in whole integers greater than 0\&. It specifies the time interval in the unit of seconds\&. If
+(in seconds)\&.
 \fIinterval\fR
-is not specified, the default interval is one second\&.
+should be specified as a whole number greater than 0\&. If
+\fIinterval\fR
+is not specified, a default interval of one second is used\&.
 .RE
 .PP
 \fB\-b\fR, \fB\-\-lesb\fR \fIethX\fR [\fIinterval\fR]

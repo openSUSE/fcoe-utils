@@ -165,7 +165,12 @@ DEPENDENCIES
 
 PROCESS
 
-1) Bootstrap, configure, make and make install
+1) Obtain the latest source
+
+   git clone git://open-fcoe.org/fcoe/libhbalinux.git
+
+2) Bootstrap, configure, make and make install
+   # cd libhbalinux
    # ./bootstrap.sh
    # rpm --eval "%configure" | sh
    # make
@@ -190,7 +195,12 @@ DEPENDENCIES
 
 PROCESS
 
-1) Bootstrap, configure, make and make install
+1) Obtain the latest source
+
+   git clone git://open-fcoe.org/fcoe/fcoe-utils.git
+
+2) Bootstrap, configure, make and make install
+   # cd fcoe-utils
    # ./bootstrap.sh
    # rpm --eval "%configure" | sh
    # make

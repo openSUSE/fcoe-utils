@@ -246,6 +246,8 @@ static void show_target_info(const char *symbolic_name,
 	ifname = get_ifname_from_symbolic_name(symbolic_name);
 
 	rc = sa_sys_read_line(rp_info->OSDeviceName, "roles", buf, sizeof(buf));
+	if (rc)
+		strncpy(buf, "Unknown", sizeof(buf));
 	printf("    Interface:        %s\n", ifname);
 	printf("    Roles:            %s\n", buf);
 
@@ -1223,7 +1225,6 @@ enum fcoe_status display_adapter_info(const char *ifname)
 	struct hba_name_table_list *hba_table_list = NULL;
 	enum fcoe_status rc = SUCCESS;
 	int i, j, num_hbas = 0;
-	HBA_HANDLE hba_handle;
 	HBA_PORTATTRIBUTES *port_attrs;
 	HBA_PORTATTRIBUTES *sport_attrs;
 	HBA_ADAPTERATTRIBUTES *hba_attrs;
@@ -1251,7 +1252,6 @@ enum fcoe_status display_adapter_info(const char *ifname)
 		    hba_table_list->hba_table[i].displayed)
 			continue;
 
-		hba_handle = hba_table_list->hba_table[i].hba_handle;
 		port_attrs = &hba_table_list->hba_table[i].port_attrs;
 		hba_attrs = &hba_table_list->hba_table[i].hba_attrs;
 

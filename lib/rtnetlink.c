@@ -371,12 +371,10 @@ static ssize_t rtnl_send_getlink(int s, int ifindex, char *name)
 static int rtnl_getlinkname_handler(struct nlmsghdr *nh, void *arg)
 {
 	char *name = arg;
-	struct ifinfomsg *ifm;
 	struct rtattr *ifla[__IFLA_MAX];
 
 	switch (nh->nlmsg_type) {
 	case RTM_NEWLINK:
-		ifm = NLMSG_DATA(nh);
 		parse_ifinfo(ifla, nh);
 		strncpy(name, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
 		return 0;
@@ -413,14 +411,12 @@ struct vlan_identifier {
 static int rtnl_find_vlan_handler(struct nlmsghdr *nh, void *arg)
 {
 	struct vlan_identifier *vlan = arg;
-	struct ifinfomsg *ifm;
 	struct rtattr *ifla[__IFLA_MAX];
 	struct rtattr *linkinfo[__IFLA_INFO_MAX];
 	struct rtattr *vlaninfo[__IFLA_VLAN_MAX];
 
 	switch (nh->nlmsg_type) {
 	case RTM_NEWLINK:
-		ifm = NLMSG_DATA(nh);
 		parse_ifinfo(ifla, nh);
 		if (!ifla[IFLA_LINK])
 			break;

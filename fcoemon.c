@@ -2326,7 +2326,6 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 	u_int32_t ver;
 	u_int32_t cmd;
 	u_int32_t feature;
-	u_int32_t subtype;
 	u_int32_t state;
 	char *ep;
 	char *cp;
@@ -2352,7 +2351,7 @@ static void fcm_dcbd_cmd_resp(char *resp, cmd_status st)
 		FCM_LOG("parse error on resp feature: resp %s", resp);
 		return;
 	}
-	subtype = fcm_get_hex(resp + DCB_SUBTYPE_OFF, DCB_SUBTYPE_LEN, &ep);
+	fcm_get_hex(resp + DCB_SUBTYPE_OFF, DCB_SUBTYPE_LEN, &ep);
 	if (ep != NULL) {
 		FCM_LOG("parse error on resp subtype: resp %s", resp);
 		return;
@@ -2791,7 +2790,6 @@ static void fcm_handle_changes()
 {
 	struct fcm_netif *ff;
 	struct fcoe_port *p;
-	int i;
 
 	/*
 	 * Perform pending actions (dcbd queries) on network interfaces.
@@ -2802,7 +2800,6 @@ static void fcm_handle_changes()
 	/*
 	 * Perform actions on FCoE ports
 	 */
-	i = 0;
 	p = fcoe_config.port;
 	while (p) {
 		ff = fcm_netif_lookup(p->real_ifname);

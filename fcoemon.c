@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 #include <libgen.h>
 #include <ulimit.h>
@@ -40,7 +41,8 @@
 #include <linux/sockios.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
-#include <netlink/netlink.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 #include <linux/dcbnl.h>

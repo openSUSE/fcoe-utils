@@ -288,6 +288,7 @@ struct sa_table {
  */
 extern int sa_sys_read_line(const char *, const char *, char *, size_t);
 extern int sa_sys_write_line(const char *, const char *, const char *);
+extern int sa_sys_read_int(const char *, const char *, int *);
 extern int sa_sys_read_u32(const char *, const char *, u_int32_t *);
 extern int sa_sys_read_u64(const char *, const char *, u_int64_t *);
 extern int sa_dir_read(char *, int (*)(struct dirent *, void *), void *);

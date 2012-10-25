@@ -239,7 +239,7 @@ static void show_target_info(const char *symbolic_name,
 			     HBA_PORTATTRIBUTES *rp_info)
 {
 	char buf[256];
-	u_int32_t tgt_id;
+	int tgt_id;
 	int rc;
 	char *ifname;
 
@@ -259,9 +259,14 @@ static void show_target_info(const char *symbolic_name,
 	show_wwn(rp_info->PortWWN.wwn);
 	printf("\n");
 
-	rc = sa_sys_read_u32(rp_info->OSDeviceName, "scsi_target_id", &tgt_id);
-	if (tgt_id != -1)
-		printf("    Target ID:        %d\n", tgt_id);
+	rc = sa_sys_read_int(rp_info->OSDeviceName, "scsi_target_id", &tgt_id);
+	printf("    Target ID:        ");
+	if (rc)
+		printf("Unknown\n");
+	else if (tgt_id != -1)
+		printf("%d\n", tgt_id);
+	else
+		printf("Unset\n");
 
 	printf("    MaxFrameSize:     %d\n", rp_info->PortMaxFrameSize);
 

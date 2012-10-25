@@ -18,6 +18,8 @@
 
 #include "fcoemon_utils.h"
 
+#include <limits.h>
+
 /*
  * Read a line from the specified file in the specified directory
  * into the buffer.  The file is opened and closed.
@@ -88,6 +90,30 @@ sa_sys_write_line(const char *dir, const char *file, const char *string)
 		fclose(fp);
 	}
 	return rc;
+}
+
+int sa_sys_read_int(const char *dir, const char *file, int *vp)
+{
+	char buf[256];
+	int rc;
+	long val;
+	char *endptr;
+
+	rc = sa_sys_read_line(dir, file, buf, sizeof(buf));
+	if (rc)
+		return rc;
+
+	val = strtol(buf, &endptr, 0);
+	if (*endptr != '\0') {
+		fprintf(stderr, "%s: parse error. file %s/%s line '%s'\n",
+			__func__, dir, file, buf);
+		return -1;
+	}
+	if (val > INT_MAX  || val < INT_MIN)
+		return ERANGE;
+
+	*vp = val;
+	return 0;
 }
 
 int

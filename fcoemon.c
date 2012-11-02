@@ -88,7 +88,6 @@
 #define FCM_PING_RSP_LEN	8 /* byte-length of dcbd PING response */
 
 #define FCM_VLAN_DISC_TIMEOUT	(1000 * 1000)	/* 1 seconds */
-#define FCM_VLAN_DISC_MAX	10		/* stop after 10 attempts */
 
 #define DEF_RX_BUF_SIZE		4096
 
@@ -2544,16 +2543,6 @@ void fcm_vlan_disc_timeout(void *arg)
 	FCM_LOG_DBG("%s: VLAN discovery TIMEOUT [%d]",
 		    p->ifname, p->vlan_disc_count);
 	p->vlan_disc_count++;
-	if (!(p->fcoe_enable && p->auto_vlan) &&
-			(p->vlan_disc_count > FCM_VLAN_DISC_MAX)) {
-		FCM_LOG("%s: VLAN discovery failed after %d attempts",
-			p->ifname, FCM_VLAN_DISC_MAX);
-		FCM_LOG("%s: disabling VLAN discovery, trying FCoE on %s",
-			p->ifname, p->ifname);
-		p->auto_vlan = 0;
-		fcp_set_next_action(p, FCP_ACTIVATE_IF);
-		return;
-	}
 	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac);
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 }

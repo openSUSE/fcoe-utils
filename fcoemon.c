@@ -544,7 +544,7 @@ static void fcm_fc_event_handler(struct fc_nl_event *fc_event)
 
 		/* find real interface port and re-activate again */
 		p = fcm_find_fcoe_port(p->real_ifname, FCP_CFG_IFNAME);
-		if (p)
+		if (p && p->last_action != FCP_DISABLE_IF)
 			fcp_set_next_action(p, FCP_ACTIVATE_IF);
 		break;
 	default:
@@ -939,6 +939,7 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		switch (action) {
 		case FCP_CREATE_IF:
 		case FCP_ACTIVATE_IF:
+		case FCP_ENABLE_IF:
 			if (p->auto_vlan)
 				p->action = FCP_VLAN_DISC;
 			else
@@ -1632,6 +1633,7 @@ static struct fcm_netif *fcm_netif_alloc(char *ifname)
 	if (ff) {
 		snprintf(ff->ifname, sizeof(ff->ifname), "%s", ifname);
 		ff->ff_operstate = IF_OPER_UNKNOWN;
+		ff->ff_enabled = 1;
 		TAILQ_INSERT_TAIL(&fcm_netif_head, ff, ff_list);
 	} else {
 		FCM_LOG_ERR(errno, "failed to allocate fcm_netif");
@@ -2125,7 +2127,13 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 		else
 			FCM_LOG_DEV_DBG(ff, "DCB is configured correctly\n");
 
-		return FCP_ACTIVATE_IF;
+
+		if (ff->ff_enabled)
+			return FCP_ACTIVATE_IF;
+		else {
+			ff->ff_enabled = 1;
+			return FCP_ENABLE_IF;
+		}
 	}
 
 	/* check if dcb state qualifies to destroy the fcoe interface */
@@ -2148,6 +2156,7 @@ static enum fcp_action validate_dcbd_info(struct fcm_netif *ff)
 				    ff->ff_app_info.u.appcfg,
 				    ff->ff_pfc_info.u.pfcup);
 
+		ff->ff_enabled = 0;
 		return FCP_DISABLE_IF;
 	}
 
@@ -2752,6 +2761,10 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 		switch (validate_dcbd_info(ff)) {
 		case FCP_DESTROY_IF:
 			fcp_action_set(ff->ifname, FCP_DESTROY_IF);
+			fcm_dcbd_state_set(ff, FCD_INIT);
+			break;
+		case FCP_ENABLE_IF:
+			fcp_action_set(ff->ifname, FCP_ENABLE_IF);
 			fcm_dcbd_state_set(ff, FCD_INIT);
 			break;
 		case FCP_DISABLE_IF:

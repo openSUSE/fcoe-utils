@@ -135,6 +135,15 @@ Displays the version of the
 \fBfcoeadm\fR
 command\&.
 .RE
+.SH "INTERFACE NAMES"
+.sp
+The actual name for \fIethX\fR depends on the \fBAUTO_VLAN\fR setting in
+the fcoemon interface configuration (/etc/fcoe/cfg-ethX, see \fBfcoemon\fR)\&.
+.sp
+If \fBAUTO_VLAN\fR is set to \fIyes\fR, the interface name \fIethX\fR
+references the network device itself. If \fBAUTO_VLAN\fR is set to
+\fIno\fR, the interface name \fIethX\fR references the VLAN device\&.
+.RE
 .SH "EXAMPLES"
 .sp
 Creates an FCoE instance on eth2\&.101

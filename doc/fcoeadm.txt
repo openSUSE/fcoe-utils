@@ -121,6 +121,15 @@ OPTIONS
 *-v*, *--version*::
 	Displays the version of the *fcoeadm* command.
 
+INTERFACE NAMES
+---------------
+The actual name for _ethX_ depends on the *AUTO_VLAN* setting in the fcoemon
+interface configuration (/etc/fcoe/cfg-ethX, see *fcoemon*).
+
+If *AUTO_VLAN* is set to _yes_, the interface name _ethX_ references the
+network device itself. If *AUTO_VLAN* is set to _no_, the interface
+name _ethX_ references the VLAN device.
+
 EXAMPLES
 --------
 Creates an FCoE instance on eth2.101

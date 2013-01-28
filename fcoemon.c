@@ -24,6 +24,7 @@
 #include <malloc.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -3197,42 +3198,24 @@ err:
 
 static int fcm_srv_create(struct fcm_srv_info *srv_info)
 {
+	socklen_t addrlen;
 	struct sockaddr_un addr;
 	int rc = 0;
 
-	if (mkdir(FCM_SRV_DIR, S_IRWXU | S_IRWXG) < 0) {
-		if (errno == EEXIST) {
-			FCM_LOG_ERR(errno, "Failed to create socket "
-				    "directory %s, this indicates that "
-				    "fcoemon was not shutdown cleanly",
-				    FCM_SRV_DIR);
-		} else {
-			rc = errno;
-			FCM_LOG_ERR(errno, "Failed to create socket "
-				    "directory %s\n", FCM_SRV_DIR);
-			goto err;
-		}
-	}
-
-	srv_info->srv_sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	srv_info->srv_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (srv_info->srv_sock < 0) {
 		FCM_LOG_ERR(errno, "Failed to create socket\n");
 		rc = errno;
-		goto err_rmdir;
+		goto err;
 	}
 
 	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, CLIF_SOCK_FILE, sizeof(addr.sun_path));
-
-	/*
-	 * If there was a previous socket file unlink. If we don't
-	 * then bind will fail.
-	 */
-	unlink(CLIF_SOCK_FILE);
-
-	if (bind(srv_info->srv_sock, (struct sockaddr *)&addr,
-		 sizeof(addr)) < 0) {
+	addr.sun_family = AF_LOCAL;
+	addr.sun_path[0] = '\0';
+	snprintf(&addr.sun_path[1], sizeof(addr.sun_path) -1,
+		 "%s", CLIF_IFNAME);
+	addrlen = sizeof(sa_family_t) + strlen(addr.sun_path + 1) + 1;
+	if (bind(srv_info->srv_sock, (struct sockaddr *)&addr, addrlen) < 0) {
 		FCM_LOG_ERR(errno, "Failed to bind socket\n");
 		rc = errno;
 		goto err_close;
@@ -3247,10 +3230,6 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 
 err_close:
 	close(srv_info->srv_sock);
-	unlink(CLIF_SOCK_FILE);
-
-err_rmdir:
-	rmdir(FCM_SRV_DIR);
 
 err:
 	return rc;
@@ -3260,8 +3239,6 @@ static void fcm_srv_destroy(struct fcm_srv_info *srv_info)
 {
 	FCM_LOG_DBG("Shutdown fcmon server");
 	close(srv_info->srv_sock);
-	unlink(CLIF_SOCK_FILE);
-	rmdir(FCM_SRV_DIR);
 }
 
 int main(int argc, char **argv)

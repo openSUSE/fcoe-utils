@@ -27,9 +27,7 @@
 
 */
 
-#define FCM_SRV_DIR "/var/run/fcm"
 #define CLIF_IFNAME "fcm_clif"
-#define CLIF_SOCK_FILE FCM_SRV_DIR "/" CLIF_IFNAME
 
 #define CLIF_PID_FILE _PATH_VARRUN "fcoemon.pid"
 

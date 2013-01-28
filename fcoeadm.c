@@ -134,24 +134,33 @@ static inline void fcoeadm_close_cli(struct clif_sock_info *clif_info)
 static enum fcoe_status fcoeadm_open_cli(struct clif_sock_info *clif_info)
 {
 	enum fcoe_status rc = SUCCESS;
+	struct sockaddr_un *lp;
+	socklen_t addrlen;
 
-	clif_info->socket_fd = socket(PF_UNIX, SOCK_DGRAM, 0);
+	clif_info->socket_fd = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (clif_info->socket_fd < 0)
 		return ENOMONCONN;
 
-	clif_info->local.sun_family = AF_UNIX;
-	if (bind(clif_info->socket_fd, (struct sockaddr *)&clif_info->local,
-		 sizeof(clif_info->local.sun_family)) < 0) {
+	lp = &clif_info->local;
+	memset(lp, 0, sizeof(*lp));
+	lp->sun_family = AF_LOCAL;
+	lp->sun_path[0] = '\0';
+	snprintf(&lp->sun_path[1], sizeof(lp->sun_path) - 1,
+		 "%s/%d", CLIF_IFNAME, getpid);
+	addrlen = sizeof(sa_family_t) + strlen(lp->sun_path + 1) + 1;
+	if (bind(clif_info->socket_fd, (struct sockaddr *)lp, addrlen) < 0) {
 		rc = ENOMONCONN;
 		goto err_close;
 	}
 
-	clif_info->dest.sun_family = AF_UNIX;
-	strncpy(clif_info->dest.sun_path, CLIF_SOCK_FILE,
-		sizeof(clif_info->dest.sun_path));
-
+	clif_info->dest.sun_family = AF_LOCAL;
+	clif_info->dest.sun_path[0] = '\0';
+	snprintf(&clif_info->dest.sun_path[1],
+		 sizeof(clif_info->dest.sun_path) - 1,
+		 "%s", CLIF_IFNAME);
+	addrlen = sizeof(sa_family_t) + strlen(clif_info->dest.sun_path + 1) + 1;
 	if (connect(clif_info->socket_fd, (struct sockaddr *)&clif_info->dest,
-		     sizeof(clif_info->dest)) < 0) {
+		    addrlen) < 0) {
 		rc = ENOMONCONN;
 		goto err_close;
 	}

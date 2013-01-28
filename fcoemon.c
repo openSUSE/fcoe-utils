@@ -198,8 +198,6 @@ static struct option fcm_options[] = {
 
 char progname[20];
 
-static char fcm_pidfile[] = CLIF_PID_FILE;
-
 /*
  * Issue with buffer size:  It isn't clear how to read more than one
  * buffer's worth of GETLINK replies.  The kernel seems to just drop the
@@ -1787,7 +1785,6 @@ static void fcm_dcbd_shutdown(void)
 	FCM_LOG_DBG("Shutdown lldpad connection\n");
 	fcm_dcbd_request("D");	/* DETACH_CMD */
 	fcm_dcbd_disconnect();
-	unlink(fcm_pidfile);
 	closelog();
 }
 
@@ -2901,42 +2898,6 @@ static void fcm_sig(int sig)
 	}
 }
 
-static void fcm_pidfile_create(void)
-{
-	FILE *fp;
-	char buf[100];
-	char *sp;
-	int pid;
-	int rc;
-
-	fp = fopen(fcm_pidfile, "r+");
-	if (fp) {
-		if ((sp = fgets(buf, sizeof(buf), fp)) == NULL) {
-			FCM_LOG("Error reading pid file - exiting\n");
-			exit(1);
-		}
-		if (!sscanf(sp, "%d", &pid)) {
-			FCM_LOG("Error reading pid ('%d') - exiting\n",
-				pid);
-			exit(1);
-		}
-		rc = kill(pid, 0);
-		if (pid > 0 && !rc) {
-			FCM_LOG("Another instance"
-				" (pid %d) is running - exiting\n",
-				pid);
-			exit(1);
-		}
-		fclose(fp);
-	}
-	umask(~(S_IRUSR | S_IWUSR));
-	fp = fopen(fcm_pidfile, "w+");
-	if (fp) {
-		fprintf(fp, "%d\n", getpid());
-		fclose(fp);
-	}
-}
-
 /*
  * TODO: This routine does too much. It executes a 'cmd'
  * and allocates a fcoe_port if one doesn't exist. The
@@ -3127,7 +3088,7 @@ static void fcm_srv_receive(void *arg)
 	socklen_t fromlen = sizeof(struct sockaddr_un);
 	struct sock_info *reply = NULL;
 	char buf[MAX_MSGBUF], rbuf[MAX_MSGBUF];
-	char *ifname;
+	char *ifname = NULL;
 	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
 
@@ -3144,12 +3105,13 @@ static void fcm_srv_receive(void *arg)
 	data = (struct clif_data *)buf;
 
 	cmd = data->cmd;
-	ifname = strdup(data->ifname);
+	if (cmd != CLIF_PID_CMD) {
+		ifname = strdup(data->ifname);
 
-	rc = fcoe_validate_interface(ifname);
-	if (rc)
-		goto err;
-
+		rc = fcoe_validate_interface(ifname);
+		if (rc)
+			goto err;
+	}
 	reply = fcm_alloc_reply(&from, fromlen, snum);
 	if (!reply)
 		goto err_out;
@@ -3179,17 +3141,25 @@ static void fcm_srv_receive(void *arg)
 		if (rc)
 			goto err_out;
 		break;
+	case CLIF_PID_CMD:
+		FCM_LOG_DBG("FCMON PID\n");
+		snprintf(rbuf, MAX_MSGBUF, "%lu", (long unsigned int)getpid());
+		sendto(snum, rbuf, strlen(rbuf), 0, (struct sockaddr *)&from,
+		       fromlen);
+		break;
 	default:
 		FCM_LOG_DBG("Received invalid command %d for %s\n",
 			    cmd, ifname);
 		goto err_out;
 	}
 
-	free(ifname);
+	if (ifname)
+		free(ifname);
 	return;
 
 err_out:
-	free(ifname);
+	if (ifname)
+		free(ifname);
 	free(reply);
 err:
 	snprintf(rbuf, MSG_RBUF, "%d", rc);
@@ -3325,7 +3295,6 @@ int main(int argc, char **argv)
 		FCM_LOG_ERR(errno, "Failed to register handler for SIGUSR1");
 		exit(1);
 	}
-	fcm_pidfile_create();
 
 	/* check fcoe module */
 	if (fcoe_checkdir(SYSFS_FCOE)) {

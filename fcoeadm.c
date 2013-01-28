@@ -33,7 +33,7 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char *optstring = "c:d:r:S:iftlsbhv";
+static const char *optstring = "c:d:r:S:iftlsbhpv";
 static struct option fcoeadm_opts[] = {
 	{"create", required_argument, 0, 'c'},
 	{"destroy", required_argument, 0, 'd'},
@@ -43,6 +43,7 @@ static struct option fcoeadm_opts[] = {
 	{"fcf", no_argument, 0, 'f'},
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
+	{"pid", no_argument, 0, 'p'},
 	{"stats", no_argument, 0, 's'},
 	{"lesb", no_argument, 0, 'b'},
 	{"help", no_argument, 0, 'h'},
@@ -66,6 +67,7 @@ static void fcoeadm_help(void)
 	       "\t [-l|--lun] [<ethX>]\n"
 	       "\t [-s|--stats] <ethX> [<interval>]\n"
 	       "\t [-b|--lesb] <ethX> [<interval>]\n"
+	       "\t [-p|--pid]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
 }
@@ -98,7 +100,7 @@ static enum fcoe_status fcoeadm_clif_request(struct clif_sock_info *clif_info,
 	}
 }
 
-static enum fcoe_status fcoeadm_request(struct clif_sock_info *clif_info,
+static int fcoeadm_request(struct clif_sock_info *clif_info,
 					struct clif_data *data)
 {
 	char rbuf[MAX_MSGBUF];
@@ -146,7 +148,7 @@ static enum fcoe_status fcoeadm_open_cli(struct clif_sock_info *clif_info)
 	lp->sun_family = AF_LOCAL;
 	lp->sun_path[0] = '\0';
 	snprintf(&lp->sun_path[1], sizeof(lp->sun_path) - 1,
-		 "%s/%d", CLIF_IFNAME, getpid);
+		 "%s/%lu", CLIF_IFNAME, (unsigned long int)getpid);
 	addrlen = sizeof(sa_family_t) + strlen(lp->sun_path + 1) + 1;
 	if (bind(clif_info->socket_fd, (struct sockaddr *)lp, addrlen) < 0) {
 		rc = ENOMONCONN;
@@ -179,14 +181,21 @@ static enum fcoe_status fcoeadm_action(enum clif_action cmd, char *ifname)
 {
 	struct clif_data data;
 	struct clif_sock_info clif_info;
-	enum fcoe_status rc;
+	int rc;
 
-	strncpy(data.ifname, ifname, sizeof(data.ifname));
+	if (ifname)
+		strncpy(data.ifname, ifname, sizeof(data.ifname));
+	else
+		data.ifname[0] = '\0';
 	data.cmd = cmd;
 
 	rc = fcoeadm_open_cli(&clif_info);
 	if (!rc) {
 		rc = fcoeadm_request(&clif_info, &data);
+		if (rc > 0 && cmd == CLIF_PID_CMD) {
+			printf("%d\n", rc);
+			rc = 0;
+		}
 		fcoeadm_close_cli(&clif_info);
 	}
 
@@ -244,7 +253,6 @@ int main(int argc, char *argv[])
 			rc = fcoeadm_action(cmd, ifname);
 
 			break;
-
 		case 'r':
 			cmd = CLIF_RESET_CMD;
 			/* fall through */
@@ -365,6 +373,9 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_port_stats(ifname, stat_interval);
+			break;
+		case 'p':
+			rc = fcoeadm_action(CLIF_PID_CMD, NULL);
 			break;
 
 		case 'b':

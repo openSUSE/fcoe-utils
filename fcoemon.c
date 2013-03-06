@@ -171,7 +171,7 @@ struct libfcoe_interface_template {
 	enum fcoe_status (*disable)(struct fcm_netif *, struct fcoe_port *);
 };
 
-const struct libfcoe_interface_template *libfcoe_control;
+static const struct libfcoe_interface_template *libfcoe_control;
 
 static enum fcoe_status fcm_module_create(struct fcm_netif *ff, struct fcoe_port *p)
 {
@@ -212,6 +212,63 @@ static struct libfcoe_interface_template libfcoe_module_tmpl = {
 	.destroy = fcm_module_destroy,
 	.enable = fcm_module_enable,
 	.disable = fcm_module_disable,
+};
+
+static enum fcoe_status fcm_bus_enable(struct fcm_netif *ff,
+				       struct fcoe_port *p)
+{
+	return fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_ENABLED, "1");
+}
+
+static enum fcoe_status fcm_bus_create(struct fcm_netif *ff,
+				       struct fcoe_port *p)
+{
+	enum fcoe_status rc;
+
+	rc = fcm_write_str_to_sysfs_file(FCOE_BUS_CREATE, p->ifname);
+	if (rc)
+		return rc;
+
+	/*
+	 * This call validates that the interface name
+	 * has an active fcoe session by checking for
+	 * the fc_host in sysfs.
+	 */
+	if (fcoe_find_fchost(p->ifname, p->fchost, FCHOSTBUFLEN)) {
+		FCM_LOG_DBG("Failed to find fc_host for %s\n", p->ifname);
+		return ENOSYSFS;
+	}
+
+	/*
+	 * The fcoe_ctlr_device lookup only happens when the fcoe_sysfs
+	 * kernel interfaces are used. It is a defect if p->ctlr is used
+	 * outside of these abstracted routines.
+	 */
+	if (fcoe_find_ctlr(p->fchost, p->ctlr, FCHOSTBUFLEN)) {
+		FCM_LOG_DBG("Failed to get ctlr for %s\n", p->ifname);
+		return ENOSYSFS;
+	}
+
+	return fcm_bus_enable(ff, p);
+}
+
+static enum fcoe_status fcm_bus_destroy(struct fcm_netif *ff,
+					struct fcoe_port *p)
+{
+	return fcm_write_str_to_sysfs_file(FCOE_BUS_DESTROY, p->ifname);
+}
+
+static enum fcoe_status fcm_bus_disable(struct fcm_netif *ff,
+					struct fcoe_port *p)
+{
+	return fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_ENABLED, "0");
+}
+
+static struct libfcoe_interface_template libfcoe_bus_tmpl = {
+	.create = fcm_bus_create,
+	.destroy = fcm_bus_destroy,
+	.enable = fcm_bus_enable,
+	.disable = fcm_bus_disable,
 };
 
 struct fcm_clif {
@@ -1672,7 +1729,13 @@ static void fcm_fcoe_init(void)
 	if (fcm_read_config_files())
 		exit(1);
 
-	libfcoe_control = &libfcoe_module_tmpl;
+	if (!access(FCOE_BUS_CREATE, F_OK)) {
+		FCM_LOG_DBG("Using /sys/bus/fcoe interfaces\n");
+		libfcoe_control = &libfcoe_bus_tmpl;
+	} else {
+		FCM_LOG_DBG("Using libfcoe module parameter interfaces\n");
+		libfcoe_control = &libfcoe_module_tmpl;
+	}
 }
 
 /*
@@ -2636,14 +2699,15 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
 		rc = libfcoe_control->create(ff, p);
-
-		if (fcoe_find_ctlr(p->fchost, p->ctlr, FCHOSTBUFLEN)) {
-			FCM_LOG_DBG("Failed to get ctlr for %s\n", p->ifname);
+		if (rc) {
+			FCM_LOG_DBG("Failed to create FCoE interface "
+				    "for %s, rc is %d\n", p->ifname, rc);
 			break;
 		}
 
-		FCM_LOG_DBG("OP: created fchost:%s on ctlr:%s for %s\n",
-			    p->fchost, p->ctlr, p->ifname);
+		FCM_LOG_DBG("OP: created fchost:%s for %s\n",
+			    p->fchost, p->ifname);
+
 		break;
 	case FCP_DESTROY_IF:
 		FCM_LOG_DBG("OP: DESTROY %s\n", p->ifname);

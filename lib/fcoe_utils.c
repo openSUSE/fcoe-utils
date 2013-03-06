@@ -285,3 +285,13 @@ enum fcoe_status fcoe_find_ctlr(const char *fchost, char *ctlr, int len)
 
 	return rc;
 }
+
+enum fcoe_status fcm_write_str_to_ctlr_attr(const char *ctlr,
+					    const char *attr,
+					    const char *str)
+{
+	char path[MAX_PATH_LEN];
+
+	sprintf(path, "%s/%s/%s", SYSFS_FCOE_BUS_DEVICES, ctlr, attr);
+	return fcm_write_str_to_sysfs_file(path, str);
+}

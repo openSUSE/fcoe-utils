@@ -35,7 +35,6 @@
 #define MAX_STR_LEN 512
 #define MAX_PATH_LEN MAX_STR_LEN
 
-
 #define SYSFS_MOUNT                            "/sys"
 #define SYSFS_NET               SYSFS_MOUNT    "/class/net"
 #define SYSFS_FCHOST            SYSFS_MOUNT    "/class/fc_host"
@@ -91,5 +90,7 @@ int check_symbolic_name_for_interface(const char *symbolic_name,
 char *get_ifname_from_symbolic_name(const char *symbolic_name);
 int fcoe_sysfs_read(char *buf, int size, const char *path);
 enum fcoe_status fcm_write_str_to_sysfs_file(const char *path, const char *str);
-
+enum fcoe_status fcm_write_str_to_ctlr_attr(const char *ctlr,
+					    const char *attr,
+					    const char *str);
 #endif /* _FCOE_UTILS_H_ */

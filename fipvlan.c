@@ -78,6 +78,8 @@ struct {
 	.suffix = "",
 };
 
+int (*fcoe_instance_start)(const char *ifname);
+
 char *exe;
 
 static struct pollfd *pfd = NULL;
@@ -549,13 +551,13 @@ void create_missing_vlans()
 	printf("\n");
 }
 
-int fcoe_instance_start(char *ifname)
+int fcoe_mod_instance_start(const char *ifname)
 {
 	enum fcoe_status ret = EFAIL;
 
 	ret = fcm_write_str_to_sysfs_file(FCOE_CREATE, ifname);
 	if (ret) {
-		FIP_LOG_ERRNO("Failed to open file:%s", FCOE_CREATE);
+		FIP_LOG_ERRNO("Failed to open file: %s", FCOE_CREATE);
 		FIP_LOG_ERRNO("May be fcoe stack not loaded, starting"
 			      " fcoe service will fix that");
 
@@ -563,6 +565,48 @@ int fcoe_instance_start(char *ifname)
 	}
 
 	return 0;
+}
+
+int fcoe_bus_instance_start(const char *ifname)
+{
+	enum fcoe_status ret = EFAIL;
+	char fchost[FCHOSTBUFLEN];
+	char ctlr[FCHOSTBUFLEN];
+
+	ret = fcm_write_str_to_sysfs_file(FCOE_BUS_CREATE, ifname);
+	if (ret) {
+		FIP_LOG_ERRNO("Failed to open file: %s", FCOE_BUS_CREATE);
+		FIP_LOG_ERRNO("May be fcoe stack not loaded, starting"
+			      " fcoe service will fix that");
+		return ret;
+	}
+
+	if (fcoe_find_fchost(ifname, fchost, FCHOSTBUFLEN)) {
+		FIP_LOG_DBG("Failed to find fc_host for %s\n", ifname);
+		return ENOSYSFS;
+	}
+
+	if (fcoe_find_ctlr(fchost, ctlr, FCHOSTBUFLEN)) {
+		FIP_LOG_DBG("Failed to get ctlr for %s\n", ifname);
+		return ENOSYSFS;
+	}
+
+	ret = fcm_write_str_to_ctlr_attr(ctlr, FCOE_CTLR_ATTR_ENABLED, "1");
+	if (ret)
+		FIP_LOG_DBG("Failed to enable interface %s\n", ifname);
+
+	return 0;
+}
+
+void determine_libfcoe_interface()
+{
+	if (!access(FCOE_BUS_CREATE, F_OK)) {
+		FIP_LOG_DBG("Using /sys/bus/fcoe interfaces\n");
+		fcoe_instance_start = &fcoe_bus_instance_start;
+	} else {
+		FIP_LOG_DBG("Using libfcoe module parameter interfaces\n");
+		fcoe_instance_start = &fcoe_mod_instance_start;
+	}
 }
 
 void start_fcoe()
@@ -835,6 +879,8 @@ int main(int argc, char **argv)
 		goto ns_err;
 	}
 	pfd_add(ns);
+
+	determine_libfcoe_interface();
 
 	find_interfaces(ns);
 	while ((TAILQ_EMPTY(&interfaces)) && ++find_cnt < 5) {

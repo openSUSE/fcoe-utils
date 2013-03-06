@@ -160,6 +160,60 @@ static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
 static void fcp_set_next_action(struct fcoe_port *, enum fcp_action);
 static enum fcoe_status fcm_fcoe_if_action(char *, char *);
 
+/*
+ * Used for backwards compatibility amongst libfcoe
+ * "control" interfaces.
+ */
+struct libfcoe_interface_template {
+	enum fcoe_status (*create)(struct fcm_netif *, struct fcoe_port *);
+	enum fcoe_status (*destroy)(struct fcm_netif *, struct fcoe_port *);
+	enum fcoe_status (*enable)(struct fcm_netif *, struct fcoe_port *);
+	enum fcoe_status (*disable)(struct fcm_netif *, struct fcoe_port *);
+};
+
+const struct libfcoe_interface_template *libfcoe_control;
+
+static enum fcoe_status fcm_module_create(struct fcm_netif *ff, struct fcoe_port *p)
+{
+	enum fcoe_status rc = fcm_fcoe_if_action(FCOE_CREATE, p->ifname);
+	if (rc)
+		return rc;
+
+	/*
+	 * This call validates that the interface name
+	 * has an active fcoe session by checking for
+	 * the fc_host in sysfs.
+	 */
+	if (fcoe_find_fchost(p->ifname, p->fchost, FCHOSTBUFLEN)) {
+		FCM_LOG_DBG("Failed to find fc_host for %s\n", p->ifname);
+		return ENOSYSFS;
+	}
+
+	return SUCCESS;
+}
+
+static enum fcoe_status fcm_module_destroy(struct fcm_netif *ff, struct fcoe_port *p)
+{
+	return fcm_fcoe_if_action(FCOE_DESTROY, p->ifname);
+}
+
+static enum fcoe_status fcm_module_enable(struct fcm_netif *ff, struct fcoe_port *p)
+{
+	return fcm_fcoe_if_action(FCOE_ENABLE, p->ifname);
+}
+
+static enum fcoe_status fcm_module_disable(struct fcm_netif *ff, struct fcoe_port *p)
+{
+	return fcm_fcoe_if_action(FCOE_DISABLE, p->ifname);
+}
+
+static struct libfcoe_interface_template libfcoe_module_tmpl = {
+	.create = fcm_module_create,
+	.destroy = fcm_module_destroy,
+	.enable = fcm_module_enable,
+	.disable = fcm_module_disable,
+};
+
 struct fcm_clif {
 	int cl_fd;
 	int cl_busy;		/* non-zero if command pending */
@@ -1617,6 +1671,8 @@ static void fcm_fcoe_init(void)
 {
 	if (fcm_read_config_files())
 		exit(1);
+
+	libfcoe_control = &libfcoe_module_tmpl;
 }
 
 /*
@@ -2573,23 +2629,13 @@ int fcm_start_vlan_disc(struct fcoe_port *p)
 static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 {
 	struct fcoe_port *vp;
-	char *ifname = p->ifname;
 	char path[MAX_PATH_LEN];
 	enum fcoe_status rc = SUCCESS;
 
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
-		rc = fcm_fcoe_if_action(FCOE_CREATE, ifname);
-		/*
-		 * This call validates that the interface name
-		 * has an active fcoe session by checking for
-		 * the fc_host in sysfs.
-		 */
-		if (fcoe_find_fchost(ifname, p->fchost, FCHOSTBUFLEN)) {
-			FCM_LOG_DBG("Failed to find fc_host for %s\n", p->ifname);
-			break;
-		}
+		rc = libfcoe_control->create(ff, p);
 
 		if (fcoe_find_ctlr(p->fchost, p->ctlr, FCHOSTBUFLEN)) {
 			FCM_LOG_DBG("Failed to get ctlr for %s\n", p->ifname);
@@ -2614,12 +2660,12 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			rc = SUCCESS;
 			break;
 		}
-		rc = fcm_fcoe_if_action(FCOE_DESTROY, ifname);
+		rc = libfcoe_control->destroy(ff, p);
 		p->fchost[0] = '\0';
 		break;
 	case FCP_ENABLE_IF:
 		FCM_LOG_DBG("OP: ENABLE %s\n", p->ifname);
-		rc = fcm_fcoe_if_action(FCOE_ENABLE, ifname);
+		rc = libfcoe_control->enable(ff, p);
 		break;
 	case FCP_DISABLE_IF:
 		FCM_LOG_DBG("OP: DISABLE %s\n", p->ifname);
@@ -2635,7 +2681,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			}
 			break;
 		}
-		rc = fcm_fcoe_if_action(FCOE_DISABLE, ifname);
+		rc = libfcoe_control->disable(ff, p);
 		break;
 	case FCP_RESET_IF:
 		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);

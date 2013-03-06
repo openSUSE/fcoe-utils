@@ -2502,7 +2502,10 @@ static void fcm_dcbd_event(char *msg, size_t len)
 	}
 }
 
-static void fcm_cli_reply(struct sock_info *r, int status)
+/*
+ * The status is interpreted by the client as an 'enum fcoe_status'.
+ */
+static void fcm_cli_reply(struct sock_info *r, enum fcoe_status status)
 {
 	char rbuf[MAX_MSGBUF];
 	snprintf(rbuf, MSG_RBUF, "%d", status);

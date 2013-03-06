@@ -35,15 +35,21 @@
 #define MAX_STR_LEN 512
 #define MAX_PATH_LEN MAX_STR_LEN
 
-#define SYSFS_MOUNT	"/sys"
-#define SYSFS_NET	SYSFS_MOUNT "/class/net"
-#define SYSFS_FCHOST	SYSFS_MOUNT "/class/fc_host"
-#define SYSFS_FCOE	SYSFS_MOUNT "/module/libfcoe/parameters"
+#define SYSFS_MOUNT                            "/sys"
+#define SYSFS_NET               SYSFS_MOUNT    "/class/net"
+#define SYSFS_FCHOST            SYSFS_MOUNT    "/class/fc_host"
+#define SYSFS_FCOE_BUS          SYSFS_MOUNT    "/bus/fcoe"
+#define SYSFS_FCOE_BUS_DEVICES  SYSFS_FCOE_BUS "/devices"
 
-#define FCOE_CREATE	SYSFS_FCOE "/create"
-#define FCOE_DESTROY	SYSFS_FCOE "/destroy"
-#define FCOE_ENABLE 	SYSFS_FCOE "/enable"
-#define FCOE_DISABLE	SYSFS_FCOE "/disable"
+#define SYSFS_FCOE   SYSFS_MOUNT "/module/libfcoe/parameters" /* legacy */
+#define FCOE_CREATE  SYSFS_FCOE  "/create"  /* legacy */
+#define FCOE_DESTROY SYSFS_FCOE  "/destroy" /* legacy */
+#define FCOE_ENABLE  SYSFS_FCOE  "/enable"  /* legacy */
+#define FCOE_DISABLE SYSFS_FCOE  "/disable" /* legacy */
+
+#define FCOE_BUS_CREATE        SYSFS_FCOE_BUS "/ctlr_create"
+#define FCOE_BUS_DESTROY       SYSFS_FCOE_BUS "/ctlr_destroy"
+#define FCOE_CTLR_ATTR_ENABLED "/enabled"
 
 #define FCHOSTBUFLEN 64
 

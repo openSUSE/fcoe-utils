@@ -551,18 +551,18 @@ void create_missing_vlans()
 
 int fcoe_instance_start(char *ifname)
 {
-	int fd, rc;
-	FIP_LOG_DBG("%s on %s\n", __func__, ifname);
-	fd = open(FCOE_CREATE, O_WRONLY);
-	if (fd < 0) {
+	enum fcoe_status ret = EFAIL;
+
+	ret = fcm_write_str_to_sysfs_file(FCOE_CREATE, ifname);
+	if (ret) {
 		FIP_LOG_ERRNO("Failed to open file:%s", FCOE_CREATE);
 		FIP_LOG_ERRNO("May be fcoe stack not loaded, starting"
-			       " fcoe service will fix that");
-		return fd;
+			      " fcoe service will fix that");
+
+		return EFAIL;
 	}
-	rc = write(fd, ifname, strlen(ifname));
-	close(fd);
-	return rc < 0 ? rc : 0;
+
+	return 0;
 }
 
 void start_fcoe()

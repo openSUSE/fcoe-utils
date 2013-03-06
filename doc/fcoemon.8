@@ -1,13 +1,22 @@
 '\" t
 .\"     Title: fcoemon
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 01/16/2012
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 10/08/2012
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEMON" "8" "01/16/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEMON" "8" "10/08/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -20,7 +29,7 @@
 fcoemon \- Open\-FCoE service daemon
 .SH "SYNOPSIS"
 .sp
-\fBfcoemon\fR [\-f|\-\-foreground] [\-d|\-\-debug] [\-s|\-\-syslog]
+\fBfcoemon\fR [\-f|\-\-foreground] [\-l|\-\-legacy] [\-d|\-\-debug] [\-s|\-\-syslog]
 .sp
 \fBfcoemon\fR \-h|\-\-help
 .sp
@@ -48,6 +57,11 @@ in the foreground\&.
 \fB\-d\fR, \fB\-\-debug\fR
 .RS 4
 Enable debugging messages\&.
+.RE
+.PP
+\fB\-l\fR, \fB\-\-legacy\fR
+.RS 4
+Force fcoemon to use the legacy /sys/modlue/libfcoe/parameters/ interface\&. The default is to use the newer /sys/bus/fcoe/ interfaces if they are available\&.
 .RE
 .PP
 \fB\-s\fR, \fB\-\-syslog\fR

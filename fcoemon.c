@@ -102,6 +102,7 @@
 #define CFG_IF_VAR_AUTOVLAN    "AUTO_VLAN"
 
 
+static bool force_legacy;
 static sigset_t block_sigset;
 
 void fcm_vlan_disc_timeout(void *arg);
@@ -301,6 +302,7 @@ static void clear_dcbd_info(struct fcm_netif *ff);
  */
 static struct option fcm_options[] = {
 	{"debug", 0, NULL, 'd'},
+	{"legacy", 0, NULL, 'l'},
 	{"syslog", 0, NULL, 's'},
 	{"exec", 1, NULL, 'e'},
 	{"foreground", 0, NULL, 'f'},
@@ -1729,12 +1731,12 @@ static void fcm_fcoe_init(void)
 	if (fcm_read_config_files())
 		exit(1);
 
-	if (!access(FCOE_BUS_CREATE, F_OK)) {
-		FCM_LOG_DBG("Using /sys/bus/fcoe interfaces\n");
-		libfcoe_control = &libfcoe_bus_tmpl;
-	} else {
+	if (force_legacy || access(FCOE_BUS_CREATE, F_OK)) {
 		FCM_LOG_DBG("Using libfcoe module parameter interfaces\n");
 		libfcoe_control = &libfcoe_module_tmpl;
+	} else {
+		FCM_LOG_DBG("Using /sys/bus/fcoe interfaces\n");
+		libfcoe_control = &libfcoe_bus_tmpl;
 	}
 }
 
@@ -2949,6 +2951,7 @@ static void fcm_usage(void)
 	printf("Usage: %s\n"
 	       "\t [-f|--foreground]\n"
 	       "\t [-d|--debug]\n"
+	       "\t [-l|--legacy]\n"
 	       "\t [-s|--syslog]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
@@ -3348,7 +3351,7 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "fdhsv",
+	while ((c = getopt_long(argc, argv, "fdhlsv",
 				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':
@@ -3357,6 +3360,9 @@ int main(int argc, char **argv)
 		case 'd':
 			fcoe_config.debug = 1;
 			enable_debug_log(1);
+			break;
+		case 'l':
+			force_legacy = true;
 			break;
 		case 's':
 			fcoe_config.use_syslog = 1;

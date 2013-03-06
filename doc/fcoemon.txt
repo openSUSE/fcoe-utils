@@ -19,7 +19,7 @@ fcoemon - Open-FCoE service daemon
 
 SYNOPSIS
 --------
-*fcoemon* [-f|--foreground] [-d|--debug] [-s|--syslog]
+*fcoemon* [-f|--foreground] [-l|--legacy] [-d|--debug] [-s|--syslog]
 
 *fcoemon* -h|--help
 
@@ -55,6 +55,10 @@ OPTIONS
 	Run *fcoemon* in the foreground.
 *-d*, *--debug*::
 	Enable debugging messages.
+*-l*, *--legacy*::
+	Force fcoemon to use the legacy /sys/modlue/libfcoe/parameters/
+	interface. The default is to use the newer /sys/bus/fcoe/ interfaces
+	if they are available.
 *-s*, *--syslog*::
 	Use syslogd for logging. The default behavior is to log to stdout
 	and stderr.

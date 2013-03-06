@@ -136,6 +136,7 @@ struct fcoe_port {
 	int vlan_disc_count;
 	int fip_socket;
 	char fchost[FCHOSTBUFLEN];
+	char ctlr[FCHOSTBUFLEN];
 	uint32_t last_fc_event_num;
 };
 
@@ -2585,11 +2586,18 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 		 * has an active fcoe session by checking for
 		 * the fc_host in sysfs.
 		 */
-		if (fcoe_find_fchost(ifname, p->fchost, FCHOSTBUFLEN))
+		if (fcoe_find_fchost(ifname, p->fchost, FCHOSTBUFLEN)) {
 			FCM_LOG_DBG("Failed to find fc_host for %s\n", p->ifname);
+			break;
+		}
 
-		FCM_LOG_DBG("OP: created fchost:%s for %s\n",
-			     p->fchost, p->ifname);
+		if (fcoe_find_ctlr(p->fchost, p->ctlr, FCHOSTBUFLEN)) {
+			FCM_LOG_DBG("Failed to get ctlr for %s\n", p->ifname);
+			break;
+		}
+
+		FCM_LOG_DBG("OP: created fchost:%s on ctlr:%s for %s\n",
+			    p->fchost, p->ctlr, p->ifname);
 		break;
 	case FCP_DESTROY_IF:
 		FCM_LOG_DBG("OP: DESTROY %s\n", p->ifname);
@@ -2861,6 +2869,7 @@ static void fcm_dump(void)
 		FCM_LOG("vlan_disc_count: %d\n", curr->vlan_disc_count);
 		FCM_LOG("fip_socket: %d\n", curr->fip_socket); //TODO
 		FCM_LOG("fchost: %s\n", curr->fchost);
+		FCM_LOG("ctlr: %s\n", curr->ctlr);
 		FCM_LOG("last_fc_event_num: %d\n", curr->last_fc_event_num);
 
 		next = curr->next;

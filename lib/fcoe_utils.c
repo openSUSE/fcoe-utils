@@ -65,7 +65,7 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 	return rc;
 }
 
-enum fcoe_status fcoe_find_fchost(char *ifname, char *fchost, int len)
+enum fcoe_status fcoe_find_fchost(const char *ifname, char *fchost, int len)
 {
 	int n, dname_len, status;
 	struct dirent **namelist;
@@ -190,6 +190,98 @@ int check_symbolic_name_for_interface(const char *symbolic_name,
 	 */
 	if (symb && !strncmp(ifname, symb, strlen(symb)))
 		rc = 0;
+
+	return rc;
+}
+
+enum fcoe_status fcm_write_str_to_sysfs_file(const char *path, const char *str)
+{
+	FILE *fp = NULL;
+	enum fcoe_status ret = EFAIL;
+
+	fp = fopen(path, "w");
+	if (!fp)
+		goto err_out;
+
+	if (EOF == fputs(str, fp))
+		goto out;
+
+	ret = SUCCESS;
+out:
+	fclose(fp);
+err_out:
+	return ret;
+}
+
+static int fchost_filter(const struct dirent *dent)
+{
+	return !strncmp(dent->d_name, "host", 4);
+}
+
+static int fcoe_check_ctlr(const char *fchost, const char *dname, int len)
+{
+	int n, status;
+	struct dirent **namelist;
+	char path[MAX_PATH_LEN];
+	int rc = -EINVAL;
+
+	sprintf(path, "%s/%s", SYSFS_FCOE_BUS_DEVICES, dname);
+	status = n = scandir(path, &namelist, fchost_filter, alphasort);
+	for (n-- ; n >= 0 ; n--) {
+		if (rc) {
+			if (!strncmp(namelist[n]->d_name, fchost, 20))
+				rc = SUCCESS;
+			else
+				rc = EINTERR;
+		}
+		free(namelist[n]);
+	}
+	if (status >= 0)
+		free(namelist);
+
+	return rc;
+}
+
+static int ctlr_filter(const struct dirent *dent)
+{
+	return !strncmp(dent->d_name, "ctlr_", 5);
+}
+
+enum fcoe_status fcoe_find_ctlr(const char *fchost, char *ctlr, int len)
+{
+	int n, dname_len, status;
+	struct dirent **namelist;
+	int rc = ENOFCOECONN;
+
+	status = n = scandir(SYSFS_FCOE_BUS_DEVICES, &namelist,
+			     ctlr_filter, alphasort);
+	for (n-- ; n >= 0 ; n--) {
+		if (rc) {
+			/* check ctlr against known host */
+			if (!fcoe_check_ctlr(fchost,
+					     namelist[n]->d_name,
+					     len)) {
+
+				dname_len = strnlen(namelist[n]->d_name, len);
+
+				if (len > dname_len) {
+					strncpy(ctlr, namelist[n]->d_name,
+						dname_len + 1);
+					/* rc = 0 indicates found */
+					rc = SUCCESS;
+				} else {
+					/*
+					 * The fc_host is too large
+					 * for the buffer.
+					 */
+					rc = EINTERR;
+				}
+			}
+		}
+		free(namelist[n]);
+	}
+	if (status >= 0)
+		free(namelist);
 
 	return rc;
 }

@@ -45,6 +45,7 @@ typedef __u64 u64;
 
 static bool quiet = false;
 
+__attribute__((__format__(__printf__, 2, 3)))
 static int print_result(const char *prefix, const char *format, ...)
 {
 	va_list ap;
@@ -58,6 +59,7 @@ static int print_result(const char *prefix, const char *format, ...)
 	return rc;
 }
 
+__attribute__((__format__(__printf__, 1, 2)))
 static int print_err(const char *format, ...)
 {
 	va_list ap;

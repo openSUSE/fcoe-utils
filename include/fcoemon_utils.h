@@ -42,8 +42,11 @@
 
 #define ARRAY_SIZE(a)	(sizeof(a) / sizeof((a)[0]))
 
+__attribute__((__format__(__printf__, 1, 2)))
 void sa_log(const char *format, ...);
+__attribute__((__format__(__printf__, 1, 2)))
 void sa_log_debug(const char *format, ...);
+__attribute__((__format__(__printf__, 3, 4)))
 void sa_log_err(int, const char *func, const char *format, ...);
 
 /*
@@ -65,8 +68,8 @@ extern u_int sa_log_flags;          /* timestamp and other option flags */
 extern int sa_log_time_delta_min;   /* minimum diff to print in millisec */
 extern char *sa_log_prefix;         /* string to print before any message */
 
-extern void assert_failed(const char *s, ...)
-    __attribute__ ((format(printf, 1, 2)));
+__attribute__((__format__(__printf__, 1, 2)))
+extern void assert_failed(const char *s, ...);
 
 #ifndef UNLIKELY
 #define UNLIKELY(_x) (_x)

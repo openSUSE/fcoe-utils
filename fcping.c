@@ -158,7 +158,9 @@ static struct fp_stats fp_stats;
 		p[7] = (u_char) (v) & 0xFF;		\
 	} while (0)
 
+__attribute__((__format__(__printf__, 2, 3)))
 static void sa_log_func(const char *func, const char *format, ...);
+__attribute__((__format__(__printf__, 3, 4)))
 static void sa_log_err(int, const char *func, const char *format, ...);
 static void sa_log_output(const char *buf);
 

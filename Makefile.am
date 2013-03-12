@@ -5,7 +5,7 @@ sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 AM_CPPFLAGS = -I${srcdir}/include -I${builddir}/include
 ## pass the sysconfdir into the C proprocessor
 AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\""
-AM_CFLAGS = -Wall -Wformat=2
+AM_CFLAGS = -Wall -Wformat=2 -Werror
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c

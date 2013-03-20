@@ -88,6 +88,31 @@ static int fip_get_sanmac(int ifindex, unsigned char *addr)
 }
 
 /**
+ * fip_socket_add_addr - add a MAC address to the input socket
+ * @s: ETH_P_FIP packet socket to setsockopt on
+ * @ifindex: network interface index to send on
+ * @add: true to add false to del
+ * @mac: MAC address to add or delete
+ * @multi: false if unicast, true if multicast address
+ */
+static void
+fip_socket_add_addr(int s, int ifindex, bool add, const __u8 *mac, bool multi)
+{
+	struct packet_mreq mr;
+
+	memset(&mr, 0, sizeof(mr));
+	mr.mr_ifindex = ifindex;
+	mr.mr_type = multi ? PACKET_MR_MULTICAST : PACKET_MR_UNICAST;
+	mr.mr_alen = ETHER_ADDR_LEN;
+	memcpy(mr.mr_address, mac, ETHER_ADDR_LEN);
+	if (setsockopt(s, SOL_PACKET,
+		       add ? PACKET_ADD_MEMBERSHIP : PACKET_DROP_MEMBERSHIP,
+		       &mr, sizeof(mr)) < 0)
+		FIP_LOG_DBG("PACKET_%s_MEMBERSHIP:failed\n",
+			    add ? "ADD" : "DROP");
+}
+
+/**
  * fip_socket_sanmac - add SAN MAC to the unicast list for input socket
  * @s: ETH_P_FIP packet socket to setsockopt on
  * @ifindex: network interface index to send on
@@ -95,22 +120,30 @@ static int fip_get_sanmac(int ifindex, unsigned char *addr)
  */
 static void fip_socket_sanmac(int s, int ifindex, int add)
 {
-	struct packet_mreq mr;
 	unsigned char smac[ETHER_ADDR_LEN];
 
-	if (fip_get_sanmac(ifindex, smac))
+	if (fip_get_sanmac(ifindex, smac)) {
+		FIP_LOG_DBG("%s: no sanmac, ifindex %d\n", __func__, ifindex);
 		return;
+	}
 
-	memset(&mr, 0, sizeof(mr));
-	mr.mr_ifindex = ifindex;
-	mr.mr_type = PACKET_MR_UNICAST;
-	mr.mr_alen = ETHER_ADDR_LEN;
-	memcpy(mr.mr_address, smac, ETHER_ADDR_LEN);
-	if (setsockopt(s, SOL_PACKET,
-		       (add) ? PACKET_ADD_MEMBERSHIP : PACKET_DROP_MEMBERSHIP,
-		       &mr, sizeof(mr)) < 0)
-		FIP_LOG_DBG("PACKET_%s_MEMBERSHIP:failed\n",
-			    (add) ? "ADD" : "DROP");
+	fip_socket_add_addr(s, ifindex, add, smac, false);
+}
+
+/**
+ * fip_socket_multi - add multicast MAC address to the input socket
+ * @s: ETH_P_FIP packet socket to setsockopt on
+ * @ifindex: network interface index to send on
+ * @add: true to add, false to del
+ * @multi: Multicast destination
+ */
+static void
+fip_socket_multi(int s, int ifindex, bool add, enum fip_multi multi)
+{
+	__u8 smac[ETHER_ADDR_LEN] = FIP_ALL_FCOE_MACS;
+
+	smac[ETHER_ADDR_LEN - 1] = multi;
+	fip_socket_add_addr(s, ifindex, add, smac, true);
 }
 
 /**
@@ -160,8 +193,10 @@ static void drain_socket(int s)
 
 /**
  * fip_socket - create and bind a packet socket for FIP
+ * @ifindex: ifindex of netdevice to bind to
+ * @multi: Indication of any multicast address to bind to
  */
-int fip_socket(int ifindex)
+int fip_socket(int ifindex, enum fip_multi multi)
 {
 	struct sockaddr_ll sa = {
 		.sll_family = AF_PACKET,
@@ -176,6 +211,8 @@ int fip_socket(int ifindex)
 		return s;
 
 	fip_socket_sanmac(s, ifindex, 1);
+	if (multi != FIP_NONE)
+		fip_socket_multi(s, ifindex, true, multi);
 
 	rc = bind(s, (struct sockaddr *) &sa, sizeof(sa));
 	if (rc < 0) {
@@ -252,6 +289,82 @@ ssize_t fip_send_vlan_request(int s, int ifindex, const unsigned char *mac,
 	if (rc < 0) {
 		rc = -errno;
 		FIP_LOG_ERRNO("sendmsg error");
+	}
+	return rc;
+}
+
+/**
+ * fip_send_vlan_notification - send a FIP VLAN notification
+ * @s: ETH_P_FIP packet socket to send on
+ * @ifindex: network interface index to send on
+ * @mac: mac address of the sending network interface
+ * @dest: destination mac address
+ * @tlvs: pointer to vlan tlvs to send
+ * @tlv_count: number of vlan tlvs to send
+ */
+int
+fip_send_vlan_notification(int s, int ifindex, const __u8 *mac,
+			   const __u8 *dest, struct fip_tlv_vlan *vtlvs,
+			   int vlan_count)
+{
+	struct sockaddr_ll dsa = {
+		.sll_family = AF_PACKET,
+		.sll_protocol = htons(ETH_P_FIP),
+		.sll_ifindex = ifindex,
+		.sll_hatype = ARPHRD_ETHER,
+		.sll_pkttype = PACKET_OTHERHOST,
+		.sll_halen = ETHER_ADDR_LEN,
+	};
+	struct fiphdr sfh = {
+		.fip_version = FIP_VERSION(1),
+		.fip_proto = htons(FIP_PROTO_VLAN),
+		.fip_subcode = FIP_VLAN_NOTE_VN2VN,
+		.fip_desc_len = htons(2),
+		.fip_flags = 0,
+	};
+	struct {
+		struct fip_tlv_mac_addr mac;
+	} tlvs = {
+		.mac = {
+			.hdr.tlv_type = FIP_TLV_MAC_ADDR,
+			.hdr.tlv_len = 2,
+		},
+	};
+	struct ethhdr eh;
+	struct iovec iov[] = {
+		{ .iov_base = &eh, .iov_len = sizeof(eh), },
+		{ .iov_base = &sfh, .iov_len = sizeof(sfh), },
+		{ .iov_base = &tlvs, .iov_len = sizeof(tlvs), },
+		{ .iov_base = NULL, .iov_len = 0, },
+	};
+	struct msghdr msg = {
+		.msg_name = &dsa,
+		.msg_namelen = sizeof(dsa),
+		.msg_iov = iov,
+		.msg_iovlen = ARRAY_SIZE(iov) - 1,
+	};
+	int rc;
+
+	if (vlan_count) {
+		sfh.fip_desc_len = htons(3);
+		iov[3].iov_base = vtlvs;
+		iov[3].iov_len = vlan_count * sizeof(*vtlvs);
+		msg.msg_iovlen = ARRAY_SIZE(iov);
+	}
+
+	if (fip_get_sanmac(ifindex, eh.h_source))
+		memcpy(eh.h_source, mac, ETHER_ADDR_LEN);
+	eh.h_proto = htons(ETH_P_FIP);
+	memcpy(dsa.sll_addr, dest, ETHER_ADDR_LEN);
+	memcpy(eh.h_dest, dest, ETHER_ADDR_LEN);
+	memcpy(tlvs.mac.mac_addr, eh.h_source, ETHER_ADDR_LEN);
+	rc = sendmsg(s, &msg, 0);
+	if (rc < 0) {
+		rc = -errno;
+		FIP_LOG_ERR(errno, "%s:sendmsg error\n", __func__);
+	} else {
+		FIP_LOG_DBG("%s: sent %d bytes to ifindex %d\n",
+			    __func__, rc, ifindex);
 	}
 	return rc;
 }

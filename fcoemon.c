@@ -104,6 +104,7 @@
 #define CFG_IF_VAR_DCBREQUIRED "DCB_REQUIRED"
 #define CFG_IF_VAR_AUTOVLAN    "AUTO_VLAN"
 #define CFG_IF_VAR_MODE        "MODE"
+#define CFG_IF_VAR_FIP_RESP    "FIP_RESP"
 
 enum fcoe_mode {
 	FCOE_MODE_FABRIC = 0,
@@ -130,6 +131,7 @@ struct fcoe_port {
 	int fcoe_enable;
 	int dcb_required;
 	enum fcoe_mode mode;
+	bool fip_resp;
 	int auto_vlan;
 	int auto_created;
 	int ready;
@@ -145,6 +147,7 @@ struct fcoe_port {
 	struct sa_timer vlan_disc_timer;
 	int vlan_disc_count;
 	int fip_socket;
+	int fip_responder_socket;
 	char fchost[FCHOSTBUFLEN];
 	char ctlr[FCHOSTBUFLEN];
 	uint32_t last_fc_event_num;
@@ -331,6 +334,7 @@ static void fcm_link_recv(void *);
 static void fcm_link_getlink(void);
 static int fcm_link_buf_check(size_t);
 static void clear_dcbd_info(struct fcm_netif *ff);
+static int fcoe_vid_from_ifname(const char *ifname);
 
 /*
  * Table for getopt_long(3).
@@ -454,6 +458,7 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 		 */
 		p->last_action = FCP_DESTROY_IF;
 		p->fip_socket = -1;
+		p->fip_responder_socket = -1;
 		p->fchost[0] = '\0';
 		p->last_fc_event_num = 0;
 		sa_timer_init(&p->vlan_disc_timer, fcm_vlan_disc_timeout, p);
@@ -569,6 +574,23 @@ static int fcm_read_config_files(void)
 		/* if not found, default to "no" */
 		if (!strncasecmp(val, "yes", 3) && rc == 1)
 			next->auto_vlan = 1;
+
+		/* FIP_RESP */
+		rc = fcm_read_config_variable(file, val, sizeof(val),
+					      fp, CFG_IF_VAR_FIP_RESP);
+		if (rc < 0) {
+			FCM_LOG("Invalid format for %s variable in %s",
+				CFG_IF_VAR_FIP_RESP, file);
+			fclose(fp);
+			free(next);
+			continue;
+		}
+		/* if not found, default to "none" */
+		next->fip_resp = false;
+		if (!strcasecmp(val, "yes") && rc == 1) {
+			FCM_LOG("Starting FIP responder on %s", next->ifname);
+			next->fip_resp = true;
+		}
 
 		/* MODE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
@@ -958,12 +980,17 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 		return -1;
 
 	if (fh->fip_subcode == FIP_VLAN_NOTE_VN2VN &&
-	    (!p->auto_vlan || p->mode != FCOE_MODE_VN2VN))
+	    (!p->auto_vlan || p->mode != FCOE_MODE_VN2VN)) {
+		FCM_LOG_DBG("%s: vn2vn vlan notif: auto_vlan=%d, mode=%d\n",
+			    __func__, p->auto_vlan, p->mode);
 		return -1;
+	}
 
 	if (fh->fip_subcode != FIP_VLAN_NOTE &&
-	    fh->fip_subcode != FIP_VLAN_NOTE_VN2VN)
+	    fh->fip_subcode != FIP_VLAN_NOTE_VN2VN) {
+		FCM_LOG_DBG("%s: fip_subcode=%d\n", __func__, fh->fip_subcode);
 		return -1;
+	}
 
 	if (fh->fip_subcode == FIP_VLAN_NOTE_VN2VN)
 		vn2vn = true;
@@ -985,7 +1012,7 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 				break;
 			}
 			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
-
+			FCM_LOG_DBG("%s: vid=%d\n", __func__, vid);
 			if (vid) {
 				vp = fcm_new_vlan(sa->sll_ifindex, vid, vn2vn);
 				vp->dcb_required = p->dcb_required;
@@ -1027,7 +1054,7 @@ static int fcm_vlan_disc_socket(struct fcoe_port *p)
 	int fd;
 	int origdev = 1;
 
-	fd = fip_socket(p->ifindex);
+	fd = fip_socket(p->ifindex, FIP_NONE);
 	if (fd < 0) {
 		FCM_LOG_ERR(errno, "socket error");
 		return fd;
@@ -1386,6 +1413,100 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 	ff->response_pending = 0;
 }
 
+static int fip_recv_vlan_req(struct fiphdr *fh, struct sockaddr_ll *ssa,
+			     struct fcoe_port *sp)
+{
+	struct fip_tlv_vlan *vlan_tlvs = NULL;
+	int vlan_count = 0;
+	struct fcoe_port *p;
+	int rc;
+
+	/* Handle all FCoE ports which are on VLANs over this ifname. */
+	p = fcm_find_fcoe_port(sp->real_ifname, FCP_REAL_IFNAME);
+	for (; p; p = fcm_find_next_fcoe_port(p, sp->real_ifname)) {
+		int vid;
+		struct fip_tlv_vlan *vtp;
+
+		if (!p->ready)
+			continue;
+		if (p->mode != FCOE_MODE_VN2VN)
+			continue;
+		vid = fcoe_vid_from_ifname(p->ifname);
+		if (vid < 0)
+			continue;
+		vtp = realloc(vlan_tlvs, sizeof(*vlan_tlvs));
+		if (!vtp)
+			break;
+		memset(&vtp[vlan_count], 0, sizeof(*vtp));
+		vtp[vlan_count].hdr.tlv_type = FIP_TLV_VLAN;
+		vtp[vlan_count].hdr.tlv_len = 1;
+		vtp[vlan_count].vlan = htons(vid);
+		++vlan_count;
+		vlan_tlvs = vtp;
+	}
+
+	FCM_LOG_DBG("%s: %d vlans found\n", __func__, vlan_count);
+	rc = fip_send_vlan_notification(sp->fip_responder_socket,
+					ssa->sll_ifindex, sp->mac,
+					ssa->sll_addr, vlan_tlvs, vlan_count);
+	if (rc < 0) {
+		FCM_LOG_ERR(-rc, "%s: fip_send_vlan_notification error\n",
+			    __func__);
+	}
+	if (vlan_tlvs)
+		free(vlan_tlvs);
+	return rc;
+}
+
+static int fip_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
+				 void *arg)
+{
+	struct fcoe_port *p = arg;
+	int rc = -1;
+
+	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
+		FCM_LOG_DBG("ignoring FIP packet, protocol %d\n",
+			    ntohs(fh->fip_proto));
+		return -1;
+	}
+
+	switch (fh->fip_subcode) {
+	case FIP_VLAN_REQ:
+		FCM_LOG_DBG("received VLAN req, subcode=%d\n", fh->fip_subcode);
+		rc = fip_recv_vlan_req(fh, sa, p);
+		break;
+	default:
+		FCM_LOG_DBG("ignored FIP VLAN packet with subcode %d\n",
+			    fh->fip_subcode);
+		break;
+	}
+	return rc;
+}
+
+static void fip_responder(void *arg)
+{
+	struct fcoe_port *p = arg;
+
+	fip_recv(p->fip_responder_socket, fip_vlan_disc_handler, p);
+}
+
+static void init_fip_vn2vn_responder(struct fcoe_port *p)
+{
+	int s;
+
+	if (p->fip_responder_socket >= 0)
+		return;
+
+	s = fip_socket(p->ifindex, FIP_ALL_VN2VN);
+	if (s < 0) {
+		FCM_LOG_ERR(errno, "%s: Failed to get fip socket\n", p->ifname);
+		return;
+	}
+	p->fip_responder_socket = s;
+	FCM_LOG_DBG("%s: Adding FIP responder socket\n", p->ifname);
+	sa_select_add_fd(s, fip_responder, NULL, NULL, p);
+}
+
 static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 				   u_int8_t operstate, enum fcoeport_ifname t)
 {
@@ -1408,6 +1529,9 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 		     (ff->ff_operstate == IF_OPER_UNKNOWN) &&
 		     (operstate == IF_OPER_UP)))
 			ff->ff_operstate = operstate;
+
+		if (t == FCP_REAL_IFNAME && p->fip_resp)
+			init_fip_vn2vn_responder(p);
 
 		if (!p->fcoe_enable) {
 			fcp_set_next_action(p, FCP_DESTROY_IF);

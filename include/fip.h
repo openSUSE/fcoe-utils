@@ -37,6 +37,7 @@
  * the corresponding FIP multicast MAC address.
  */
 enum fip_multi {
+	FIP_NONE = -1,
 	FIP_ALL_FCOE = 0,
 	FIP_ALL_ENODE = 1,
 	FIP_ALL_FCF = 2,
@@ -143,7 +144,7 @@ struct fip_tlv_vlan {
 
 /* libutil / fip.c functionality */
 
-int fip_socket(int ifindex);
+int fip_socket(int ifindex, enum fip_multi multi);
 
 /* FIP message handler, passed into fip_recv */
 typedef int fip_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg);
@@ -165,5 +166,19 @@ int fip_recv(int s, fip_handler *fn, void *arg);
  */
 ssize_t fip_send_vlan_request(int s, int ifindex, const unsigned char *mac,
 			      enum fip_multi);
+
+/**
+ * fip_send_vlan_notification - send a FIP VLAN notification
+ * @s: ETH_P_FIP packet socket to send on
+ * @ifindex: network interface to send on
+ * @mac: mac address of the netif
+ * @dest: destination mac address
+ * @vtlvs: pointer to vlan tlvs to send
+ * @vlan_count: Number of vlan tlvs to send
+ */
+int
+fip_send_vlan_notification(int s, int ifindex, const __u8 *mac,
+			   const __u8 *dest, struct fip_tlv_vlan *,
+			   int vlan_count);
 
 #endif /* FIP_H */

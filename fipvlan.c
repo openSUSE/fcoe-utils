@@ -710,7 +710,7 @@ static int probe_fip_interface(struct iff *iff)
 		return 0;
 
 	if (!iff->fip_ready) {
-		iff->ps = fip_socket(iff->ifindex);
+		iff->ps = fip_socket(iff->ifindex, FIP_NONE);
 		setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
 			   &origdev, sizeof(origdev));
 		pfd_add(iff->ps);

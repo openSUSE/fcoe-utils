@@ -1136,8 +1136,10 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		case FCP_ENABLE_IF:
 			if (p->auto_vlan)
 				p->action = FCP_VLAN_DISC;
-			else
+			else if (p->fcoe_enable)
 				p->action = FCP_CREATE_IF;
+			else
+				p->action = FCP_WAIT;
 			break;
 		default:
 			p->action = FCP_WAIT;
@@ -1201,8 +1203,10 @@ static void fcp_set_next_action(struct fcoe_port *p, enum fcp_action action)
 		case FCP_ACTIVATE_IF:
 			if (p->auto_vlan)
 				p->action = FCP_VLAN_DISC;
-			else
+			else if (p->fcoe_enable)
 				p->action = FCP_CREATE_IF;
+			else
+				p->action = FCP_WAIT;
 			break;
 		case FCP_DESTROY_IF:
 		case FCP_DISABLE_IF:

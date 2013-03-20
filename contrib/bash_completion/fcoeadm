@@ -3,7 +3,7 @@
 ## fcoeadm --help
 #Version 1.0.17
 #Usage: fcoeadm
-# [-c|--create] <ethX>
+# [-m|--mode fabric|vn2vn] [-c|--create] <ethX>
 # [-d|--destroy] <ethX>
 # [-r|--reset] <ethX>
 # [-S|--Scan] <ethX>
@@ -41,7 +41,7 @@ have fcoeadm && _fcoeadm_options()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-c --create -d --destroy -r --reset -i --interface -t --target -l --lun -s --stats -S --Scan -h --help -v --version"
+    opts="-m --mode -c --create -d --destroy -r --reset -i --interface -t --target -l --lun -s --stats -S --Scan -h --help -v --version"
 
     case "${prev}" in
         -c|--create|-d|--destroy|-r|--reset|-s|--stats|-S|--Scan|-i|--interface|-t|--target|-l|--lun)
@@ -49,6 +49,11 @@ have fcoeadm && _fcoeadm_options()
 	    _available_fcoe_interfaces -a
 	    return 0
 	    ;;
+        -m|--mode)
+        COMPREPLY=( fabric vn2vn )
+        COMPREPLY=( $( compgen -W '${COMPREPLY[@]/%[[:punct:]]/}' -- "$cur" ) )
+        return 0
+        ;;
     esac
 
     case "${cur}" in

@@ -2,12 +2,12 @@
 .\"     Title: fcoemon
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 10/08/2012
+.\"      Date: 02/06/2013
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEMON" "8" "10/08/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEMON" "8" "02/06/2013" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -343,6 +343,16 @@ indicates if the DCB service is required on the Ethernet interface\&.
 indicates if VLAN discovery should be performed\&. If AUTO_VLAN is set to "yes", then once the link configuration has been validated,
 \fBfcoemon\fR
 will run run the FIP VLAN discovery protocol on the Ethernet interface\&. Network interfaces for any discovered FCoE VLANs will be automatically created, if they are not already configured, and FCoE instances will be created on the VLAN interfaces\&. If the network interface specified by the filename is already a VLAN interface, the AUTO_VLAN setting is ignored\&.
+.RE
+.PP
+\fIMODE\fR
+.RS 4
+indicates whether operation will be in fabric or vn2vn mode\&. The default is fabric\&.
+.RE
+.PP
+\fIFIP_RESP\fR
+.RS 4
+indicates whether a FIP responder should be activated on this device to support VLAN discovery in a vn2vn environment\&. The default is "no"\&. Often this will be used on a vn2vn node also serving as a target\&. When using this option, the AUTO_VLAN should not be set and the supported VLANs should have configuration files supplied, constituting a static VLAN configuration that provides the information for the FIP responder to return\&. This should be set on a base device, which should probably have FCOE_ENABLE set to "no" since presumably FCoE operation will be on the configured VLANs\&.
 .RE
 .sp
 Note that the attached Ethernet peer device (e\&.g\&. FCoE capable switch port) must have compatible settings For DCB and FCoE to function properly\&.

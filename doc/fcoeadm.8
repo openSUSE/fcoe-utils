@@ -2,12 +2,12 @@
 .\"     Title: fcoeadm
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 07/20/2012
+.\"      Date: 11/08/2012
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEADM" "8" "07/20/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEADM" "8" "11/08/2012" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@
 fcoeadm \- The Open\-FCoE Administration Tool
 .SH "SYNOPSIS"
 .sp
-\fBfcoeadm\fR \-c|\-\-create \fIethX\fR
+\fBfcoeadm\fR [\-m|\-\-mode fabric|vn2vn] \-c|\-\-create \fIethX\fR
 .sp
 \fBfcoeadm\fR \-d|\-\-destroy \fIethX\fR
 .sp
@@ -56,8 +56,14 @@ fcoeadm \- The Open\-FCoE Administration Tool
 .sp
 The \fBfcoeadm\fR utility is the Fibre Channel over Ethernet (FCoE) management tool for the \fIOpen\-FCoE\fR project\&. \fBfcoeadm\fR may be used to create, destroy, and reset an FCoE instance on a given network interface\&. For these operations \fBfcoeadm\fR sends a command to a running \fBfcoemon\fR process, via a socket interface\&. \fBfcoemon\fR will then perform the requested operation\&.
 .sp
-\fBfcoeadm\fR also provides options to query information about FCoE instances, including interface information, target information, LUN information, and port statistics\&. For much of this information, \fBfcoeadm\fR relies on the \fIlibhbalinux\fR implementation of the \fIHBA API\fR\&.
+\fBfcoeadm\fR also provides operations to query information about FCoE instances, including interface information, target information, LUN information, and port statistics\&. For much of this information, \fBfcoeadm\fR relies on the \fIlibhbalinux\fR implementation of the \fIHBA API\fR\&. Only one operation may be given on a command\&.
 .SH "OPTIONS"
+.PP
+\fB\-m\fR, \fB\-\-mode\fR fabric|vn2vn
+.RS 4
+Used together with the create option to control the FCoE mode of operation\&. The mode defaults to fabric but this option allows the selection of vn2vn mode\&.
+.RE
+.SH "OPERATIONS"
 .PP
 \fB\-c\fR, \fB\-\-create\fR \fIethX\fR
 .RS 4
@@ -153,6 +159,18 @@ Creates an FCoE instance on eth2\&.101
 .\}
 .nf
 fcoeadm \-c eth2\&.101
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Creates an FCoE VN2VN instance on eth2\&.101
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fcoeadm \-m vn2vn \-c eth2\&.101
 .fi
 .if n \{\
 .RE

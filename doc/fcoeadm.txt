@@ -19,7 +19,7 @@ fcoeadm - The Open-FCoE Administration Tool
 
 SYNOPSIS
 --------
-*fcoeadm* -c|--create _ethX_
+*fcoeadm* [-m|--mode fabric|vn2vn] -c|--create _ethX_
 
 *fcoeadm* -d|--destroy _ethX_
 
@@ -51,13 +51,21 @@ destroy, and reset an FCoE instance on a given network interface. For these
 operations *fcoeadm* sends a command to a running *fcoemon* process, via a
 socket interface. *fcoemon* will then perform the requested operation.
 
-*fcoeadm* also provides options to query information about FCoE instances,
+*fcoeadm* also provides operations to query information about FCoE instances,
 including interface information, target information, LUN information, and port
 statistics. For much of this information, *fcoeadm* relies on the _libhbalinux_
-implementation of the _HBA API_.
+implementation of the _HBA API_. Only one operation may be given on a
+command.
 
 OPTIONS
 -------
+*-m*, *--mode* fabric|vn2vn::
+	Used together with the create option to control the FCoE mode of
+	operation. The mode defaults to fabric but this option allows
+	the selection of vn2vn mode.
+
+OPERATIONS
+----------
 *-c*, *--create* _ethX_::
 	Creates an FCoE instance based on the specified network interface.
 	Note that if there is not an fcoemon configuration file for the
@@ -135,6 +143,10 @@ EXAMPLES
 Creates an FCoE instance on eth2.101
 
 	fcoeadm -c eth2.101
+
+Creates an FCoE VN2VN instance on eth2.101
+
+	fcoeadm -m vn2vn -c eth2.101
 
 Destroys the FCoE instance on eth2.101
 

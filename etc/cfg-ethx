@@ -15,3 +15,14 @@ DCB_REQUIRED="yes"
 # Indicate if VLAN discovery should be handled by fcoemon
 # Normally set to "yes"
 AUTO_VLAN="yes"
+
+## Type:	fabric/vn2vn
+## Default:	fabric
+# Indicate the mode of the FCoE operation, either fabric or vn2vn
+# Normally set to "fabric"
+MODE="fabric"
+
+## Type:	yes/no
+## Default:	no
+# Indicate whether to run a FIP responder for VLAN discovery in vn2vn mode
+#FIP_RESP="yes"

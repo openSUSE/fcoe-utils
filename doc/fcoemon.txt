@@ -191,6 +191,22 @@ _AUTO_VLAN_::
 	interfaces.  If the network interface specified by the filename is
 	already a VLAN interface, the AUTO_VLAN setting is ignored.
 
+_MODE_::
+	indicates whether operation will be in fabric or vn2vn mode. The
+	default is fabric.
+
+_FIP_RESP_::
+	indicates whether a FIP responder should be activated on this
+	device to support VLAN discovery in a vn2vn environment. The
+	default is "no". Often this will be used on a vn2vn node also
+	serving as a target. When using this option, the AUTO_VLAN
+	should not be set and the supported VLANs should have
+	configuration files supplied, constituting a static VLAN
+	configuration that provides the information for the FIP responder
+	to return. This should be set on a base device, which should
+	probably have FCOE_ENABLE set to "no" since presumably FCoE
+	operation will be on the configured VLANs.
+
 Note that the attached Ethernet peer device (e.g. FCoE capable switch port)
 must have compatible settings For DCB and FCoE to function properly.
 

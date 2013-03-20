@@ -33,7 +33,7 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char optstring[] = "cdrSiftlsbhpv";
+static const char optstring[] = "cdrSiftlm:sbhv";
 static const struct option fcoeadm_opts[] = {
 	{"create", no_argument, 0, 'c'},
 	{"destroy", no_argument, 0, 'd'},
@@ -43,6 +43,7 @@ static const struct option fcoeadm_opts[] = {
 	{"fcf", no_argument, 0, 'f'},
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
+	{"mode", required_argument, 0, 'm'},
 	{"pid", no_argument, 0, 'p'},
 	{"stats", no_argument, 0, 's'},
 	{"lesb", no_argument, 0, 'b'},
@@ -57,7 +58,7 @@ static void fcoeadm_help(void)
 {
 	printf("Version %s\n", FCOE_UTILS_VERSION);
 	printf("Usage: %s\n"
-	       "\t [-c|--create] <ethX>\n"
+	       "\t [-m|--mode fabric|vn2vn] [-c|--create] <ethX>\n"
 	       "\t [-d|--destroy] <ethX>\n"
 	       "\t [-r|--reset] <ethX>\n"
 	       "\t [-S|--Scan] <ethX>\n"
@@ -221,6 +222,7 @@ int main(int argc, char *argv[])
 {
 	enum clif_action cmd = CLIF_NONE;
 	enum fcoe_status rc = SUCCESS;
+	enum clif_flags flags = CLIF_FLAGS_NONE;
 	int opt, stat_interval;
 	int op = -1;
 	char *ifname = NULL;
@@ -242,6 +244,17 @@ int main(int argc, char *argv[])
 		if (opt < 0)
 			break;
 		switch (opt) {
+		case 'm':
+			if (strcasecmp(optarg, "vn2vn") == 0) {
+				flags &= ~CLIF_FLAGS_MODE_MASK;
+				flags |= CLIF_FLAGS_VN2VN;
+			} else if (strcasecmp(optarg, "fabric") == 0) {
+				flags &= ~CLIF_FLAGS_MODE_MASK;
+			} else {
+				rc = EINVALARG;
+			}
+			break;
+
 		default:
 			if (op == -1)
 				op = opt;
@@ -259,12 +272,13 @@ int main(int argc, char *argv[])
 		fcoeadm_help();
 	else if (rc == SUCCESS) {
 		switch (op) {
-		case 'c':
-			cmd = CLIF_CREATE_CMD;
-			/* fall through */
 		case 'd':
+			cmd = CLIF_DESTROY_CMD;
+			flags = 0;	/* No flags allowed on destroy yet */
+			/* fall through */
+		case 'c':
 			if (cmd == CLIF_NONE)
-				cmd = CLIF_DESTROY_CMD;
+				cmd = CLIF_CREATE_CMD;
 
 			if (argc - optind != 1) {
 				rc = EBADNUMARGS;

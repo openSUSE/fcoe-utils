@@ -33,13 +33,13 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char *optstring = "c:d:r:S:iftlsbhpv";
-static struct option fcoeadm_opts[] = {
-	{"create", required_argument, 0, 'c'},
-	{"destroy", required_argument, 0, 'd'},
-	{"reset", required_argument, 0, 'r'},
+static const char optstring[] = "cdrSiftlsbhpv";
+static const struct option fcoeadm_opts[] = {
+	{"create", no_argument, 0, 'c'},
+	{"destroy", no_argument, 0, 'd'},
+	{"reset", no_argument, 0, 'r'},
 	{"interface", no_argument, 0, 'i'},
-	{"Scan", required_argument, 0, 'S'},
+	{"Scan", no_argument, 0, 'S'},
 	{"fcf", no_argument, 0, 'f'},
 	{"target", no_argument, 0, 't'},
 	{"lun", no_argument, 0, 'l'},
@@ -222,6 +222,7 @@ int main(int argc, char *argv[])
 	enum clif_action cmd = CLIF_NONE;
 	enum fcoe_status rc = SUCCESS;
 	int opt, stat_interval;
+	int op = -1;
 	char *ifname = NULL;
 
 	/*
@@ -236,9 +237,28 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
-	if (opt != -1) {
+	for (;;) {
+		opt = getopt_long(argc, argv, optstring, fcoeadm_opts, NULL);
+		if (opt < 0)
+			break;
 		switch (opt) {
+		default:
+			if (op == -1)
+				op = opt;
+			else
+				rc = EINVALARG;
+			break;
+
+		case '?':
+			rc = EIGNORE;
+			break;
+		}
+	}
+
+	if (op == -1)
+		fcoeadm_help();
+	else if (rc == SUCCESS) {
+		switch (op) {
 		case 'c':
 			cmd = CLIF_CREATE_CMD;
 			/* fall through */
@@ -246,14 +266,13 @@ int main(int argc, char *argv[])
 			if (cmd == CLIF_NONE)
 				cmd = CLIF_DESTROY_CMD;
 
-			if (argc > 3) {
+			if (argc - optind != 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
 
-			ifname = optarg;
+			ifname = argv[optind];
 			rc = fcoeadm_action(cmd, ifname, CLIF_FLAGS_NONE);
-
 			break;
 		case 'r':
 			cmd = CLIF_RESET_CMD;
@@ -262,27 +281,26 @@ int main(int argc, char *argv[])
 			if (cmd == CLIF_NONE)
 				cmd = CLIF_SCAN_CMD;
 
-			if (argc > 3) {
+			if (argc - optind != 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
 
-			ifname = optarg;
+			ifname = argv[optind];
 			rc = fcoe_validate_fcoe_conn(ifname);
-
 			if (!rc)
 				rc = fcoeadm_action(cmd, ifname,
 						    CLIF_FLAGS_NONE);
 			break;
 
 		case 'i':
-			if (argc > 3) {
+			if (argc - optind > 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
 
 			/*
-			 * If there's an aditional argument
+			 * If there's an additional argument
 			 * treat it as the interface name.
 			 */
 			if (optind != argc) {
@@ -292,11 +310,10 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_adapter_info(ifname);
-
 			break;
 
 		case 'f':
-			if (argc > 3) {
+			if (argc - optind > 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -312,11 +329,10 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_fcf_info(ifname);
-
 			break;
 
 		case 't':
-			if (argc > 3) {
+			if (argc - optind > 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -332,11 +348,10 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_target_info(ifname, DISP_TARG);
-
 			break;
 
 		case 'l':
-			if (argc > 3) {
+			if (argc - optind > 1) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -352,11 +367,10 @@ int main(int argc, char *argv[])
 
 			if (!rc)
 				rc = display_target_info(ifname, DISP_LUN);
-
 			break;
 
 		case 's':
-			if (argc > 4) {
+			if (argc - optind > 2) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -382,7 +396,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'b':
-			if (argc > 4) {
+			if (argc - optind > 2) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -405,7 +419,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'v':
-			if (argc > 2) {
+			if (argc - optind != 0) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -414,7 +428,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'h':
-			if (argc > 2) {
+			if (argc - optind != 0) {
 				rc = EBADNUMARGS;
 				break;
 			}
@@ -426,8 +440,6 @@ int main(int argc, char *argv[])
 			rc = EIGNORE;
 			break;
 		}
-	} else {
-		fcoeadm_help();
 	}
 
 err:

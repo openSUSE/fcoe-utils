@@ -78,6 +78,9 @@
 #define FILE_NAME_LEN               (NAME_MAX + 1)
 #define CFG_FILE_PREFIX             "cfg-"
 #define DEF_CFG_FILE                CFG_FILE_PREFIX "ethx"
+#define FCOE_VLAN_SUFFIX            "-fcoe"
+#define FCOE_VLAN_FORMAT            "%s.%d" FCOE_VLAN_SUFFIX
+#define FCOE_VID_SCAN_FORMAT        "%*[^.].%d" FCOE_VLAN_SUFFIX
 
 #define VLAN_DIR                "/proc/net/vlan"
 
@@ -460,6 +463,18 @@ static struct fcoe_port *alloc_fcoe_port(char *ifname)
 	return p;
 }
 
+static bool real_ifname_from_name(char *real_ifname, const char *ifname)
+{
+	const char *sep;
+
+	sep = index(ifname, '.');
+	if (!sep)
+		return false;
+	memset(real_ifname, 0, IFNAMSIZ);
+	memcpy(real_ifname, ifname, sep - ifname);
+	return true;
+}
+
 static int fcm_read_config_files(void)
 {
 	char file[80];
@@ -510,6 +525,8 @@ static int fcm_read_config_files(void)
 			free(next);
 			continue;
 		}
+
+		real_ifname_from_name(next->real_ifname, next->ifname);
 
 		/* FCOE_ENABLE */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
@@ -907,7 +924,8 @@ struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 
 	if (rtnl_find_vlan(ifindex, vid, vlan_name)) {
 		rtnl_get_linkname(ifindex, real_name);
-		snprintf(vlan_name, IFNAMSIZ, "%s.%d-fcoe", real_name, vid);
+		snprintf(vlan_name, sizeof(vlan_name), FCOE_VLAN_FORMAT,
+			 real_name, vid);
 		vlan_create(ifindex, vid, vlan_name);
 	}
 	rtnl_set_iff_up(0, vlan_name);
@@ -1421,6 +1439,21 @@ static void update_fcoe_port_state(struct fcoe_port *p, unsigned int type,
 	}
 }
 
+static int fcoe_vid_from_ifname(const char *ifname)
+{
+	int vid = -1;
+	int rc;
+
+	if (strlen(ifname) <= strlen(FCOE_VLAN_SUFFIX) ||
+	    strcmp(&ifname[strlen(ifname) - strlen(FCOE_VLAN_SUFFIX)],
+	           FCOE_VLAN_SUFFIX))
+		return vid;
+	rc = sscanf(ifname, FCOE_VID_SCAN_FORMAT, &vid);
+	if (rc == 1)
+		return vid;
+	return -1;
+}
+
 void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 {
 	struct fcoe_port *p;
@@ -1506,11 +1539,20 @@ void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		 * ifname.
 		 */
 		p = fcm_find_fcoe_port(ifname, FCP_REAL_IFNAME);
-		while (p) {
-			if (p->ready)
-				update_fcoe_port_state(p, type, operstate,
-						       FCP_REAL_IFNAME);
-			p = fcm_find_next_fcoe_port(p, ifname);
+		for (; p; p = fcm_find_next_fcoe_port(p, ifname)) {
+			int vid;
+
+			if (!p->ready)
+				continue;
+			vid = fcoe_vid_from_ifname(p->ifname);
+			if (vid >= 0 && p->mode == FCOE_MODE_VN2VN) {
+				struct fcoe_port *vp;
+
+				vp = fcm_new_vlan(ifindex, vid, true);
+				vp->dcb_required = p->dcb_required;
+			}
+			update_fcoe_port_state(p, type, operstate,
+					       FCP_REAL_IFNAME);
 		}
 	}
 }

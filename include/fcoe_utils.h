@@ -78,6 +78,7 @@ enum fcoe_status {
 	ENOMONCONN,   /* Not connected to fcoemon */
 	ECONNTMOUT,   /* Connection to fcoemon timed out */
 	EHBAAPIERR,   /* Error using HBAAPI/libhbalinux */
+	EBADCLIFMSG,  /* Messaging error */
 };
 
 enum fcoe_status fcoe_validate_interface(char *ifname);

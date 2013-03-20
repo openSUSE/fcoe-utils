@@ -177,7 +177,8 @@ err_close:
 /*
  * Send request to fcoemon
  */
-static enum fcoe_status fcoeadm_action(enum clif_action cmd, char *ifname)
+static enum fcoe_status
+fcoeadm_action(enum clif_action cmd, char *ifname, enum clif_flags flags)
 {
 	struct clif_data data;
 	struct clif_sock_info clif_info;
@@ -188,6 +189,7 @@ static enum fcoe_status fcoeadm_action(enum clif_action cmd, char *ifname)
 	else
 		data.ifname[0] = '\0';
 	data.cmd = cmd;
+	data.flags = flags;
 
 	rc = fcoeadm_open_cli(&clif_info);
 	if (!rc) {
@@ -250,7 +252,7 @@ int main(int argc, char *argv[])
 			}
 
 			ifname = optarg;
-			rc = fcoeadm_action(cmd, ifname);
+			rc = fcoeadm_action(cmd, ifname, CLIF_FLAGS_NONE);
 
 			break;
 		case 'r':
@@ -269,8 +271,8 @@ int main(int argc, char *argv[])
 			rc = fcoe_validate_fcoe_conn(ifname);
 
 			if (!rc)
-				rc = fcoeadm_action(cmd, ifname);
-
+				rc = fcoeadm_action(cmd, ifname,
+						    CLIF_FLAGS_NONE);
 			break;
 
 		case 'i':
@@ -375,7 +377,8 @@ int main(int argc, char *argv[])
 				rc = display_port_stats(ifname, stat_interval);
 			break;
 		case 'p':
-			rc = fcoeadm_action(CLIF_PID_CMD, NULL);
+			rc = fcoeadm_action(CLIF_PID_CMD, NULL,
+					    CLIF_FLAGS_NONE);
 			break;
 
 		case 'b':

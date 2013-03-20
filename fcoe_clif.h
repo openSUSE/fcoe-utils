@@ -54,12 +54,17 @@ struct clif_sock_info {
 	struct sockaddr_un dest;
 };
 
+enum clif_flags {
+	CLIF_FLAGS_NONE = 0,
+};
+
 /*
  * Description of fcoemon and fcoeadm socket data structure interface
  */
 struct clif_data {
 	enum clif_action cmd;
 	char ifname[IFNAMSIZ];
+	enum clif_flags flags;
 };
 
 #endif /* _FCOE_CLIF_H_ */

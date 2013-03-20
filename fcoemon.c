@@ -3213,7 +3213,7 @@ static void fcm_srv_receive(void *arg)
 	socklen_t fromlen = sizeof(struct sockaddr_un);
 	struct sock_info *reply = NULL;
 	char buf[MAX_MSGBUF], rbuf[MAX_MSGBUF];
-	char *ifname = NULL;
+	char ifname[sizeof(data->ifname) + 1];
 	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
 
@@ -3226,13 +3226,26 @@ static void fcm_srv_receive(void *arg)
 		return;
 	}
 
-	buf[res] = '\0';
 	data = (struct clif_data *)buf;
+	if (res < sizeof(*data)) {
+		if (res < sizeof(*data) - sizeof(data->flags)) {
+			FCM_LOG_ERR(EMSGSIZE,
+				    "Message too short from socket %d", snum);
+			rc = EBADCLIFMSG;
+			goto err;
+		}
+		data->flags = 0;
+	} else if (res > sizeof(*data)) {
+		FCM_LOG_ERR(EMSGSIZE, "Message too long from socket %d", snum);
+		rc = EBADCLIFMSG;
+		goto err;
+	}
 
 	cmd = data->cmd;
-	if (cmd != CLIF_PID_CMD) {
-		ifname = strdup(data->ifname);
+	strncpy(ifname, data->ifname, sizeof(data->ifname));
+	ifname[sizeof(data->ifname)] = 0;
 
+	if (cmd != CLIF_PID_CMD) {
 		rc = fcoe_validate_interface(ifname);
 		if (rc)
 			goto err;
@@ -3278,13 +3291,9 @@ static void fcm_srv_receive(void *arg)
 		goto err_out;
 	}
 
-	if (ifname)
-		free(ifname);
 	return;
 
 err_out:
-	if (ifname)
-		free(ifname);
 	free(reply);
 err:
 	snprintf(rbuf, MSG_RBUF, "%d", rc);

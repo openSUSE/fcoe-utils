@@ -565,10 +565,8 @@ static int fcm_read_config_files(void)
 		}
 		/* if not found, default to "fabric" */
 		next->mode = FCOE_MODE_FABRIC;
-		if (!strncasecmp(val, "vn2vn", 5) && rc == 1) {
+		if (!strncasecmp(val, "vn2vn", 5) && rc == 1)
 			next->mode = FCOE_MODE_VN2VN;
-			next->auto_vlan = 0;	/* TODO: Until we can do it */
-		}
 
 		fclose(fp);
 
@@ -892,13 +890,20 @@ static int fcm_link_init(void)
 static struct fcoe_port *
 fcm_port_create(char *ifname, enum clif_flags flags, int cmd);
 
-struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
+struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 {
 	char real_name[IFNAMSIZ];
 	char vlan_name[IFNAMSIZ];
 	struct fcoe_port *p;
+	static const int flags[] = {
+		[false] = CLIF_FLAGS_FABRIC,
+		[true] = CLIF_FLAGS_VN2VN,
+	};
 
-	FCM_LOG_DBG("Auto VLAN Found FCF on VID %d\n", vid);
+	if (vn2vn)
+		FCM_LOG_DBG("Auto VLAN found vn2vn on VID %d\n", vid);
+	else
+		FCM_LOG_DBG("Auto VLAN Found FCF on VID %d\n", vid);
 
 	if (rtnl_find_vlan(ifindex, vid, vlan_name)) {
 		rtnl_get_linkname(ifindex, real_name);
@@ -909,7 +914,7 @@ struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
 	p = fcm_find_fcoe_port(vlan_name, FCP_CFG_IFNAME);
 	if (p && !p->fcoe_enable)
 		return p;
-	p = fcm_port_create(vlan_name, CLIF_FLAGS_NONE, FCP_ACTIVATE_IF);
+	p = fcm_port_create(vlan_name, flags[vn2vn], FCP_ACTIVATE_IF);
 	p->auto_created = 1;
 	return p;
 }
@@ -924,6 +929,7 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	struct fcoe_port *p = arg;
 	struct fcoe_port *vp;
 	int desc_mask = 0;
+	bool vn2vn = false;
 
 	enum {
 		VALID_MAC	= 1,
@@ -933,8 +939,16 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN)
 		return -1;
 
-	if (fh->fip_subcode != FIP_VLAN_NOTE)
+	if (fh->fip_subcode == FIP_VLAN_NOTE_VN2VN &&
+	    (!p->auto_vlan || p->mode != FCOE_MODE_VN2VN))
 		return -1;
+
+	if (fh->fip_subcode != FIP_VLAN_NOTE &&
+	    fh->fip_subcode != FIP_VLAN_NOTE_VN2VN)
+		return -1;
+
+	if (fh->fip_subcode == FIP_VLAN_NOTE_VN2VN)
+		vn2vn = true;
 
 	while (len > 0) {
 		switch (tlv->tlv_type) {
@@ -955,7 +969,7 @@ int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 			vid = ntohs(((struct fip_tlv_vlan *)tlv)->vlan);
 
 			if (vid) {
-				vp = fcm_new_vlan(sa->sll_ifindex, vid);
+				vp = fcm_new_vlan(sa->sll_ifindex, vid, vn2vn);
 				vp->dcb_required = p->dcb_required;
 			} else {
 				/* We received a 0 vlan id. Activate the
@@ -2710,13 +2724,24 @@ err_out:
 	return ret;
 }
 
+static void fcm_send_fip_request(const struct fcoe_port *p)
+{
+	int dest;
+
+	if (p->mode == FCOE_MODE_VN2VN)
+		dest = FIP_ALL_VN2VN;
+	else
+		dest = FIP_ALL_FCF;
+	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac, dest);
+}
+
 void fcm_vlan_disc_timeout(void *arg)
 {
 	struct fcoe_port *p = arg;
 	FCM_LOG_DBG("%s: VLAN discovery TIMEOUT [%d]",
 		    p->ifname, p->vlan_disc_count);
 	p->vlan_disc_count++;
-	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac);
+	fcm_send_fip_request(p);
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 }
 
@@ -2730,7 +2755,7 @@ int fcm_start_vlan_disc(struct fcoe_port *p)
 		p->fip_socket = s;
 	}
 	p->vlan_disc_count = 1;
-	fip_send_vlan_request(p->fip_socket, p->ifindex, p->mac);
+	fcm_send_fip_request(p);
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 	return 0;
 }

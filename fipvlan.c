@@ -687,48 +687,53 @@ void find_interfaces(int ns)
 	rtnl_recv(ns, rtnl_listener_handler, NULL);
 }
 
+static int probe_fip_interface(struct iff *iff)
+{
+	int origdev = 1;
+
+	if (iff->resp_recv)
+		return 0;
+	if (!iff->running) {
+		if (iff->linkup_sent) {
+			FIP_LOG_DBG("if %d not running, waiting for link up",
+				    iff->ifindex);
+		} else {
+			FIP_LOG_DBG("if %d not running, starting",
+				    iff->ifindex);
+			rtnl_set_iff_up(iff->ifindex, NULL);
+			iff->linkup_sent = true;
+		}
+		iff->req_sent = false;
+		return 1;
+	}
+	if (iff->req_sent)
+		return 0;
+
+	if (!iff->fip_ready) {
+		iff->ps = fip_socket(iff->ifindex);
+		setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
+			   &origdev, sizeof(origdev));
+		pfd_add(iff->ps);
+		iff->fip_ready = true;
+	}
+
+	fip_send_vlan_request(iff->ps, iff->ifindex, iff->mac_addr,
+			      FIP_ALL_FCF);
+	fip_send_vlan_request(iff->ps, iff->ifindex, iff->mac_addr,
+			      FIP_ALL_VN2VN);
+	iff->req_sent = true;
+	return 0;
+}
+
 int send_vlan_requests(void)
 {
 	struct iff *iff;
 	int i;
 	int skipped = 0;
-	int origdev = 1;
 
 	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node) {
-			if (iff->resp_recv)
-				continue;
-			if (!iff->running) {
-				if (iff->linkup_sent) {
-					FIP_LOG_DBG("if %d not running, "
-						    "waiting for link up",
-						    iff->ifindex);
-				} else {
-					FIP_LOG_DBG("if %d not running, "
-						    "starting",
-						    iff->ifindex);
-					rtnl_set_iff_up(iff->ifindex, NULL);
-					iff->linkup_sent = true;
-				}
-				skipped++;
-				iff->req_sent = false;
-				continue;
-			}
-			if (iff->req_sent)
-				continue;
-
-			if (!iff->fip_ready) {
-				iff->ps = fip_socket(iff->ifindex);
-				setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
-					   &origdev, sizeof(origdev));
-				pfd_add(iff->ps);
-				iff->fip_ready = true;
-			}
-
-			fip_send_vlan_request(iff->ps,
-					      iff->ifindex,
-					      iff->mac_addr);
-			iff->req_sent = true;
+			skipped += probe_fip_interface(iff);
 		}
 	} else {
 		for (i = 0; i < config.namec; i++) {
@@ -737,37 +742,7 @@ int send_vlan_requests(void)
 				skipped++;
 				continue;
 			}
-			if (iff->resp_recv)
-				continue;
-			if (!iff->running) {
-				if (iff->linkup_sent) {
-					FIP_LOG_DBG("if %d not running, "
-						    "waiting for link up",
-						    iff->ifindex);
-				} else {
-					FIP_LOG_DBG("if %d not running, "
-						    "starting",
-						    iff->ifindex);
-					rtnl_set_iff_up(iff->ifindex, NULL);
-					iff->linkup_sent = true;
-				}
-				skipped++;
-				iff->req_sent = false;
-				continue;
-			}
-
-			if (!iff->fip_ready) {
-				iff->ps = fip_socket(iff->ifindex);
-				setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
-					   &origdev, sizeof(origdev));
-				pfd_add(iff->ps);
-				iff->fip_ready = true;
-			}
-
-			fip_send_vlan_request(iff->ps,
-					      iff->ifindex,
-					      iff->mac_addr);
-			iff->req_sent = true;
+			skipped += probe_fip_interface(iff);
 		}
 	}
 	return skipped;

@@ -118,16 +118,19 @@ static void fip_socket_sanmac(int s, int ifindex, int add)
  * @ifindex: network interface index to send on
  * @mac: mac address of the sending network interface
  * @eh: buffer for ether header
+ * @dest: destination selector
  *
  * Note: assuming no VLAN
  */
-static void fip_ethhdr(int ifindex, unsigned char *mac, struct ethhdr *eh)
+static void fip_ethhdr(int ifindex, const unsigned char *mac, struct ethhdr *eh,
+		       enum fip_multi multi)
 {
 	unsigned char smac[ETHER_ADDR_LEN];
 	unsigned char dmac[ETHER_ADDR_LEN] = FIP_ALL_FCF_MACS;
 	if (fip_get_sanmac(ifindex, smac))
 		memcpy(smac, mac, ETHER_ADDR_LEN);
 
+	dmac[ETHER_ADDR_LEN - 1] = multi;
 	eh->h_proto = htons(ETH_P_FIP);
 	memcpy(eh->h_source, smac, ETHER_ADDR_LEN);
 	memcpy(eh->h_dest, dmac, ETHER_ADDR_LEN);
@@ -196,10 +199,12 @@ int fip_socket(int ifindex)
  * @s: ETH_P_FIP packet socket to send on
  * @ifindex: network interface index to send on
  * @mac: mac address of the sending network interface
+ * @dest: destination selector
  *
- * Note: sends to FIP_ALL_FCF_MACS
+ * Note: sends to address selected by @dest
  */
-ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac)
+ssize_t fip_send_vlan_request(int s, int ifindex, const unsigned char *mac,
+			      enum fip_multi dest)
 {
 	struct sockaddr_ll sa = {
 		.sll_family = AF_PACKET,
@@ -239,7 +244,8 @@ ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac)
 	};
 	int rc;
 
-	fip_ethhdr(ifindex, mac, &eh);
+	fip_ethhdr(ifindex, mac, &eh, dest);
+	sa.sll_addr[ETHER_ADDR_LEN - 1] = dest;
 	memcpy(tlvs.mac.mac_addr, eh.h_source, ETHER_ADDR_LEN);
 	FIP_LOG_DBG("sending FIP VLAN request");
 	rc = sendmsg(s, &msg, 0);

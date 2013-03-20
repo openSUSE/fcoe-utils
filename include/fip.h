@@ -31,6 +31,17 @@
 #define FIP_ALL_FCOE_MACS	{ 0x01, 0x10, 0x18, 0x01, 0x00, 0x00 }
 #define FIP_ALL_ENODE_MACS	{ 0x01, 0x10, 0x18, 0x01, 0x00, 0x01 }
 #define FIP_ALL_FCF_MACS	{ 0x01, 0x10, 0x18, 0x01, 0x00, 0x02 }
+#define FIP_ALL_VN2VN_MACS	{ 0x01, 0x10, 0x18, 0x01, 0x00, 0x04 }
+
+/* The following values are chosen to match the last byte of
+ * the corresponding FIP multicast MAC address.
+ */
+enum fip_multi {
+	FIP_ALL_FCOE = 0,
+	FIP_ALL_ENODE = 1,
+	FIP_ALL_FCF = 2,
+	FIP_ALL_VN2VN = 4,
+};
 
 struct fiphdr {
 	uint8_t		fip_version;	/* version, upper 4 bits only */
@@ -68,6 +79,7 @@ struct fiphdr {
 #define FIP_PROTO_VLAN	4
 #define FIP_VLAN_REQ	1
 #define FIP_VLAN_NOTE	2
+#define FIP_VLAN_NOTE_VN2VN	3
 
 struct fip_tlv_hdr {
 	uint8_t		tlv_type;
@@ -147,9 +159,11 @@ int fip_recv(int s, fip_handler *fn, void *arg);
  * @s: ETH_P_FIP packet socket to send on
  * @ifindex: network interface index to send on
  * @mac: mac address of the netif
+ * @dest: destination selector
  *
- * Note: sends to FIP_ALL_FCF_MACS
+ * Note: sends to destination selected by @dest
  */
-ssize_t fip_send_vlan_request(int s, int ifindex, unsigned char *mac);
+ssize_t fip_send_vlan_request(int s, int ifindex, const unsigned char *mac,
+			      enum fip_multi);
 
 #endif /* FIP_H */

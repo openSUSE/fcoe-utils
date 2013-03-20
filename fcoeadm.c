@@ -495,6 +495,10 @@ err:
 			FCOE_LOG_ERR("Internal error\n");
 			break;
 
+		case EBADCLIFMSG:
+			FCOE_LOG_ERR("Messaging error\n");
+			break;
+
 		default:
 			/*
 			 * This will catch EOPNOTSUPP which should never happen

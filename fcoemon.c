@@ -100,7 +100,12 @@
 #define CFG_IF_VAR_FCOEENABLE  "FCOE_ENABLE"
 #define CFG_IF_VAR_DCBREQUIRED "DCB_REQUIRED"
 #define CFG_IF_VAR_AUTOVLAN    "AUTO_VLAN"
+#define CFG_IF_VAR_MODE        "MODE"
 
+enum fcoe_mode {
+	FCOE_MODE_FABRIC = 0,
+	FCOE_MODE_VN2VN = 1,
+};
 
 static bool force_legacy;
 static sigset_t block_sigset;
@@ -121,6 +126,7 @@ struct fcoe_port {
 					is a VLAN */
 	int fcoe_enable;
 	int dcb_required;
+	enum fcoe_mode mode;
 	int auto_vlan;
 	int auto_created;
 	int ready;
@@ -521,6 +527,23 @@ static int fcm_read_config_files(void)
 		if (!strncasecmp(val, "yes", 3) && rc == 1)
 			next->auto_vlan = 1;
 
+		/* MODE */
+		rc = fcm_read_config_variable(file, val, sizeof(val),
+					      fp, CFG_IF_VAR_MODE);
+		if (rc < 0) {
+			FCM_LOG("Invalid format for %s variable in %s",
+				CFG_IF_VAR_MODE, file);
+			fclose(fp);
+			free(next);
+			continue;
+		}
+		/* if not found, default to "fabric" */
+		next->mode = FCOE_MODE_FABRIC;
+		if (!strncasecmp(val, "vn2vn", 5) && rc == 1) {
+			next->mode = FCOE_MODE_VN2VN;
+			next->auto_vlan = 0;	/* TODO: Until we can do it */
+		}
+
 		fclose(fp);
 
 		if (!fcoe_config.port) {
@@ -840,7 +863,8 @@ static int fcm_link_init(void)
 	return 0;
 }
 
-static struct fcoe_port *fcm_port_create(char *ifname, int cmd);
+static struct fcoe_port *
+fcm_port_create(char *ifname, enum clif_flags flags, int cmd);
 
 struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
 {
@@ -859,7 +883,7 @@ struct fcoe_port *fcm_new_vlan(int ifindex, int vid)
 	p = fcm_find_fcoe_port(vlan_name, FCP_CFG_IFNAME);
 	if (p && !p->fcoe_enable)
 		return p;
-	p = fcm_port_create(vlan_name, FCP_ACTIVATE_IF);
+	p = fcm_port_create(vlan_name, CLIF_FLAGS_NONE, FCP_ACTIVATE_IF);
 	p->auto_created = 1;
 	return p;
 }
@@ -3028,7 +3052,8 @@ static void fcm_sig(int sig)
  * and allocates a fcoe_port if one doesn't exist. The
  * function name implies that it only does the latter.
  */
-static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
+static struct fcoe_port *
+fcm_port_create(char *ifname, enum clif_flags flags, int cmd)
 {
 	struct fcoe_port *p;
 	struct fcoe_port *curr;
@@ -3066,6 +3091,7 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 		snprintf(p->real_ifname, sizeof(p->real_ifname), "%s", ifname);
 	p->fcoe_enable = 1;
 	p->dcb_required = 0;
+	p->mode = flags & CLIF_FLAGS_MODE_MASK;
 	fcp_set_next_action(p, cmd);
 	p->next = NULL;
 
@@ -3091,7 +3117,7 @@ static struct fcoe_port *fcm_port_create(char *ifname, int cmd)
 	return p;
 }
 
-static enum fcoe_status fcm_cli_create(char *ifname,
+static enum fcoe_status fcm_cli_create(char *ifname, enum clif_flags flags,
 				       struct sock_info **r)
 {
 	struct fcoe_port *p, *vp;
@@ -3130,7 +3156,7 @@ static enum fcoe_status fcm_cli_create(char *ifname,
 	 * into two routines, one that allocs a new port and one
 	 * that executes the command.
 	 */
-	p = fcm_port_create(ifname, FCP_CREATE_IF);
+	p = fcm_port_create(ifname, flags, FCP_CREATE_IF);
 	if (!p)
 		goto out;
 
@@ -3257,7 +3283,7 @@ static void fcm_srv_receive(void *arg)
 	switch (cmd) {
 	case CLIF_CREATE_CMD:
 		FCM_LOG_DBG("Received command to create %s\n", ifname);
-		rc = fcm_cli_create(ifname, &reply);
+		rc = fcm_cli_create(ifname, data->flags, &reply);
 		if (rc)
 			goto err_out;
 		break;

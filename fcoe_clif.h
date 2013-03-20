@@ -56,6 +56,9 @@ struct clif_sock_info {
 
 enum clif_flags {
 	CLIF_FLAGS_NONE = 0,
+	CLIF_FLAGS_FABRIC = 0x00,
+	CLIF_FLAGS_VN2VN = 0x01,
+	CLIF_FLAGS_MODE_MASK = 0x0F,	/* Mask for mode encoding */
 };
 
 /*

@@ -43,6 +43,7 @@
 
 #define SYSFS_FCOE   SYSFS_MOUNT "/module/libfcoe/parameters" /* legacy */
 #define FCOE_CREATE  SYSFS_FCOE  "/create"  /* legacy */
+#define FCOE_CREATE_VN2VN  SYSFS_FCOE  "/create_vn2vn"  /* legacy */
 #define FCOE_DESTROY SYSFS_FCOE  "/destroy" /* legacy */
 #define FCOE_ENABLE  SYSFS_FCOE  "/enable"  /* legacy */
 #define FCOE_DISABLE SYSFS_FCOE  "/disable" /* legacy */
@@ -50,6 +51,7 @@
 #define FCOE_BUS_CREATE        SYSFS_FCOE_BUS "/ctlr_create"
 #define FCOE_BUS_DESTROY       SYSFS_FCOE_BUS "/ctlr_destroy"
 #define FCOE_CTLR_ATTR_ENABLED "/enabled"
+#define FCOE_CTLR_ATTR_MODE    "/mode"
 
 #define FCHOSTBUFLEN 64
 

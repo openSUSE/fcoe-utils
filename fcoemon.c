@@ -182,7 +182,18 @@ static const struct libfcoe_interface_template *libfcoe_control;
 
 static enum fcoe_status fcm_module_create(struct fcm_netif *ff, struct fcoe_port *p)
 {
-	enum fcoe_status rc = fcm_fcoe_if_action(FCOE_CREATE, p->ifname);
+	enum fcoe_status rc;
+
+	switch (p->mode) {
+	case FCOE_MODE_VN2VN:
+		rc = fcm_fcoe_if_action(FCOE_CREATE_VN2VN, p->ifname);
+		break;
+
+	case FCOE_MODE_FABRIC:
+	default:
+		rc = fcm_fcoe_if_action(FCOE_CREATE, p->ifname);
+		break;
+	}
 	if (rc)
 		return rc;
 
@@ -227,6 +238,17 @@ static enum fcoe_status fcm_bus_enable(struct fcm_netif *ff,
 	return fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_ENABLED, "1");
 }
 
+static int fcm_bus_configure(struct fcm_netif *ff, struct fcoe_port *p)
+{
+	int rc;
+
+	if (p->mode != FCOE_MODE_VN2VN)
+		return 0;
+
+	rc = fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_MODE, "vn2vn");
+	return rc;
+}
+
 static enum fcoe_status fcm_bus_create(struct fcm_netif *ff,
 				       struct fcoe_port *p)
 {
@@ -256,7 +278,11 @@ static enum fcoe_status fcm_bus_create(struct fcm_netif *ff,
 		return ENOSYSFS;
 	}
 
-	return fcm_bus_enable(ff, p);
+	rc = fcm_bus_configure(ff, p);
+	if (!rc)
+		rc = fcm_bus_enable(ff, p);
+
+	return rc;
 }
 
 static enum fcoe_status fcm_bus_destroy(struct fcm_netif *ff,

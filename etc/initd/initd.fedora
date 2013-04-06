@@ -30,7 +30,6 @@
 ### END INIT INFO
 
 CONFIG_DIR=/etc/fcoe
-PID_FILE="/var/run/fcoemon.pid"
 LOG_FILE="/var/log/fcoemon.log"
 LOCKFILE="/var/lock/subsys/fcoe"
 FCOEMON=/usr/sbin/fcoemon
@@ -68,23 +67,26 @@ start()
 {
 	echo -n $"Starting FCoE initiator service: "
 
-	modprobe -q libfc
-	modprobe -q sg
-	modprobe -q -a $SUPPORTED_DRIVERS
+	pid=$($FCOEADM -p 2> /dev/null)
+	if [ -z "$pid" ]; then
+		modprobe -q libfc
+		modprobe -q sg
+		modprobe -q -a $SUPPORTED_DRIVERS
 
-	daemon --pidfile ${PID_FILE} ${FCOEMON} ${FCOEMON_OPTS}
-
-	echo
-	touch ${LOCKFILE}
-
-	echo
+		daemon ${FCOEMON} ${FCOEMON_OPTS}
+		echo
+		touch ${LOCKFILE}
+		echo
+	else
+		echo "(already running)"
+	fi
 }
 
 stop()
 {
 	local force=$1
 
-	pid=$(pidof "$FCOEMON")
+	pid=$($FCOEADM -p 2> /dev/null)
 	if [ "$force" == "force" ]
 	then
 		action "Destroying any active fcoe interface/s"
@@ -96,7 +98,6 @@ stop()
 
 	action $"Stopping FCoE initiator service: "
 
-	rm -f ${PID_FILE}
 	rm -f ${LOCKFILE}
 }
 
@@ -105,7 +106,8 @@ status()
 	[ -f ${LOCKFILE} ] || { echo "$FCOEMON is stopped" ; return 3; }
 
 	status=0
-	echo "$FCOEMON is running, pid=`cat $PID_FILE`"
+	pid=$($FCOEADM -p 2> /dev/null)
+	echo "$FCOEMON is running, pid=$pid"
 
 	interfaces=`$FCOEADM -i 2>&1 | \
 		    awk '/Symbolic Name:/{print $6}' | \

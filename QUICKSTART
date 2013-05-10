@@ -90,6 +90,7 @@ DEPENDENCIES
 * automake
 * libtool
 * gcc-c++
+* flex
 
 PROCESS
 

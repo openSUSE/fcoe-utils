@@ -11,9 +11,9 @@ distributions.
 # Dependencies
 ###############
 
-git://open-fcoe.org/fcoe/libHBAAPI.git
-git://open-fcoe.org/fcoe/libhbalinux.git
-git://open-fcoe.org/fcoe/fcoe-utils.git
+git://open-fcoe.org/libHBAAPI.git
+git://open-fcoe.org/libhbalinux.git
+git://open-fcoe.org/fcoe-utils.git
 
 ##
 # Kernel Configuration and Compilation
@@ -95,7 +95,7 @@ PROCESS
 
 1) Obtain the latest source
 
-   git clone git://open-lldp.org/lldp/open-lldp
+   git clone git://open-lldp.org/open-lldp
 
    (note: fcoe-utils versions >= 1.0.20 require an lldpad version >= 0.9.43)
 
@@ -133,7 +133,7 @@ PROCESS
 
 1) Obtain the latest source
 
-   git clone git://open-fcoe.org/fcoe/libHBAAPI.git
+   git clone git://open-fcoe.org/libHBAAPI.git
 
 2) Bootstrap, configure, make and make install
    # cd libHBAAPI
@@ -162,7 +162,7 @@ PROCESS
 
 1) Obtain the latest source
 
-   git clone git://open-fcoe.org/fcoe/libhbalinux.git
+   git clone git://open-fcoe.org/libhbalinux.git
 
 2) Bootstrap, configure, make and make install
    # cd libhbalinux
@@ -192,7 +192,7 @@ PROCESS
 
 1) Obtain the latest source
 
-   git clone git://open-fcoe.org/fcoe/fcoe-utils.git
+   git clone git://open-fcoe.org/fcoe-utils.git
 
 2) Bootstrap, configure, make and make install
    # cd fcoe-utils

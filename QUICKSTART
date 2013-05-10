@@ -83,7 +83,9 @@ git://open-fcoe.org/fcoe-utils.git
 DEPENDENCIES
 
 * libnl
+* libnl-devel
 * libconfig
+* libconfig-devel
 * autoconf
 * autotools
 * sysconftool
@@ -91,6 +93,7 @@ DEPENDENCIES
 * libtool
 * gcc-c++
 * flex
+* readline-devel
 
 PROCESS
 

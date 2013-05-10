@@ -1,6 +1,9 @@
 AC_INIT([fcoe-utils], [1.0.27], [fcoe-devel@open-fcoe.org])
 AM_INIT_AUTOMAKE([foreign])
 
+AM_PROG_AR
+AM_INIT_AUTOMAKE([foreign])
+
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_RANLIB

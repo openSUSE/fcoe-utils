@@ -33,7 +33,7 @@
 #include "fcoe_clif.h"
 #include "fcoeadm_display.h"
 
-static const char optstring[] = "cdrSiftlm:sbhv";
+static const char optstring[] = "cdrSiftlm:sbhpv";
 static const struct option fcoeadm_opts[] = {
 	{"create", no_argument, 0, 'c'},
 	{"destroy", no_argument, 0, 'd'},

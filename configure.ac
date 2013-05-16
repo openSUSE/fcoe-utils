@@ -1,7 +1,7 @@
 AC_INIT([fcoe-utils], [1.0.27], [fcoe-devel@open-fcoe.org])
 AM_INIT_AUTOMAKE([foreign])
 
-AM_PROG_AR
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AM_INIT_AUTOMAKE([foreign])
 
 AC_PROG_CC

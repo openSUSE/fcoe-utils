@@ -206,6 +206,7 @@ static u16 gn_id(int bsg, u32 fcid, u16 cmd, u64 *wwn)
 			.ct_fs_subtype	= FC_NS_SUBTYPE,
 			.ct_cmd		= htons(cmd),
 			.ct_mr_size	= htons(sizeof(gn_resp)),
+			.ct_vendor	= 0,
 		},
 		.port_id = hton24(fcid),
 	};
@@ -280,6 +281,7 @@ static int gspn_id(int bsg, u32 fcid)
 			.ct_fs_subtype	= FC_NS_SUBTYPE,
 			.ct_cmd		= htons(FC_NS_GSPN_ID),
 			.ct_mr_size	= htons(sizeof(gspn_resp)),
+			.ct_vendor	= 0,
 		},
 		.port_id = hton24(fcid),
 	};
@@ -317,6 +319,7 @@ static int gsnn_nn(int bsg, u64 wwnn)
 			.ct_fs_subtype	= FC_NS_SUBTYPE,
 			.ct_cmd		= htons(FC_NS_GSNN_NN),
 			.ct_mr_size	= htons(sizeof(gsnn_resp)),
+			.ct_vendor	= 0,
 		},
 		.wwnn = htonll(wwnn),
 	};

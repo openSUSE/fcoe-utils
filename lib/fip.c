@@ -263,8 +263,10 @@ ssize_t fip_send_vlan_request(int s, int ifindex, const unsigned char *mac,
 		struct fip_tlv_mac_addr mac;
 	} tlvs = {
 		.mac = {
-			.hdr.tlv_type = FIP_TLV_MAC_ADDR,
-			.hdr.tlv_len = 2,
+			.hdr = {
+				.tlv_type = FIP_TLV_MAC_ADDR,
+				.tlv_len = 2,
+			},
 		},
 	};
 	struct ethhdr eh;
@@ -326,8 +328,10 @@ fip_send_vlan_notification(int s, int ifindex, const __u8 *mac,
 		struct fip_tlv_mac_addr mac;
 	} tlvs = {
 		.mac = {
-			.hdr.tlv_type = FIP_TLV_MAC_ADDR,
-			.hdr.tlv_len = 2,
+			.hdr = {
+				.tlv_type = FIP_TLV_MAC_ADDR,
+				.tlv_len = 2,
+			},
 		},
 	};
 	struct ethhdr eh;

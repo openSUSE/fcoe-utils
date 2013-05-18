@@ -83,24 +83,27 @@ int sa_select_loop(void)
 				if (fp->ts_rx_handler != NULL)
 					(*fp->ts_rx_handler)
 					(fp->ts_handler_arg);
-				else
+				else {
 					ASSERT(!FD_ISSET(i, &ss->ts_rx_fds));
+				}
 				--rv;
 			}
 			if (FD_ISSET(i, &tx_fds)) {
 				if (fp->ts_tx_handler != NULL)
 					(*fp->ts_tx_handler)
 					(fp->ts_handler_arg);
-				else
+				else {
 					ASSERT(!FD_ISSET(i, &ss->ts_tx_fds));
+				}
 				--rv;
 			}
 			if (FD_ISSET(i, &ex_fds)) {
 				if (fp->ts_ex_handler != NULL)
 					(*fp->ts_ex_handler)
 					(fp->ts_handler_arg);
-				else
+				else {
 					ASSERT(!FD_ISSET(i, &ss->ts_ex_fds));
+				}
 				--rv;
 			}
 		}

@@ -78,8 +78,7 @@ static const char *cmdname;
 #define FC_WKA_FABRIC_CONTROLLER ((fc_fid_t)0xfffffd)
 #define FC_WKA_DIRECTORY_SERVICE ((fc_fid_t)0xfffffc)
 
-static void
-fp_usage()
+static void fp_usage(void)
 {
 	fprintf(stderr,
 		"Usage: %s [ -fqx ] [ -i <interval> ] [ -c <count> ] -h <hba> "
@@ -679,8 +678,7 @@ fp_ns_get_id(uint32_t op, fc_wwn_t wwn, char *response, size_t *resp_len)
 	return 0;
 }
 
-static int
-fp_lookup_target()
+static int fp_lookup_target(void)
 {
 	char response[32];
 	size_t resp_len;
@@ -784,7 +782,7 @@ out:
  * (default to be FC_MAX_PAYLOAD). For any FCID that is in FC-LS Table 30 WKA,
  * use FP_LEN_MAX for ECHO data, i.e., FC_MAX_PAYLOAD - 4.
  */
-static void fp_check_data_len()
+static void fp_check_data_len(void)
 {
 	fc_fid_t sid;
 	uint32_t slen = 0;

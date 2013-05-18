@@ -154,12 +154,6 @@ u_int sa_log_flags;                     /* timestamp and other option flags */
 int sa_log_time_delta_min = 1;          /* minimum diff to print in millisec */
 char *sa_log_prefix;                    /* string to print before any message */
 
-void
-sa_log_set_option(u_int flags)
-{
-	sa_log_flags = flags;
-}
-
 /*
  * Put timestamp on front of each log line, as controlled by tunables above.
  */

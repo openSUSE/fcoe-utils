@@ -87,7 +87,7 @@ char *exe;
 static struct pollfd *pfd = NULL;
 static int pfd_len = 0;
 
-void pfd_add(int fd)
+static void pfd_add(int fd)
 {
 	struct pollfd *npfd;
 	int i;
@@ -107,7 +107,7 @@ void pfd_add(int fd)
 	pfd_len++;
 }
 
-void pfd_remove(int fd)
+static void pfd_remove(int fd)
 {
 	struct pollfd *npfd;
 	int i;
@@ -169,7 +169,7 @@ static struct fcf *lookup_fcf(struct fcf_list_head *head, int ifindex,
 	return NULL;
 }
 
-struct iff *lookup_iff(int ifindex, char *ifname)
+static struct iff *lookup_iff(int ifindex, const char *ifname)
 {
 	struct iff *iff;
 	struct iff *vlan;
@@ -190,7 +190,7 @@ struct iff *lookup_iff(int ifindex, char *ifname)
 	return NULL;
 }
 
-struct iff *lookup_vlan(int ifindex, short int vid)
+static struct iff *lookup_vlan(int ifindex, short int vid)
 {
 	struct iff *real_dev, *vlan;
 	TAILQ_FOREACH(real_dev, &interfaces, list_node)
@@ -201,7 +201,7 @@ struct iff *lookup_vlan(int ifindex, short int vid)
 	return NULL;
 }
 
-struct iff *find_vlan_real_dev(struct iff *vlan)
+static struct iff *find_vlan_real_dev(struct iff *vlan)
 {
 	struct iff *real_dev;
 	TAILQ_FOREACH(real_dev, &interfaces, list_node) {
@@ -232,7 +232,8 @@ struct fip_tlv_ptrs {
  * @len: total length of all TLVs, in double words
  * @tlv_ptrs: pointers to type specific structures to fill out
  */
-unsigned int fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
+static unsigned int
+fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
 {
 	struct fip_tlv_hdr *tlv = ptr;
 	unsigned int bitmap = 0;
@@ -286,6 +287,7 @@ static int fip_recv_vlan_note(struct fiphdr *fh, int ifindex, bool vn2vn)
 
 	required_tlvs = (1 << FIP_TLV_MAC_ADDR) | (1 << FIP_TLV_VLAN);
 
+	tlvs.mac = NULL;	/* Silence incorrect GCC warning */
 	bitmap = fip_parse_tlvs((fh + 1), len, &tlvs);
 	if ((bitmap & required_tlvs) != required_tlvs)
 		return -1;
@@ -319,8 +321,8 @@ static int fip_recv_vlan_note(struct fiphdr *fh, int ifindex, bool vn2vn)
 	return 0;
 }
 
-int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
-		     UNUSED void *arg)
+static int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
+			    UNUSED void *arg)
 {
 	/* We only care about VLAN Notifications */
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
@@ -353,7 +355,7 @@ int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
  * rtnl_recv_newlink - parse response to RTM_GETLINK, or an RTM_NEWLINK event
  * @nh: netlink message header, beginning of received netlink frame
  */
-void rtnl_recv_newlink(struct nlmsghdr *nh)
+static void rtnl_recv_newlink(struct nlmsghdr *nh)
 {
 	struct ifinfomsg *ifm = NLMSG_DATA(nh);
 	struct rtattr *ifla[__IFLA_MAX];
@@ -467,7 +469,7 @@ static void help(int status)
 	exit(status);
 }
 
-void parse_cmdline(int argc, char **argv)
+static void parse_cmdline(int argc, char **argv)
 {
 	char c;
 
@@ -527,7 +529,7 @@ void parse_cmdline(int argc, char **argv)
 	config.namec = argc - optind;
 }
 
-int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
+static int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
 {
 	switch (nh->nlmsg_type) {
 	case RTM_NEWLINK:
@@ -653,7 +655,7 @@ static int fcoe_bus_instance_start(const char *ifname)
 	return 0;
 }
 
-void determine_libfcoe_interface()
+static void determine_libfcoe_interface(void)
 {
 	if (!access(FCOE_BUS_CREATE, F_OK)) {
 		FIP_LOG_DBG("Using /sys/bus/fcoe interfaces\n");
@@ -728,7 +730,7 @@ static int print_results(void)
 	return 0;
 }
 
-void recv_loop(int timeout)
+static void recv_loop(int timeout)
 {
 	int i;
 	int rc;
@@ -753,7 +755,7 @@ void recv_loop(int timeout)
 	}
 }
 
-void find_interfaces(int ns)
+static void find_interfaces(int ns)
 {
 	send_getlink_dump(ns);
 	rtnl_recv(ns, rtnl_listener_handler, NULL);
@@ -799,7 +801,7 @@ static int probe_fip_interface(struct iff *iff)
 	return 0;
 }
 
-int send_vlan_requests(void)
+static int send_vlan_requests(void)
 {
 	struct iff *iff;
 	int i;
@@ -822,7 +824,7 @@ int send_vlan_requests(void)
 	return skipped;
 }
 
-void do_vlan_discovery(void)
+static void do_vlan_discovery(void)
 {
 	struct iff *iff;
 	int retry_count = 0;
@@ -847,7 +849,7 @@ retry:
 		}
 }
 
-void cleanup_interfaces(void)
+static void cleanup_interfaces(void)
 {
 	struct iff *iff;
 	int i;
@@ -887,7 +889,7 @@ static inline int capget(cap_user_header_t hdrp, cap_user_data_t datap)
 	return syscall(__NR_capget, hdrp, datap);
 }
 
-int checkcaps()
+static int checkcaps(void)
 {
 	struct __user_cap_header_struct caphdr = {
 		.version = _LINUX_CAPABILITY_VERSION_3,

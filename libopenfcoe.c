@@ -114,7 +114,7 @@ static void read_fcoe_fcf_device(void *ep, UNUSED void *arg)
 	sa_sys_read_u32(fcf->path, "vlan_id", &fcf->vlan_id);
 }
 
-void read_fcoe_fcf(void *ep, UNUSED void *arg)
+static void read_fcoe_fcf(void *ep, UNUSED void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
 
@@ -125,7 +125,7 @@ void read_fcoe_fcf(void *ep, UNUSED void *arg)
 	sa_table_iterate(&ctlr->fcfs, read_fcoe_fcf_device, NULL);
 }
 
-void free_fcoe_fcf_device(void *ep, UNUSED void *arg)
+static void free_fcoe_fcf_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
 
@@ -147,7 +147,7 @@ static int find_fchost(struct dirent *dp, void *arg)
 	return 0;
 }
 
-int read_fcoe_ctlr_device(struct dirent *dp, void *arg)
+static int read_fcoe_ctlr_device(struct dirent *dp, void *arg)
 {
 	struct sa_table *ctlrs = arg;
 	struct fcoe_ctlr_device *ctlr;

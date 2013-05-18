@@ -927,7 +927,7 @@ static int fcm_link_init(void)
 static struct fcoe_port *
 fcm_port_create(char *ifname, enum clif_flags flags, int cmd);
 
-struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
+static struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 {
 	char real_name[IFNAMSIZ];
 	char vlan_name[IFNAMSIZ];
@@ -957,8 +957,8 @@ struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 	return p;
 }
 
-
-int fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
+static int
+fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 {
 	int vid;
 	unsigned char mac[ETHER_ADDR_LEN];
@@ -1098,7 +1098,7 @@ static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
  * This function parses the linkinfo rtattr and returns
  * 1 if it is kind vlan otherwise returns 0.
  */
-int fcm_is_linkinfo_vlan(struct rtattr *ap)
+static int fcm_is_linkinfo_vlan(struct rtattr *ap)
 {
 	struct rtattr *info;
 	int len;
@@ -1579,7 +1579,7 @@ static int fcoe_vid_from_ifname(const char *ifname)
 	return -1;
 }
 
-void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
+static void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 {
 	struct fcoe_port *p;
 	struct rtattr *ap;
@@ -2912,7 +2912,7 @@ void fcm_vlan_disc_timeout(void *arg)
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 }
 
-int fcm_start_vlan_disc(struct fcoe_port *p)
+static int fcm_start_vlan_disc(struct fcoe_port *p)
 {
 	int s;
 	if (p->fip_socket < 0) {
@@ -3153,7 +3153,7 @@ static void fcm_netif_advance(struct fcm_netif *ff)
  *       as necessary with a CREATE or DESTROY next action.
  * 2.  Process FCoE port list - handle next actions, update states, clean up
  */
-static void fcm_handle_changes()
+static void fcm_handle_changes(void)
 {
 	struct fcm_netif *ff;
 	struct fcoe_port *p;

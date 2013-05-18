@@ -1015,7 +1015,7 @@ static void hba_table_list_destroy(struct hba_name_table_list *hba_table_list)
 	hba_table_list = NULL;
 }
 
-static enum fcoe_status fcoeadm_loadhba()
+static enum fcoe_status fcoeadm_loadhba(void)
 {
 	if (HBA_STATUS_OK != HBA_LoadLibrary())
 		return EHBAAPIERR;
@@ -1403,7 +1403,7 @@ out:
 
 static struct sa_table fcoe_ctlr_table;
 
-void print_fcoe_fcf_device(void *ep, UNUSED void *arg)
+static void print_fcoe_fcf_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
 	char temp[MAX_STR_LEN];
@@ -1429,7 +1429,7 @@ void print_fcoe_fcf_device(void *ep, UNUSED void *arg)
 	printf("\n");
 }
 
-void print_interface_fcoe_fcf_device(void *ep, void *arg)
+static void print_interface_fcoe_fcf_device(void *ep, void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
 	const char *ifname = arg;
@@ -1466,7 +1466,7 @@ enum fcoe_status display_fcf_info(const char *ifname)
 	return rc;
 }
 
-void print_interface_fcoe_lesb_stats(void *ep, void *arg)
+static void print_interface_fcoe_lesb_stats(void *ep, void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
 	const char *ifname = arg;
@@ -1482,8 +1482,8 @@ void print_interface_fcoe_lesb_stats(void *ep, void *arg)
 	}
 }
 
-void print_interface_fcoe_lesb_stats_header(const char *ifname,
-					    int interval)
+static void
+print_interface_fcoe_lesb_stats_header(const char *ifname, int interval)
 {
 	printf("\n");
 	printf("%-7s interval: %-2d\n", ifname, interval);

@@ -278,7 +278,7 @@ static int fip_recv_vlan_note(struct fiphdr *fh, int ifindex, bool vn2vn)
 	uint16_t vlan;
 	unsigned int bitmap, required_tlvs;
 	int len;
-	int i;
+	unsigned int i;
 
 	FIP_LOG_DBG("received FIP VLAN Notification");
 

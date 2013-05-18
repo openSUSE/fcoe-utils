@@ -393,15 +393,17 @@ int fip_recv(int s, fip_handler *fn, void *arg)
 		.msg_iovlen = ARRAY_SIZE(iov),
 	};
 	struct fiphdr *fh;
-	ssize_t len, desc_len;
+	size_t len, desc_len;
+	int rc;
 	struct ethhdr *eth = (struct ethhdr *)buf;
 
-	len = recvmsg(s, &msg, MSG_DONTWAIT);
-	if (len < 0) {
+	rc = recvmsg(s, &msg, MSG_DONTWAIT);
+	if (rc < 0) {
 		FIP_LOG_ERRNO("packet socket recv error");
-		return len;
+		return rc;
 	}
 
+	len = rc;
 	if (len < sizeof(*fh)) {
 		FIP_LOG_ERR(EINVAL, "received packed smaller that FIP header");
 		return -1;

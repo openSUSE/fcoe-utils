@@ -22,7 +22,8 @@
 int fcoe_sysfs_read(char *buf, int size, const char *path)
 {
 	FILE *fp;
-	int i, rc = -EINVAL;
+	unsigned int i;
+	int rc = -EINVAL;
 
 	fp = fopen(path, "r");
 	if (fp) {

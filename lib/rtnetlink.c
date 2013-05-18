@@ -121,17 +121,19 @@ int rtnl_recv(int s, rtnl_handler *fn, void *arg)
 {
 	char buf[8192];
 	struct nlmsghdr *nh;
-	int len;
+	size_t len;
 	int rc = 0;
+	int ret;
 	bool more = false;
 
 more:
-	len = recv(s, buf, sizeof(buf), 0);
-	if (len < 0) {
+	ret = recv(s, buf, sizeof(buf), 0);
+	if (ret < 0) {
 		RTNL_LOG_ERRNO("netlink recvmsg error");
-		return len;
+		return ret;
 	}
 
+	len = ret;
 	for (nh = NLMSG(buf); NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_flags & NLM_F_MULTI)
 			more = true;

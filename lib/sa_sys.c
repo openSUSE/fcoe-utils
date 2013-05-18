@@ -247,7 +247,7 @@ sa_table_destroy(struct sa_table *tp)
 void
 sa_table_destroy_all(struct sa_table *tp)
 {
-	int  i;
+	unsigned int  i;
 
 	if (tp->st_table) {
 		for (i = 0; i < tp->st_limit; i++) {
@@ -271,7 +271,7 @@ sa_table_iterate(struct sa_table *tp,
 		 void (*handler)(void *ep, void *arg),
 		 void *arg)
 {
-	int i;
+	unsigned int i;
 	void *ep;
 
 	for (i = 0; i < tp->st_limit; i++) {
@@ -296,7 +296,7 @@ void *
 sa_table_search(struct sa_table *tp, void *(*match)(void *ep, void *arg),
 	void *arg)
 {
-	int i;
+	unsigned int i;
 	void *found = NULL;
 	void *ep;
 

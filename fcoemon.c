@@ -747,7 +747,7 @@ static void fcm_fc_event_handler(struct fc_nl_event *fc_event)
 	}
 }
 
-static void log_nlmsg_error(struct nlmsghdr *hp, int rlen, const char *str)
+static void log_nlmsg_error(struct nlmsghdr *hp, size_t rlen, const char *str)
 {
 	struct nlmsgerr *ep;
 
@@ -795,7 +795,7 @@ static void fcm_fc_event_log(struct fc_nl_event *fe)
 		{ FCH_EVT_LINK_UNKNOWN,         "link_unknown" },
 		{ FCH_EVT_VENDOR_UNIQUE,        "vendor_unique" },
 	};
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(fc_host_event_code_names); i++) {
 		if (fe->event_code == fc_host_event_code_names[i].value) {
@@ -816,9 +816,10 @@ static void fcm_fc_event_recv(UNUSED void *arg)
 {
 	struct nlmsghdr *hp;
 	struct fc_nl_event *fc_event;
-	int plen;
+	size_t plen;
 	size_t rlen;
 	char *buf;
+	int rc;
 
 	buf = malloc(DEF_RX_BUF_SIZE);
 
@@ -827,16 +828,17 @@ static void fcm_fc_event_recv(UNUSED void *arg)
 		return;
 	}
 
-	rlen = read(fcm_fc_socket, buf, DEF_RX_BUF_SIZE);
-	if (!rlen)
+	rc = read(fcm_fc_socket, buf, DEF_RX_BUF_SIZE);
+	if (!rc)
 		goto free_buf;
 
-	if (rlen < 0) {
+	if (rc < 0) {
 		FCM_LOG_ERR(errno, "fc read error");
 		goto free_buf;
 	}
 
 	hp = (struct nlmsghdr *)buf;
+	rlen = rc;
 	for (hp = (struct nlmsghdr *)buf; NLMSG_OK(hp, rlen);
 	     hp = NLMSG_NEXT(hp, rlen)) {
 
@@ -1843,8 +1845,8 @@ static void fcm_link_recv(UNUSED void *arg)
 	struct nlmsghdr *hp;
 	struct ifinfomsg *ip;
 	unsigned type;
-	int plen;
-	int rlen;
+	size_t plen;
+	size_t rlen;
 
 	buf = fcm_link_buf;
 	rc = read(fcm_link_socket, buf, fcm_link_buf_size);
@@ -2197,7 +2199,7 @@ static void fcm_dcbd_rx(void *arg)
 	rc = read(clif->cl_fd, buf, sizeof(buf) - 1);
 	if (rc < 0)
 		FCM_LOG_ERR(errno, "read");
-	else if ((rc > 0) && (rc < sizeof(buf))) {
+	else if (rc > 0 && rc < (int)sizeof(buf)) {
 		buf[rc] = '\0';
 		len = strlen(buf);
 		ASSERT(len <= rc);
@@ -3458,6 +3460,7 @@ static void fcm_srv_receive(void *arg)
 	char ifname[sizeof(data->ifname) + 1];
 	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
+	size_t size;
 
 	snum = srv_info->srv_sock;
 	res = recvfrom(snum, buf, sizeof(buf) - 1,
@@ -3469,15 +3472,16 @@ static void fcm_srv_receive(void *arg)
 	}
 
 	data = (struct clif_data *)buf;
-	if (res < sizeof(*data)) {
-		if (res < sizeof(*data) - sizeof(data->flags)) {
+	size = res;
+	if (size < sizeof(*data)) {
+		if (size < sizeof(*data) - sizeof(data->flags)) {
 			FCM_LOG_ERR(EMSGSIZE,
 				    "Message too short from socket %d", snum);
 			rc = EBADCLIFMSG;
 			goto err;
 		}
 		data->flags = 0;
-	} else if (res > sizeof(*data)) {
+	} else if (size > sizeof(*data)) {
 		FCM_LOG_ERR(EMSGSIZE, "Message too long from socket %d", snum);
 		rc = EBADCLIFMSG;
 		goto err;
@@ -3703,9 +3707,9 @@ int main(int argc, char **argv)
 /*******************************************************
  *         The following are debug routines            *
  *******************************************************/
-static void add_msg_to_buf(char *buf, int maxlen, char *msg, char *prefix)
+static void add_msg_to_buf(char *buf, size_t maxlen, char *msg, char *prefix)
 {
-	int len = strlen(buf);
+	size_t len = strlen(buf);
 
 	if (len + strlen(msg) + strlen(prefix) < maxlen)
 		sprintf(buf+len, "%s%s", prefix, msg);

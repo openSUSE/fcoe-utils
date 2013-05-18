@@ -128,7 +128,7 @@ sa_enum_decode_speed(char *buf, size_t buflen,
 		     u_int32_t val)
 {
 	char *prefix = "";
-	ssize_t len = 0;
+	size_t len;
 	struct sa_nameval *tp = port_speeds;
 	char *cp = buf;
 
@@ -136,7 +136,7 @@ sa_enum_decode_speed(char *buf, size_t buflen,
 	for (; tp->nv_name != NULL; tp++) {
 		if (tp->nv_val & val) {
 			len = snprintf(cp, buflen, "%s%s", prefix, tp->nv_name);
-			if (len <= 0 || len >= buflen)
+			if (len == 0 || len >= buflen)
 				break;
 			cp += len;
 			buflen -= len;
@@ -733,7 +733,7 @@ show_full_lun_info(UNUSED HBA_HANDLE hba_handle,
 	       lp_info->PortFcId);
 	printf("        Target FCID:        0x%06X\n",
 	       rp_info->PortFcId);
-	if (tgt_id == -1)
+	if (tgt_id == 0xFFFFFFFFU)
 		printf("        Target ID:          (None)\n");
 	else
 		printf("        Target ID:          %u\n", tgt_id);
@@ -1310,7 +1310,8 @@ enum fcoe_status display_target_info(const char *ifname,
 	HBA_STATUS retval;
 	HBA_PORTATTRIBUTES rport_attrs;
 	struct hba_name_table_list *hba_table_list = NULL;
-	int i, target_index, num_hbas = 0;
+	int i, num_hbas = 0;
+	unsigned int target_index;
 	enum fcoe_status rc = SUCCESS;
 	HBA_HANDLE hba_handle;
 	HBA_PORTATTRIBUTES *port_attrs;

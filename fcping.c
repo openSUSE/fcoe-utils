@@ -480,7 +480,8 @@ fp_find_hba(void)
 	fc_wwn_t wwn = 0;
 	HBA_WWN wwpn;
 	char *endptr;
-	int i, found = 0;
+	unsigned int i;
+	int found = 0;
 
 	/*
 	 * Parse HBA spec. if there is one.
@@ -730,14 +731,13 @@ static uint32_t fp_get_max_data_len(fc_fid_t fcid)
 {
 	HBA_STATUS retval;
 	HBA_PORTATTRIBUTES rport_attrs;
-	int i;
+	unsigned int i;
 	uint32_t dlen = 0;
 
 	if (!hba_handle) {
 		SA_LOG("%s: Invalid handle! HBA_OpenAdapter failed?", fp_dev);
 		goto out;
 	}
-
 
 	/* locate targets */
 	for (i = 0; i < port_attrs.NumberofDiscoveredPorts; i++) {

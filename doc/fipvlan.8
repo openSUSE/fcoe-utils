@@ -2,12 +2,12 @@
 .\"     Title: fipvlan
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 02/06/2013
+.\"      Date: 03/18/2013
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FIPVLAN" "8" "02/06/2013" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FIPVLAN" "8" "03/18/2013" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,9 @@
 fipvlan \- Fibre Channel over Ethernet VLAN Discovery
 .SH "SYNOPSIS"
 .sp
-\fBfipvlan\fR [\-c|\-\-create] [\-s|\-\-start] \fIinterfaces\fR
+\fBfipvlan\fR [\-c|\-\-create] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] \fIinterfaces\fR
 .sp
-\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-l|\-\-link\-retry \fIcount\fR]
+\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] [\-l|\-\-link\-retry \fIcount\fR]
 .sp
 \fBfipvlan\fR \-h|\-\-help
 .sp
@@ -65,6 +65,11 @@ Enable debugging output
 Start the
 \fIOpen\-FCoE\fR
 initiator on discovered FCoE VLANs
+.RE
+.PP
+\fB\-m\fR, \fB\-\-mode\fR
+.RS 4
+fabric|vn2vn Specify whether VLAN discovery is performed in the default fabric mode, or in VN2VN mode\&.
 .RE
 .PP
 \fB\-f\fR, \fB\-\-suffix\fR \fIsuffix\fR

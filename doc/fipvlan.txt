@@ -19,10 +19,10 @@ fipvlan - Fibre Channel over Ethernet VLAN Discovery
 
 SYNOPSIS
 --------
-*fipvlan* [-c|--create] [-s|--start] _interfaces_
+*fipvlan* [-c|--create] [-s|--start] [-m|--mode fabric|vn2vn] _interfaces_
 
 *fipvlan* -a|--auto [-c|--create] [-d|--debug]
- [-s|--start] [-l|--link-retry _count_]
+ [-s|--start] [-m|--mode fabric|vn2vn] [-l|--link-retry _count_]
 
 *fipvlan* -h|--help
 
@@ -63,6 +63,10 @@ OPTIONS
 
 *-s*, *--start*::
 	Start the _Open-FCoE_ initiator on discovered FCoE VLANs
+
+*-m*, *--mode*:: fabric|vn2vn
+	Specify whether VLAN discovery is performed in the default
+	fabric mode, or in VN2VN mode.
 
 *-f*, *--suffix* _suffix_::
 	Append the specified string _suffix_ to VLAN interface names.

@@ -4,8 +4,8 @@ sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 ## all targets should look for headers in the include directory
 AM_CPPFLAGS = -I${srcdir}/include -I${builddir}/include
 ## pass the sysconfdir into the C proprocessor
-AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\""
-AM_CFLAGS = -Wall -Wformat=2 -Werror
+AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\"" -D_FORTIFY_SOURCE=2
+AM_CFLAGS = -Wall -Wformat=2 -Werror -Wmissing-prototypes -Wstrict-prototypes
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c

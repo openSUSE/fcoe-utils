@@ -218,7 +218,7 @@ static int fchost_filter(const struct dirent *dent)
 	return !strncmp(dent->d_name, "host", 4);
 }
 
-static int fcoe_check_ctlr(const char *fchost, const char *dname, int len)
+static int fcoe_check_ctlr(const char *fchost, const char *dname)
 {
 	int n, status;
 	struct dirent **namelist;
@@ -259,8 +259,7 @@ enum fcoe_status fcoe_find_ctlr(const char *fchost, char *ctlr, int len)
 		if (rc) {
 			/* check ctlr against known host */
 			if (!fcoe_check_ctlr(fchost,
-					     namelist[n]->d_name,
-					     len)) {
+					     namelist[n]->d_name)) {
 
 				dname_len = strnlen(namelist[n]->d_name, len);
 

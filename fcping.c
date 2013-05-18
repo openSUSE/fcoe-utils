@@ -995,8 +995,7 @@ static int fp_send_ping(void)
 	return rc;
 }
 
-static void
-fp_signal_handler(int sig)
+static void fp_signal_handler(UNUSED int sig)
 {
 	/*
 	 * Allow graceful termination of the

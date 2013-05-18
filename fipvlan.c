@@ -319,7 +319,8 @@ static int fip_recv_vlan_note(struct fiphdr *fh, int ifindex, bool vn2vn)
 	return 0;
 }
 
-int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
+int fip_vlan_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
+		     UNUSED void *arg)
 {
 	/* We only care about VLAN Notifications */
 	if (ntohs(fh->fip_proto) != FIP_PROTO_VLAN) {
@@ -526,7 +527,7 @@ void parse_cmdline(int argc, char **argv)
 	config.namec = argc - optind;
 }
 
-int rtnl_listener_handler(struct nlmsghdr *nh, void *arg)
+int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
 {
 	switch (nh->nlmsg_type) {
 	case RTM_NEWLINK:

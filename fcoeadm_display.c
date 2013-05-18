@@ -190,8 +190,7 @@ static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info)
 	printf("\n");
 }
 
-static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
-			   HBA_PORTATTRIBUTES *lp_info)
+static void show_port_info(HBA_PORTATTRIBUTES *lp_info)
 {
 	char buf[256];
 	int len = sizeof(buf);
@@ -235,7 +234,6 @@ static void show_port_info(HBA_ADAPTERATTRIBUTES *hba_info,
 }
 
 static void show_target_info(const char *symbolic_name,
-			     HBA_ADAPTERATTRIBUTES *hba_info,
 			     HBA_PORTATTRIBUTES *rp_info)
 {
 	char buf[256];
@@ -666,8 +664,7 @@ show_short_lun_info(HBA_FCP_SCSI_ENTRY *ep, char *inqbuf,
 }
 
 static void
-show_full_lun_info(HBA_HANDLE hba_handle,
-		   HBA_ADAPTERATTRIBUTES *hba_info,
+show_full_lun_info(UNUSED HBA_HANDLE hba_handle,
 		   HBA_PORTATTRIBUTES *lp_info,
 		   HBA_PORTATTRIBUTES *rp_info,
 		   HBA_FCP_SCSI_ENTRY *ep,
@@ -854,10 +851,8 @@ get_device_map(HBA_HANDLE hba_handle, HBA_PORTATTRIBUTES *lp_info,
 
 static void
 scan_device_map(HBA_HANDLE hba_handle,
-		HBA_ADAPTERATTRIBUTES *hba_info,
 		HBA_PORTATTRIBUTES *lp_info,
 		HBA_PORTATTRIBUTES *rp_info,
-		const char *ifname,
 		enum disp_style style)
 {
 	HBA_STATUS status;
@@ -947,7 +942,7 @@ scan_device_map(HBA_HANDLE hba_handle,
 			show_short_lun_info(ep, inqbuf, blksize, lba);
 			break;
 		case DISP_LUN:
-			show_full_lun_info(hba_handle, hba_info, lp_info,
+			show_full_lun_info(hba_handle, lp_info,
 					   rp_info, ep, inqbuf, blksize, lba);
 			break;
 		}
@@ -1296,8 +1291,7 @@ enum fcoe_status display_adapter_info(const char *ifname)
 			if (!strncmp(hba_attrs->SerialNumber,
 				     shba_attrs->SerialNumber,
 				     strlen(hba_attrs->SerialNumber))) {
-				show_port_info(shba_attrs,
-					       sport_attrs);
+				show_port_info(sport_attrs);
 				hba_table_list->hba_table[j].displayed = 1;
 			}
 		}
@@ -1320,7 +1314,6 @@ enum fcoe_status display_target_info(const char *ifname,
 	enum fcoe_status rc = SUCCESS;
 	HBA_HANDLE hba_handle;
 	HBA_PORTATTRIBUTES *port_attrs;
-	HBA_ADAPTERATTRIBUTES *hba_attrs;
 
 	if (fcoeadm_loadhba())
 		return EHBAAPIERR;
@@ -1346,7 +1339,6 @@ enum fcoe_status display_target_info(const char *ifname,
 
 		hba_handle = hba_table_list->hba_table[i].hba_handle;
 		port_attrs = &hba_table_list->hba_table[i].port_attrs;
-		hba_attrs = &hba_table_list->hba_table[i].hba_attrs;
 
 		if (ifname && check_symbolic_name_for_interface(
 			    port_attrs->PortSymbolicName,
@@ -1386,7 +1378,6 @@ enum fcoe_status display_target_info(const char *ifname,
 
 			show_target_info(
 				port_attrs->PortSymbolicName,
-				hba_attrs,
 				&rport_attrs);
 
 			if (port_attrs->PortState != HBA_PORTSTATE_ONLINE)
@@ -1397,9 +1388,8 @@ enum fcoe_status display_target_info(const char *ifname,
 			 * under the target.
 			 */
 			scan_device_map(hba_handle,
-					hba_attrs,
 					port_attrs,
-					&rport_attrs, ifname, style);
+					&rport_attrs, style);
 		}
 	}
 
@@ -1412,7 +1402,7 @@ out:
 
 static struct sa_table fcoe_ctlr_table;
 
-void print_fcoe_fcf_device(void *ep, void *arg)
+void print_fcoe_fcf_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
 	char temp[MAX_STR_LEN];

@@ -169,7 +169,7 @@ static void fcm_dcbd_rx(void *);
 static void fcm_dcbd_event(char *, size_t);
 static void fcm_dcbd_cmd_resp(char *, cmd_status);
 static void fcm_netif_advance(struct fcm_netif *);
-static void fcm_fcoe_action(struct fcm_netif *, struct fcoe_port *);
+static void fcm_fcoe_action(struct fcoe_port *);
 static void fcp_set_next_action(struct fcoe_port *, enum fcp_action);
 static enum fcoe_status fcm_fcoe_if_action(char *, char *);
 
@@ -178,15 +178,15 @@ static enum fcoe_status fcm_fcoe_if_action(char *, char *);
  * "control" interfaces.
  */
 struct libfcoe_interface_template {
-	enum fcoe_status (*create)(struct fcm_netif *, struct fcoe_port *);
-	enum fcoe_status (*destroy)(struct fcm_netif *, struct fcoe_port *);
-	enum fcoe_status (*enable)(struct fcm_netif *, struct fcoe_port *);
-	enum fcoe_status (*disable)(struct fcm_netif *, struct fcoe_port *);
+	enum fcoe_status (*create)(struct fcoe_port *);
+	enum fcoe_status (*destroy)(struct fcoe_port *);
+	enum fcoe_status (*enable)(struct fcoe_port *);
+	enum fcoe_status (*disable)(struct fcoe_port *);
 };
 
 static const struct libfcoe_interface_template *libfcoe_control;
 
-static enum fcoe_status fcm_module_create(struct fcm_netif *ff, struct fcoe_port *p)
+static enum fcoe_status fcm_module_create(struct fcoe_port *p)
 {
 	enum fcoe_status rc;
 
@@ -216,17 +216,17 @@ static enum fcoe_status fcm_module_create(struct fcm_netif *ff, struct fcoe_port
 	return SUCCESS;
 }
 
-static enum fcoe_status fcm_module_destroy(struct fcm_netif *ff, struct fcoe_port *p)
+static enum fcoe_status fcm_module_destroy(struct fcoe_port *p)
 {
 	return fcm_fcoe_if_action(FCOE_DESTROY, p->ifname);
 }
 
-static enum fcoe_status fcm_module_enable(struct fcm_netif *ff, struct fcoe_port *p)
+static enum fcoe_status fcm_module_enable(struct fcoe_port *p)
 {
 	return fcm_fcoe_if_action(FCOE_ENABLE, p->ifname);
 }
 
-static enum fcoe_status fcm_module_disable(struct fcm_netif *ff, struct fcoe_port *p)
+static enum fcoe_status fcm_module_disable(struct fcoe_port *p)
 {
 	return fcm_fcoe_if_action(FCOE_DISABLE, p->ifname);
 }
@@ -238,13 +238,12 @@ static struct libfcoe_interface_template libfcoe_module_tmpl = {
 	.disable = fcm_module_disable,
 };
 
-static enum fcoe_status fcm_bus_enable(struct fcm_netif *ff,
-				       struct fcoe_port *p)
+static enum fcoe_status fcm_bus_enable(struct fcoe_port *p)
 {
 	return fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_ENABLED, "1");
 }
 
-static int fcm_bus_configure(struct fcm_netif *ff, struct fcoe_port *p)
+static int fcm_bus_configure(struct fcoe_port *p)
 {
 	int rc;
 
@@ -255,8 +254,7 @@ static int fcm_bus_configure(struct fcm_netif *ff, struct fcoe_port *p)
 	return rc;
 }
 
-static enum fcoe_status fcm_bus_create(struct fcm_netif *ff,
-				       struct fcoe_port *p)
+static enum fcoe_status fcm_bus_create(struct fcoe_port *p)
 {
 	enum fcoe_status rc;
 
@@ -284,21 +282,19 @@ static enum fcoe_status fcm_bus_create(struct fcm_netif *ff,
 		return ENOSYSFS;
 	}
 
-	rc = fcm_bus_configure(ff, p);
+	rc = fcm_bus_configure(p);
 	if (!rc)
-		rc = fcm_bus_enable(ff, p);
+		rc = fcm_bus_enable(p);
 
 	return rc;
 }
 
-static enum fcoe_status fcm_bus_destroy(struct fcm_netif *ff,
-					struct fcoe_port *p)
+static enum fcoe_status fcm_bus_destroy(struct fcoe_port *p)
 {
 	return fcm_write_str_to_sysfs_file(FCOE_BUS_DESTROY, p->ifname);
 }
 
-static enum fcoe_status fcm_bus_disable(struct fcm_netif *ff,
-					struct fcoe_port *p)
+static enum fcoe_status fcm_bus_disable(struct fcoe_port *p)
 {
 	return fcm_write_str_to_ctlr_attr(p->ctlr, FCOE_CTLR_ATTR_ENABLED, "0");
 }
@@ -816,7 +812,7 @@ static void fcm_fc_event_log(struct fc_nl_event *fe)
 
 }
 
-static void fcm_fc_event_recv(void *arg)
+static void fcm_fc_event_recv(UNUSED void *arg)
 {
 	struct nlmsghdr *hp;
 	struct fc_nl_event *fc_event;
@@ -1413,8 +1409,7 @@ static void fcm_dcbd_state_set(struct fcm_netif *ff,
 	ff->response_pending = 0;
 }
 
-static int fip_recv_vlan_req(struct fiphdr *fh, struct sockaddr_ll *ssa,
-			     struct fcoe_port *sp)
+static int fip_recv_vlan_req(struct sockaddr_ll *ssa, struct fcoe_port *sp)
 {
 	struct fip_tlv_vlan *vlan_tlvs = NULL;
 	int vlan_count = 0;
@@ -1473,7 +1468,7 @@ static int fip_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa,
 	switch (fh->fip_subcode) {
 	case FIP_VLAN_REQ:
 		FCM_LOG_DBG("received VLAN req, subcode=%d\n", fh->fip_subcode);
-		rc = fip_recv_vlan_req(fh, sa, p);
+		rc = fip_recv_vlan_req(sa, p);
 		break;
 	default:
 		FCM_LOG_DBG("ignored FIP VLAN packet with subcode %d\n",
@@ -1841,7 +1836,7 @@ static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
 		ieee_state_set(ff, IEEE_DONE);
 }
 
-static void fcm_link_recv(void *arg)
+static void fcm_link_recv(UNUSED void *arg)
 {
 	int rc;
 	char *buf;
@@ -2093,7 +2088,7 @@ static int fcm_dcbd_connect(void)
 	return 1;
 }
 
-static void fcm_dcbd_timeout(void *arg)
+static void fcm_dcbd_timeout(UNUSED void *arg)
 {
 	if (fcm_clif->cl_ping_pending > 0) {
 		fcm_dcbd_request("D");	/* DETACH_CMD */
@@ -2936,7 +2931,7 @@ int fcm_start_vlan_disc(struct fcoe_port *p)
  *         action = 2      Create the FCoE interface
  *         action = 3      Reset the interface
  */
-static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
+static void fcm_fcoe_action(struct fcoe_port *p)
 {
 	struct fcoe_port *vp;
 	char path[MAX_PATH_LEN];
@@ -2945,7 +2940,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 	switch (p->action) {
 	case FCP_CREATE_IF:
 		FCM_LOG_DBG("OP: CREATE %s\n", p->ifname);
-		rc = libfcoe_control->create(ff, p);
+		rc = libfcoe_control->create(p);
 		if (rc) {
 			FCM_LOG_DBG("Failed to create FCoE interface "
 				    "for %s, rc is %d\n", p->ifname, rc);
@@ -2971,12 +2966,12 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			rc = SUCCESS;
 			break;
 		}
-		rc = libfcoe_control->destroy(ff, p);
+		rc = libfcoe_control->destroy(p);
 		p->fchost[0] = '\0';
 		break;
 	case FCP_ENABLE_IF:
 		FCM_LOG_DBG("OP: ENABLE %s\n", p->ifname);
-		rc = libfcoe_control->enable(ff, p);
+		rc = libfcoe_control->enable(p);
 		break;
 	case FCP_DISABLE_IF:
 		FCM_LOG_DBG("OP: DISABLE %s\n", p->ifname);
@@ -2992,7 +2987,7 @@ static void fcm_fcoe_action(struct fcm_netif *ff, struct fcoe_port *p)
 			}
 			break;
 		}
-		rc = libfcoe_control->disable(ff, p);
+		rc = libfcoe_control->disable(p);
 		break;
 	case FCP_RESET_IF:
 		FCM_LOG_DBG("OP: RESET %s\n", p->ifname);
@@ -3183,7 +3178,7 @@ static void fcm_handle_changes()
 			goto next_port;
 		}
 
-		fcm_fcoe_action(ff, p);
+		fcm_fcoe_action(p);
 
 		fcp_set_next_action(p, FCP_WAIT);
 next_port:

@@ -92,7 +92,7 @@ fail:
 	return -ENOENT;
 }
 
-static void read_fcoe_fcf_device(void *ep, void *arg)
+static void read_fcoe_fcf_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
 	char buf[MAX_STR_LEN];
@@ -114,7 +114,7 @@ static void read_fcoe_fcf_device(void *ep, void *arg)
 	sa_sys_read_u32(fcf->path, "vlan_id", &fcf->vlan_id);
 }
 
-void read_fcoe_fcf(void *ep, void *arg)
+void read_fcoe_fcf(void *ep, UNUSED void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
 
@@ -125,7 +125,7 @@ void read_fcoe_fcf(void *ep, void *arg)
 	sa_table_iterate(&ctlr->fcfs, read_fcoe_fcf_device, NULL);
 }
 
-void free_fcoe_fcf_device(void *ep, void *arg)
+void free_fcoe_fcf_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_fcf_device *fcf = (struct fcoe_fcf_device *)ep;
 
@@ -234,7 +234,7 @@ void read_fcoe_ctlr(struct sa_table *ctlrs)
 	sa_table_iterate(ctlrs, read_fcoe_fcf, NULL);
 }
 
-void free_fcoe_ctlr_device(void *ep, void *arg)
+void free_fcoe_ctlr_device(void *ep, UNUSED void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)ep;
 

@@ -32,6 +32,8 @@
 #include <dirent.h>
 #include <errno.h>
 
+#define UNUSED __attribute__((__unused__))
+
 #define MAX_STR_LEN 512
 #define MAX_PATH_LEN MAX_STR_LEN
 

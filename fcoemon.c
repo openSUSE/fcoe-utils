@@ -817,7 +817,7 @@ static void fcm_fc_event_recv(UNUSED void *arg)
 	struct nlmsghdr *hp;
 	struct fc_nl_event *fc_event;
 	int plen;
-	int rlen;
+	size_t rlen;
 	char *buf;
 
 	buf = malloc(DEF_RX_BUF_SIZE);
@@ -851,7 +851,7 @@ static void fcm_fc_event_recv(UNUSED void *arg)
 		plen = NLMSG_PAYLOAD(hp, 0);
 		fc_event = (struct fc_nl_event *)NLMSG_DATA(hp);
 		if (plen < sizeof(*fc_event)) {
-			FCM_LOG("too short (%d) to be an FC event", rlen);
+			FCM_LOG("too short (%zu) to be an FC event", rlen);
 			break;
 		}
 		fcm_fc_event_log(fc_event);

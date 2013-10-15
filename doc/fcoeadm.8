@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: fcoeadm
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 11/08/2012
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 10/14/2013
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEADM" "8" "11/08/2012" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEADM" "8" "10/14/2013" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -39,7 +39,7 @@ fcoeadm \- The Open\-FCoE Administration Tool
 .sp
 \fBfcoeadm\fR \-i|\-\-interface [\fIethX\fR]
 .sp
-\fBfcoeadm\fR \-f|\-\-fcfs [\fIethX\fR]
+\fBfcoeadm\fR \-f|\-\-fcf [\fIethX\fR]
 .sp
 \fBfcoeadm\fR \-t|\-\-target [\fIethX\fR]
 .sp
@@ -91,7 +91,7 @@ Rescan for new targets and LUNs on the provided instance\&. This command will no
 Show information about the FCoE instance on the specified network interface, or all FCoE instances if no network interface is specified\&.
 .RE
 .PP
-\fB\-f\fR, \fB\-\-fcfs\fR [\fIethX\fR]
+\fB\-f\fR, \fB\-\-fcf\fR [\fIethX\fR]
 .RS 4
 Show information about the discovered Fibre Channel Forwarders (FCFs) on the specified network interface, or all discovered FCFs if no network interface is specified\&.
 .RE
@@ -143,13 +143,9 @@ command\&.
 .RE
 .SH "INTERFACE NAMES"
 .sp
-The actual name for \fIethX\fR depends on the \fBAUTO_VLAN\fR setting in
-the fcoemon interface configuration (/etc/fcoe/cfg-ethX, see \fBfcoemon\fR)\&.
+The actual name for \fIethX\fR depends on the \fBAUTO_VLAN\fR setting in the fcoemon interface configuration (/etc/fcoe/cfg\-ethX, see \fBfcoemon\fR)\&.
 .sp
-If \fBAUTO_VLAN\fR is set to \fIyes\fR, the interface name \fIethX\fR
-references the network device itself. If \fBAUTO_VLAN\fR is set to
-\fIno\fR, the interface name \fIethX\fR references the VLAN device\&.
-.RE
+If \fBAUTO_VLAN\fR is set to \fIyes\fR, the interface name \fIethX\fR references the network device itself\&. If \fBAUTO_VLAN\fR is set to \fIno\fR, the interface name \fIethX\fR references the VLAN device\&.
 .SH "EXAMPLES"
 .sp
 Creates an FCoE instance on eth2\&.101

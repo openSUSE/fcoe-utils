@@ -29,7 +29,7 @@ SYNOPSIS
 
 *fcoeadm* -i|--interface [_ethX_]
 
-*fcoeadm* -f|--fcfs [_ethX_]
+*fcoeadm* -f|--fcf [_ethX_]
 
 *fcoeadm* -t|--target [_ethX_]
 
@@ -89,7 +89,7 @@ OPERATIONS
 	Show information about the FCoE instance on the specified network
 	interface, or all FCoE instances if no network interface is specified.
 
-*-f*, *--fcfs* [_ethX_]::
+*-f*, *--fcf* [_ethX_]::
 	Show information about the discovered Fibre Channel Forwarders (FCFs)
 	on the specified network interface, or all discovered FCFs if no
 	network interface is specified.

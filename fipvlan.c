@@ -157,6 +157,8 @@ struct fcf {
 struct fcf_list_head fcfs = TAILQ_HEAD_INITIALIZER(fcfs);
 static struct fcf_list_head vn2vns = TAILQ_HEAD_INITIALIZER(vn2vns);
 
+static int create_and_start_vlan(struct fcf *fcf, bool vn2vn);
+
 static struct fcf *lookup_fcf(struct fcf_list_head *head, int ifindex,
 			      uint16_t vlan, unsigned char *mac)
 {
@@ -316,6 +318,9 @@ static int fip_recv_vlan_note(struct fiphdr *fh, int ifindex, bool vn2vn)
 		fcf->vlan = vlan;
 		memcpy(fcf->mac_addr, tlvs.mac->mac_addr, ETHER_ADDR_LEN);
 		TAILQ_INSERT_TAIL(head, fcf, list_node);
+		if (!config.create)
+			continue;
+		create_and_start_vlan(fcf, vn2vn);
 	}
 
 	return 0;
@@ -545,7 +550,7 @@ static int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
 }
 
 static int
-create_missing_vlan(struct fcf *fcf, const char *label)
+create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 {
 	struct iff *real_dev, *vlan;
 	char vlan_name[IFNAMSIZ];
@@ -555,7 +560,7 @@ create_missing_vlan(struct fcf *fcf, const char *label)
 	if (!real_dev) {
 		FIP_LOG_ERR(ENODEV,
 			    "lost device %d with discovered %s?\n",
-			    fcf->ifindex, label);
+			    fcf->ifindex, vn2vn ? "VN2VN" : "FCF");
 		return -ENXIO;
 	}
 	if (!fcf->vlan) {
@@ -565,45 +570,31 @@ create_missing_vlan(struct fcf *fcf, const char *label)
 		 * started on the physical interface itself.
 		 */
 		FIP_LOG_DBG("VLAN id is 0 for %s\n", real_dev->ifname);
-		return -EPERM;
-	}
-	vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
-	if (vlan) {
-		FIP_LOG_DBG("VLAN %s.%d already exists as %s\n",
-			    real_dev->ifname, fcf->vlan, vlan->ifname);
-		return -EEXIST;
-	}
-	snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
-		 real_dev->ifname, fcf->vlan, config.suffix);
-	rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
-	if (rc < 0)
-		printf("Failed to create VLAN device %s\n\t%s\n",
-		       vlan_name, strerror(-rc));
-	else
+		vlan = real_dev;
+	} else {
+		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
+		if (vlan) {
+			FIP_LOG_DBG("VLAN %s.%d already exists as %s\n",
+				    real_dev->ifname, fcf->vlan, vlan->ifname);
+			return 0;
+		}
+		snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+			 real_dev->ifname, fcf->vlan, config.suffix);
+		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
+		if (rc < 0) {
+			printf("Failed to create VLAN device %s\n\t%s\n",
+			       vlan_name, strerror(-rc));
+			return rc;
+		}
 		printf("Created VLAN device %s\n", vlan_name);
-	return rc;
-}
-
-static void
-create_missing_vlans_list(struct fcf_list_head *list, const char *label)
-{
-	struct fcf *fcf;
-
-	if (!config.create)
-		return;
-
-	TAILQ_FOREACH(fcf, list, list_node) {
-		create_missing_vlan(fcf, label);
 	}
-	printf("\n");
-}
-
-static void create_missing_vlans(void)
-{
-	if (!TAILQ_EMPTY(&fcfs))
-		create_missing_vlans_list(&fcfs, "FCF");
-	if (!TAILQ_EMPTY(&vn2vns))
-		create_missing_vlans_list(&vn2vns, "VN2VN");
+	if (config.start && !vlan->running) {
+		FIP_LOG_DBG("%s if %d not running, "
+			    "starting", vlan == real_dev ? "real" : "vlan",
+			    vlan->ifindex);
+		rtnl_set_iff_up(vlan->ifindex, NULL);
+	}
+	return rc;
 }
 
 static int fcoe_mod_instance_start(const char *ifname)
@@ -957,14 +948,6 @@ int main(int argc, char **argv)
 	do_vlan_discovery();
 
 	rc = print_results();
-	if (!rc && config.create) {
-		create_missing_vlans();
-		/*
-		 * need to listen for the RTM_NETLINK messages
-		 * about the new VLAN devices
-		 */
-		recv_loop(500);
-	}
 	if (!rc && config.start)
 		start_fcoe();
 

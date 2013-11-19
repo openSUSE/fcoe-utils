@@ -865,7 +865,9 @@ retry:
 		}
 		/* if we did not receive a response, retry */
 		if (iff->req_sent && !iff->resp_recv) {
-			FIP_LOG_DBG("VLAN discovery RETRY [%d]", retry_count);
+			FIP_LOG_DBG("if %d: VLAN discovery RETRY [%d]",
+				    iff->ifindex, retry_count);
+			iff->req_sent = false;
 			retry_iff++;
 			continue;
 		}

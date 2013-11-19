@@ -416,11 +416,16 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 			parse_vlaninfo(vlan, linkinfo[IFLA_INFO_DATA]);
 			iff->vid = *(int *)RTA_DATA(vlan[IFLA_VLAN_ID]);
 			real_dev = find_vlan_real_dev(iff);
-			if (real_dev)
-				TAILQ_INSERT_TAIL(&real_dev->vlans,
-						  iff, list_node);
-			else
+			if (!real_dev) {
 				free(iff);
+				return;
+			}
+			TAILQ_INSERT_TAIL(&real_dev->vlans, iff, list_node);
+			if (!iff->running) {
+				FIP_LOG_DBG("vlan if %d not running, "
+					    "starting", iff->ifindex);
+				rtnl_set_iff_up(iff->ifindex, NULL);
+			}
 			return;
 		}
 		/* ignore bonding interfaces */
@@ -581,7 +586,6 @@ create_missing_vlans_list(struct fcf_list_head *list, const char *label)
 			       vlan_name, strerror(-rc));
 		else
 			printf("Created VLAN device %s\n", vlan_name);
-		rtnl_set_iff_up(0, vlan_name);
 	}
 	printf("\n");
 }

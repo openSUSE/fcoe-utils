@@ -29,9 +29,9 @@
 fipvlan \- Fibre Channel over Ethernet VLAN Discovery
 .SH "SYNOPSIS"
 .sp
-\fBfipvlan\fR [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] \fIinterfaces\fR
+\fBfipvlan\fR [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] [\-u|\-\-link\-up] \fIinterfaces\fR
 .sp
-\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] [\-l|\-\-link\-retry \fIcount\fR]
+\fBfipvlan\fR \-a|\-\-auto [\-c|\-\-create] [\-d|\-\-debug] [\-s|\-\-start] [\-m|\-\-mode fabric|vn2vn] [\-l|\-\-link\-retry \fIcount\fR] [\-u|\-\-link\-up]
 .sp
 \fBfipvlan\fR \-h|\-\-help
 .sp
@@ -84,6 +84,11 @@ to VLAN interface names\&.
 Retry check for link up to
 \fIcount\fR
 times\&. The link state is checked every 500 ms\&. The default number of retries is 20\&.
+.RE
+.PP
+\fB\-u\fR, \fB\-\-link\-up\fR
+.RS 4
+Leave link up if a FIP response has been received\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

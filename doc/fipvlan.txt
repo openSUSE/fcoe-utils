@@ -20,10 +20,11 @@ fipvlan - Fibre Channel over Ethernet VLAN Discovery
 SYNOPSIS
 --------
 *fipvlan* [-c|--create] [-d|--debug] [-s|--start]
- [-m|--mode fabric|vn2vn] _interfaces_
+ [-m|--mode fabric|vn2vn] [-u|--link-up] _interfaces_
 
 *fipvlan* -a|--auto [-c|--create] [-d|--debug]
  [-s|--start] [-m|--mode fabric|vn2vn] [-l|--link-retry _count_]
+ [-u|--link-up]
 
 *fipvlan* -h|--help
 
@@ -75,6 +76,9 @@ OPTIONS
 *-l*, *--link-retry* _count_::
 	Retry check for link up to _count_ times. The link state is
 	checked every 500 ms. The default number of retries is 20.
+
+*-u*, *--link-up*::
+	Leave link up if a FIP response has been received.
 
 *-h*, *--help*::
 	Display a help message with basic usage instructions

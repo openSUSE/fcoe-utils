@@ -75,7 +75,7 @@ OPTIONS
 
 *-l*, *--link-retry* _count_::
 	Retry check for link up to _count_ times. The link state is
-	checked every 500 ms. The default number of retries is 20.
+	checked every 1000 ms. The default number of retries is 20.
 
 *-u*, *--link-up*::
 	Leave link up if a FIP response has been received.

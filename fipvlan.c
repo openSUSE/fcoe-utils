@@ -544,48 +544,56 @@ static int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
 	return -1;
 }
 
+static int
+create_missing_vlan(struct fcf *fcf, const char *label)
+{
+	struct iff *real_dev, *vlan;
+	char vlan_name[IFNAMSIZ];
+	int rc;
+
+	real_dev = lookup_iff(fcf->ifindex, NULL);
+	if (!real_dev) {
+		FIP_LOG_ERR(ENODEV,
+			    "lost device %d with discovered %s?\n",
+			    fcf->ifindex, label);
+		return -ENXIO;
+	}
+	if (!fcf->vlan) {
+		/*
+		 * If the vlan notification has VLAN id 0,
+		 * skip creating vlan interface, and FCoE is
+		 * started on the physical interface itself.
+		 */
+		FIP_LOG_DBG("VLAN id is 0 for %s\n", real_dev->ifname);
+		return -EPERM;
+	}
+	vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
+	if (vlan) {
+		FIP_LOG_DBG("VLAN %s.%d already exists as %s\n",
+			    real_dev->ifname, fcf->vlan, vlan->ifname);
+		return -EEXIST;
+	}
+	snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+		 real_dev->ifname, fcf->vlan, config.suffix);
+	rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
+	if (rc < 0)
+		printf("Failed to create VLAN device %s\n\t%s\n",
+		       vlan_name, strerror(-rc));
+	else
+		printf("Created VLAN device %s\n", vlan_name);
+	return rc;
+}
+
 static void
 create_missing_vlans_list(struct fcf_list_head *list, const char *label)
 {
 	struct fcf *fcf;
-	struct iff *real_dev, *vlan;
-	char vlan_name[IFNAMSIZ];
-	int rc;
 
 	if (!config.create)
 		return;
 
 	TAILQ_FOREACH(fcf, list, list_node) {
-		real_dev = lookup_iff(fcf->ifindex, NULL);
-		if (!real_dev) {
-			FIP_LOG_ERR(ENODEV,
-				    "lost device %d with discovered %s?\n",
-				    fcf->ifindex, label);
-			continue;
-		}
-		if (!fcf->vlan) {
-			/*
-			 * If the vlan notification has VLAN id 0,
-			 * skip creating vlan interface, and FCoE is
-			 * started on the physical interface itself.
-			 */
-			FIP_LOG_DBG("VLAN id is 0 for %s\n", real_dev->ifname);
-			continue;
-		}
-		vlan = lookup_vlan(fcf->ifindex, fcf->vlan);
-		if (vlan) {
-			FIP_LOG_DBG("VLAN %s.%d already exists as %s\n",
-				    real_dev->ifname, fcf->vlan, vlan->ifname);
-			continue;
-		}
-		snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
-			 real_dev->ifname, fcf->vlan, config.suffix);
-		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
-		if (rc < 0)
-			printf("Failed to create VLAN device %s\n\t%s\n",
-			       vlan_name, strerror(-rc));
-		else
-			printf("Created VLAN device %s\n", vlan_name);
+		create_missing_vlan(fcf, label);
 	}
 	printf("\n");
 }

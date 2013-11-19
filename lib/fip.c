@@ -95,10 +95,11 @@ static int fip_get_sanmac(int ifindex, unsigned char *addr)
  * @mac: MAC address to add or delete
  * @multi: false if unicast, true if multicast address
  */
-static void
+static int
 fip_socket_add_addr(int s, int ifindex, bool add, const __u8 *mac, bool multi)
 {
 	struct packet_mreq mr;
+	int rc = 0;
 
 	memset(&mr, 0, sizeof(mr));
 	mr.mr_ifindex = ifindex;
@@ -107,9 +108,12 @@ fip_socket_add_addr(int s, int ifindex, bool add, const __u8 *mac, bool multi)
 	memcpy(mr.mr_address, mac, ETHER_ADDR_LEN);
 	if (setsockopt(s, SOL_PACKET,
 		       add ? PACKET_ADD_MEMBERSHIP : PACKET_DROP_MEMBERSHIP,
-		       &mr, sizeof(mr)) < 0)
+		       &mr, sizeof(mr)) < 0) {
 		FIP_LOG_DBG("PACKET_%s_MEMBERSHIP:failed\n",
 			    add ? "ADD" : "DROP");
+		rc = -errno;
+	}
+	return rc;
 }
 
 /**
@@ -118,16 +122,16 @@ fip_socket_add_addr(int s, int ifindex, bool add, const __u8 *mac, bool multi)
  * @ifindex: network interface index to send on
  * @add: 1 to add 0 to del
  */
-static void fip_socket_sanmac(int s, int ifindex, int add)
+static int fip_socket_sanmac(int s, int ifindex, int add)
 {
 	unsigned char smac[ETHER_ADDR_LEN];
 
 	if (fip_get_sanmac(ifindex, smac)) {
 		FIP_LOG_DBG("%s: no sanmac, ifindex %d\n", __func__, ifindex);
-		return;
+		return -ENXIO;
 	}
 
-	fip_socket_add_addr(s, ifindex, add, smac, false);
+	return fip_socket_add_addr(s, ifindex, add, smac, false);
 }
 
 /**
@@ -210,7 +214,11 @@ int fip_socket(int ifindex, enum fip_multi multi)
 	if (s < 0)
 		return s;
 
-	fip_socket_sanmac(s, ifindex, 1);
+	rc = fip_socket_sanmac(s, ifindex, 1);
+	if (rc < 0) {
+		close(s);
+		return rc;
+	}
 	if (multi != FIP_NONE)
 		fip_socket_multi(s, ifindex, true, multi);
 

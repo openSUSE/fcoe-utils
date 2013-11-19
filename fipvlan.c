@@ -790,7 +790,7 @@ static void find_interfaces(int ns)
 
 static int probe_fip_interface(struct iff *iff)
 {
-	int origdev = 1;
+	int origdev = 1, rc;
 
 	if (iff->resp_recv)
 		return 0;
@@ -812,6 +812,10 @@ static int probe_fip_interface(struct iff *iff)
 
 	if (!iff->fip_ready) {
 		iff->ps = fip_socket(iff->ifindex, FIP_NONE);
+		if (iff->ps < 0) {
+			FIP_LOG_DBG("if %d not ready\n", iff->ifindex);
+			return 0;
+		}
 		setsockopt(iff->ps, SOL_PACKET, PACKET_ORIGDEV,
 			   &origdev, sizeof(origdev));
 		pfd_add(iff->ps);
@@ -819,13 +823,14 @@ static int probe_fip_interface(struct iff *iff)
 	}
 
 	if (config.vn2vn)
-		fip_send_vlan_request(iff->ps, iff->ifindex, iff->mac_addr,
-				      FIP_ALL_VN2VN);
+		rc = fip_send_vlan_request(iff->ps, iff->ifindex,
+					   iff->mac_addr, FIP_ALL_VN2VN);
 	else
-		fip_send_vlan_request(iff->ps, iff->ifindex, iff->mac_addr,
-				      FIP_ALL_FCF);
-	iff->req_sent = true;
-	return 0;
+		rc = fip_send_vlan_request(iff->ps, iff->ifindex,
+					   iff->mac_addr, FIP_ALL_FCF);
+	if (rc == 0)
+		iff->req_sent = true;
+	return rc == 0 ? 0 : 1;
 }
 
 static int send_vlan_requests(void)

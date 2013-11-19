@@ -139,6 +139,7 @@ struct iff {
 	bool req_sent;
 	bool resp_recv;
 	bool fip_ready;
+	bool fcoe_started;
 	TAILQ_ENTRY(iff) list_node;
 	struct iff_list_head vlans;
 };
@@ -367,7 +368,13 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 	struct rtattr *linkinfo[__IFLA_INFO_MAX];
 	struct rtattr *vlan[__IFLA_VLAN_MAX];
 	struct iff *iff, *real_dev;
+	struct fcf_list_head *head;
 	bool running;
+
+	if (config.vn2vn)
+		head = &vn2vns;
+	else
+		head = &fcfs;
 
 	FIP_LOG_DBG("RTM_NEWLINK: ifindex %d, type %d, flags %x",
 		    ifm->ifi_index, ifm->ifi_type, ifm->ifi_flags);
@@ -383,12 +390,38 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 	running = !!(ifm->ifi_flags & (IFF_RUNNING | IFF_SLAVE));
 	iff = lookup_iff(ifm->ifi_index, NULL);
 	if (iff) {
+		int ifindex;
+
 		/* already tracking, update operstate and return */
 		iff->running = running;
-		if (iff->running)
-			pfd_add(iff->ps);
-		else
+		if (!iff->running) {
 			pfd_remove(iff->ps);
+			return;
+		}
+		pfd_add(iff->ps);
+		if (!config.start)
+			return;
+
+		FIP_LOG_DBG("Checking for FCoE on %sif %d",
+			    iff->is_vlan ? "VLAN " : "", iff->ifindex);
+		if (iff->is_vlan) {
+			real_dev = find_vlan_real_dev(iff);
+			if (!real_dev) {
+				FIP_LOG_ERR(ENODEV, "VLAN %d without a parent",
+					    iff->ifindex);
+				return;
+			}
+			ifindex = real_dev->ifindex;
+		} else
+			ifindex = iff->ifindex;
+
+		if (!iff->fcoe_started &&
+		    lookup_fcf(head, ifindex, iff->vid, NULL)) {
+			printf("Starting FCoE on interface %s\n",
+			       iff->ifname);
+			fcoe_instance_start(iff->ifname);
+			iff->fcoe_started = true;
+		}
 		return;
 	}
 
@@ -588,11 +621,19 @@ create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 		}
 		printf("Created VLAN device %s\n", vlan_name);
 	}
-	if (config.start && !vlan->running) {
-		FIP_LOG_DBG("%s if %d not running, "
-			    "starting", vlan == real_dev ? "real" : "vlan",
+	if (!config.start)
+		return rc;
+
+	if (!vlan->running) {
+		FIP_LOG_DBG("%s if %d not running, starting",
+			    vlan == real_dev ? "real" : "vlan",
 			    vlan->ifindex);
 		rtnl_set_iff_up(vlan->ifindex, NULL);
+	} else if (!vlan->fcoe_started) {
+		printf("Starting FCoE on interface %s\n",
+		       vlan->ifname);
+		fcoe_instance_start(vlan->ifname);
+		vlan->fcoe_started = true;
 	}
 	return rc;
 }
@@ -666,34 +707,6 @@ static void determine_libfcoe_interface(void)
 	} else {
 		FIP_LOG_DBG("Using libfcoe module parameter interfaces\n");
 		fcoe_instance_start = &fcoe_mod_instance_start;
-	}
-}
-
-static void start_fcoe(void)
-{
-	struct fcf_list_head *head;
-	struct fcf *fcf;
-	struct iff *iff;
-
-	if (config.vn2vn)
-		head = &vn2vns;
-	else
-		head = &fcfs;
-
-	TAILQ_FOREACH(fcf, head, list_node) {
-		if (fcf->vlan)
-			iff = lookup_vlan(fcf->ifindex, fcf->vlan);
-		else
-			iff = lookup_iff(fcf->ifindex, NULL);
-		if (!iff) {
-			FIP_LOG_ERR(ENODEV,
-				    "Cannot start FCoE on VLAN %d, ifindex %d, "
-				    "because the VLAN device does not exist",
-				    fcf->vlan, fcf->ifindex);
-			continue;
-		}
-		printf("Starting FCoE on interface %s\n", iff->ifname);
-		fcoe_instance_start(iff->ifname);
 	}
 }
 
@@ -948,8 +961,6 @@ int main(int argc, char **argv)
 	do_vlan_discovery();
 
 	rc = print_results();
-	if (!rc && config.start)
-		start_fcoe();
 
 	cleanup_interfaces();
 

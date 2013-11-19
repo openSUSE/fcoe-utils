@@ -447,6 +447,19 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 	memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
 	strncpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
 
+	if (!config.automode) {
+		int i, iff_selected = 0;
+
+		for (i = 0; i < config.namec; i++) {
+			if (!strcmp(iff->ifname, config.namev[i]))
+				iff_selected = 1;
+		}
+		if (!iff_selected) {
+			FIP_LOG_DBG("ignoring if %s\n", iff->ifname);
+			free(iff);
+			return;
+		}
+	}
 	if (ifla[IFLA_LINKINFO]) {
 		parse_linkinfo(linkinfo, ifla[IFLA_LINKINFO]);
 		/* Track VLAN devices separately */
@@ -836,22 +849,10 @@ static int probe_fip_interface(struct iff *iff)
 static int send_vlan_requests(void)
 {
 	struct iff *iff;
-	int i;
 	int skipped = 0;
 
-	if (config.automode) {
-		TAILQ_FOREACH(iff, &interfaces, list_node) {
-			skipped += probe_fip_interface(iff);
-		}
-	} else {
-		for (i = 0; i < config.namec; i++) {
-			iff = lookup_iff(0, config.namev[i]);
-			if (!iff) {
-				skipped++;
-				continue;
-			}
-			skipped += probe_fip_interface(iff);
-		}
+	TAILQ_FOREACH(iff, &interfaces, list_node) {
+		skipped += probe_fip_interface(iff);
 	}
 	return skipped;
 }
@@ -865,7 +866,8 @@ static void do_vlan_discovery(void)
 retry:
 	skipped += send_vlan_requests();
 	if (skipped && skip_retry_count++ < config.link_retry) {
-		FIP_LOG_DBG("waiting for IFF_RUNNING [%d]\n", skip_retry_count);
+		FIP_LOG_DBG("waiting for IFF_RUNNING [%d/%d]\n",
+			    skip_retry_count, config.link_retry);
 		recv_loop(500);
 		skipped = 0;
 		retry_count = 0;
@@ -873,6 +875,11 @@ retry:
 	}
 	recv_loop(200);
 	TAILQ_FOREACH(iff, &interfaces, list_node) {
+		if (!iff->fip_ready) {
+			FIP_LOG_DBG("if %d: skipping, FIP not ready\n",
+				    iff->ifindex);
+			continue;
+		}
 		if (!iff->running && iff->linkup_sent) {
 			FIP_LOG_DBG("if %d: waiting for IFF_RUNNING [%d]\n",
 				    iff->ifindex, retry_count);
@@ -911,47 +918,23 @@ retry:
 static void cleanup_interfaces(void)
 {
 	struct iff *iff;
-	int i;
-	int skipped = 0;
 
-	if (config.automode) {
-		TAILQ_FOREACH(iff, &interfaces, list_node) {
-			if (iff->linkup_sent) {
-				if (config.link_up && iff->resp_recv)
-					continue;
-				if (iff->fcoe_started)
-					continue;
-				if (TAILQ_EMPTY(&iff->vlans)) {
-					FIP_LOG_DBG("shutdown if %d",
-						    iff->ifindex);
-					rtnl_set_iff_down(iff->ifindex, NULL);
-					iff->linkup_sent = false;
-				}
-			}
-		}
-	} else {
-		for (i = 0; i < config.namec; i++) {
-			iff = lookup_iff(0, config.namev[i]);
-			if (!iff) {
-				skipped++;
+	TAILQ_FOREACH(iff, &interfaces, list_node) {
+		if (iff->linkup_sent) {
+			if (config.link_up && iff->resp_recv)
 				continue;
-			}
-			if (iff->linkup_sent) {
-				if (config.link_up && iff->resp_recv)
-					continue;
-				if (iff->fcoe_started)
-					continue;
-				if (TAILQ_EMPTY(&iff->vlans)) {
-					FIP_LOG_DBG("shutdown if %d",
-						    iff->ifindex);
-					rtnl_set_iff_down(iff->ifindex, NULL);
-					iff->linkup_sent = false;
-				}
+			if (iff->fcoe_started)
+				continue;
+			if (TAILQ_EMPTY(&iff->vlans)) {
+				FIP_LOG_DBG("shutdown if %d",
+					    iff->ifindex);
+				rtnl_set_iff_down(iff->ifindex, NULL);
+				iff->linkup_sent = false;
 			}
 		}
 	}
-
 }
+
 /* this is to not require headers from libcap */
 static inline int capget(cap_user_header_t hdrp, cap_user_data_t datap)
 {
@@ -1003,13 +986,18 @@ int main(int argc, char **argv)
 	determine_libfcoe_interface();
 
 	find_interfaces(ns);
-	while ((TAILQ_EMPTY(&interfaces)) && ++find_cnt < 5) {
-		FIP_LOG_DBG("no interfaces found, trying again");
-		find_interfaces(ns);
-	}
+	if (config.automode)
+		while ((TAILQ_EMPTY(&interfaces)) && ++find_cnt < 5) {
+			FIP_LOG_DBG("no interfaces found, trying again");
+			find_interfaces(ns);
+		}
 
 	if (TAILQ_EMPTY(&interfaces)) {
-		FIP_LOG_ERR(ENODEV, "no interfaces to perform discovery on");
+		if (config.automode)
+			FIP_LOG_ERR(ENODEV,
+				    "no interfaces to perform discovery on");
+		else
+			FIP_LOG("no interfaces to perform discovery on");
 		exit(1);
 	}
 

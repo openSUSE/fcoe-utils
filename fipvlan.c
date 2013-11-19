@@ -857,8 +857,7 @@ static void cleanup_interfaces(void)
 
 	if (config.automode) {
 		TAILQ_FOREACH(iff, &interfaces, list_node) {
-			if (iff->linkup_sent &&
-			    (!iff->running || !iff->req_sent || !iff->resp_recv)) {
+			if (iff->linkup_sent && TAILQ_EMPTY(&iff->vlans)) {
 				FIP_LOG_DBG("shutdown if %d",
 					    iff->ifindex);
 				rtnl_set_iff_down(iff->ifindex, NULL);
@@ -872,8 +871,7 @@ static void cleanup_interfaces(void)
 				skipped++;
 				continue;
 			}
-			if (iff->linkup_sent &&
-			    (!iff->running || !iff->req_sent || !iff->resp_recv)) {
+			if (iff->linkup_sent && TAILQ_EMPTY(&iff->vlans)) {
 				FIP_LOG_DBG("shutdown if %d",
 					    iff->ifindex);
 				rtnl_set_iff_down(iff->ifindex, NULL);

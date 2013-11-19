@@ -19,7 +19,8 @@ fipvlan - Fibre Channel over Ethernet VLAN Discovery
 
 SYNOPSIS
 --------
-*fipvlan* [-c|--create] [-s|--start] [-m|--mode fabric|vn2vn] _interfaces_
+*fipvlan* [-c|--create] [-d|--debug] [-s|--start]
+ [-m|--mode fabric|vn2vn] _interfaces_
 
 *fipvlan* -a|--auto [-c|--create] [-d|--debug]
  [-s|--start] [-m|--mode fabric|vn2vn] [-l|--link-retry _count_]

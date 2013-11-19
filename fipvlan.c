@@ -910,6 +910,8 @@ static void cleanup_interfaces(void)
 			if (iff->linkup_sent) {
 				if (config.link_up && iff->resp_recv)
 					continue;
+				if (iff->fcoe_started)
+					continue;
 				if (TAILQ_EMPTY(&iff->vlans)) {
 					FIP_LOG_DBG("shutdown if %d",
 						    iff->ifindex);
@@ -927,6 +929,8 @@ static void cleanup_interfaces(void)
 			}
 			if (iff->linkup_sent) {
 				if (config.link_up && iff->resp_recv)
+					continue;
+				if (iff->fcoe_started)
 					continue;
 				if (TAILQ_EMPTY(&iff->vlans)) {
 					FIP_LOG_DBG("shutdown if %d",

@@ -1417,8 +1417,8 @@ static void print_fcoe_fcf_device(void *ep, UNUSED void *arg)
 	if (!buf)
 		buf = temp;
 	printf("        Connection Mode:  %s\n", buf);
-	printf("        Fabric Name:      0x%016lx\n", fcf->fabric_name);
-	printf("        Switch Name       0x%016lx\n", fcf->switch_name);
+	printf("        Fabric Name:      0x%016" PRIx64 "\n", fcf->fabric_name);
+	printf("        Switch Name       0x%016" PRIx64 "\n", fcf->switch_name);
 	mac2str(fcf->mac, mac, MAX_STR_LEN);
 	printf("        MAC Address:      %s\n", mac);
 	printf("        FCF Priority:     %u\n", fcf->priority);

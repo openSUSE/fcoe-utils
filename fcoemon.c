@@ -2637,7 +2637,7 @@ static void fcm_dcbd_get_oper(struct fcm_netif *ff, char *resp, char *cp)
 
 	if (ep) {
 		FCM_LOG_DEV(ff, "Invalid get oper response "
-			    "parse error byte %ld, resp %s", ep - cp, cp);
+			    "parse error byte %td, resp %s", ep - cp, cp);
 		fcm_dcbd_state_set(ff, FCD_ERROR);
 	} else {
 		if (val && fcoe_config.debug)

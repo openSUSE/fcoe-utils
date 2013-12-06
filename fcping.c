@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <string.h>
 #include <time.h>
@@ -810,17 +811,17 @@ static void fp_check_data_len(void)
 	printf("Maximum ECHO data allowed by the Fabric (0x%06x) : %d bytes.\n"
 	       "Maximum ECHO data allowed by the Source (0x%06x) : %d bytes.\n"
 	       "Maximum ECHO data allowed by the Target (0x%06x) : %d bytes.\n"
-	       "Maximum ECHO data requested from user input (-s) : %lu "
+	       "Maximum ECHO data requested from user input (-s) : %" PRIu32 " "
 	       "(default %d) bytes.\n",
 	       FC_WKA_FABRIC_CONTROLLER, flen, sid, slen, fp_did, dlen,
-	       fp_len - FP_LEN_ECHO, FP_LEN_DEF);
+	       (uint32_t)(fp_len - FP_LEN_ECHO), FP_LEN_DEF);
 
 	/* fp_len is the total payload, including 4 bytes for ECHO command */
 	fp_len = MIN(fp_len, plen + FP_LEN_ECHO);
-	printf("Actual FC ELS ECHO data size used : %lu bytes.\n"
+	printf("Actual FC ELS ECHO data size used : %" PRIu32 " bytes.\n"
 	       "Actual FC ELS ECHO payload size used : %d bytes "
-	       "(including %ld bytes ECHO command).\n",
-	       fp_len - FP_LEN_ECHO, fp_len, FP_LEN_ECHO);
+	       "(including %zu bytes ECHO command).\n",
+	       (uint32_t)(fp_len - FP_LEN_ECHO), fp_len, FP_LEN_ECHO);
 }
 
 /*

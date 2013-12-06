@@ -67,7 +67,7 @@ init_d_SCRIPTS = etc/initd/fcoe
 
 dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec etc/config
 
-BASH_COMPLETION_DIR=/etc/bash_completion.d/
+BASH_COMPLETION_DIR=$(DESTDIR)/etc/bash_completion.d/
 
 install-data-hook:
 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \

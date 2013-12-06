@@ -9,21 +9,18 @@ AM_CFLAGS = -Wall -Wformat=2 -Werror -Wmissing-prototypes -Wstrict-prototypes
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
-fcoeadm_LDADD = lib/libutil.a libopenfcoe.a
+fcoeadm_LDADD = lib/libutil.a libopenfcoe.a $(HBAAPI_LIBS)
 fcoeadm_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
-fcoeadm_LDFLAGS = $(AM_LDFLAGS) $(HBAAPI_LIBS)
 
 ## rules for building fcoemon
 fcoemon_SOURCES = fcoemon.c
-fcoemon_LDADD = lib/libutil.a
+fcoemon_LDADD = lib/libutil.a -lrt
 fcoemon_CFLAGS = $(AM_CFLAGS) $(DCBD_CFLAGS)
-fcoemon_LDFLAGS = $(AM_LDFLAGS) -lrt
 
 ## rules for building fcping
 fcping_SOURCES = fcping.c
-fcping_LDADD = lib/libutil.a
+fcping_LDADD = lib/libutil.a $(HBAAPI_LIBS) -lrt
 fcping_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
-fcping_LDFLAGS = $(AM_LDFLAGS) $(HBAAPI_LIBS) -lrt
 
 ## rules for building fipvlan
 fipvlan_SOURCES = fipvlan.c

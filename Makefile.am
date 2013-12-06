@@ -43,7 +43,7 @@ dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## install systemd service files
 if HAVE_SYSTEMD
-systemdsystemunit_DATA = etc/systemd/fcoe.service
+systemdsystemunit_DATA = etc/systemd/fcoe.service etc/systemd/fcoemon.socket
 endif
 
 ## man pages for fcoeadm and fcoemon

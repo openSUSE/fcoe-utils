@@ -3546,11 +3546,53 @@ err:
 	sendto(snum, rbuf, MSG_RBUF, 0, (struct sockaddr *)&from, fromlen);
 }
 
+static int fcm_systemd_socket(void)
+{
+	char *env, *ptr;
+	unsigned int p, l;
+
+	env = getenv("LISTEN_PID");
+	if (!env)
+		return -1;
+
+	p = strtoul(env, &ptr, 10);
+	if (ptr && ptr == env) {
+		FCM_LOG_DBG("Invalid value '%s' for LISTEN_PID\n", env);
+		return -1;
+	}
+	if ((pid_t)p != getpid()) {
+		FCM_LOG_DBG("Invalid PID '%d' from LISTEN_PID\n", p);
+		return -1;
+	}
+	env = getenv("LISTEN_FDS");
+	if (!env) {
+		FCM_LOG_DBG("LISTEN_FDS is not set\n");
+		return -1;
+	}
+	l = strtoul(env, &ptr, 10);
+	if (ptr && ptr == env) {
+		FCM_LOG_DBG("Invalid value '%s' for LISTEN_FDS\n", env);
+		return -1;
+	}
+	if (l != 1) {
+		FCM_LOG_DBG("LISTEN_FDS specified %d fds\n", l);
+		return -1;
+	}
+	/* systemd returns fds with an offset of '3' */
+	return 3;
+}
+
 static int fcm_srv_create(struct fcm_srv_info *srv_info)
 {
 	socklen_t addrlen;
 	struct sockaddr_un addr;
 	int rc = 0;
+
+	srv_info->srv_sock = fcm_systemd_socket();
+	if (srv_info->srv_sock > 0) {
+		FCM_LOG_DBG("Using systemd socket\n");
+		goto out_done;
+	}
 
 	srv_info->srv_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (srv_info->srv_sock < 0) {
@@ -3570,7 +3612,7 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 		rc = errno;
 		goto err_close;
 	}
-
+out_done:
 	sa_select_add_fd(srv_info->srv_sock, fcm_srv_receive,
 			 NULL, NULL, srv_info);
 

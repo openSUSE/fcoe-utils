@@ -41,6 +41,11 @@ noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \
 fcoe_configdir = ${sysconfdir}/fcoe
 dist_fcoe_config_DATA = etc/cfg-ethx
 
+## install systemd service files
+if HAVE_SYSTEMD
+systemdsystemunit_DATA = etc/systemd/fcoe.service
+endif
+
 ## man pages for fcoeadm and fcoemon
 dist_man_MANS = doc/fcoeadm.8 doc/fcoemon.8 doc/fipvlan.8 doc/fcrls.8 \
 	doc/fcnsq.8 doc/fcping.8

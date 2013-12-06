@@ -214,6 +214,7 @@ must have compatible settings For DCB and FCoE to function properly.
 ~~~~~~~~~~~~~~~~
 This is the *fcoe* system service script. This script is invoked by the
 init process or by the service command to start and stop the *fcoemon*.
+On systemd-enabled systems, *fcoemon* is controlled via the *fcoe.service* unit.
 
 VLAN NAMING CONVENTIONS
 -----------------------

@@ -358,7 +358,7 @@ indicates whether a FIP responder should be activated on this device to support 
 Note that the attached Ethernet peer device (e\&.g\&. FCoE capable switch port) must have compatible settings For DCB and FCoE to function properly\&.
 .SS "/etc/init\&.d/fcoe"
 .sp
-This is the \fBfcoe\fR system service script\&. This script is invoked by the init process or by the service command to start and stop the \fBfcoemon\fR\&.
+This is the \fBfcoe\fR system service script\&. This script is invoked by the init process or by the service command to start and stop the \fBfcoemon\fR\&.  On systemd-enabled systems, \fBfcoemon\fR is controlled via the \fBfcoe.service\fR unit.
 .SH "VLAN NAMING CONVENTIONS"
 .sp
 If a new VLAN device is created (see the description of the \fIAUTO_VLAN\fR setting above), it will have the name \fIdev\fR\&.\fIvlan\fR\-fcoe; where \fIdev\fR is the name of the Ethernet parent device and \fIvlan\fR is the discovered VLAN ID number\&.

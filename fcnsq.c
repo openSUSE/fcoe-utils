@@ -365,7 +365,7 @@ static void help(int status)
 		"  --gspn <port id>\n"
 		"  --gsnn <world wide node name>\n"
 		"Options:\n"
-		"  --quiet	print minimal results on success, and no error messages\n"
+		"  --quiet|-q	print minimal results on success, and no error messages\n"
 		"\n"
 		"Port IDs and World Wide Names must be specified in hexadecimal.\n"
 		);

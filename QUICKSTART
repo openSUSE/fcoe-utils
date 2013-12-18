@@ -201,7 +201,10 @@ PROCESS
 2) Bootstrap, configure, make and make install
    # cd fcoe-utils
    # ./bootstrap.sh
+   Either execute the next line for System V init script install
    # rpm --eval "%configure" | sh
+   or the following line to install systemd unit scripts
+   # rpm --eval "%configure --with-systemdsystemunitdir=/" | sh
    # make
    # make install
 

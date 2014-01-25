@@ -56,7 +56,7 @@ OPTIONS
 *-d*, *--debug*::
 	Enable debugging messages.
 *-l*, *--legacy*::
-	Force fcoemon to use the legacy /sys/modlue/libfcoe/parameters/
+	Force fcoemon to use the legacy /sys/module/libfcoe/parameters/
 	interface. The default is to use the newer /sys/bus/fcoe/ interfaces
 	if they are available.
 *-s*, *--syslog*::

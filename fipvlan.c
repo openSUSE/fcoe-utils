@@ -792,6 +792,8 @@ static void recv_loop(int timeout)
 					break;
 			}
 		}
+		if (i < pfd_len)
+			break;
 	}
 }
 

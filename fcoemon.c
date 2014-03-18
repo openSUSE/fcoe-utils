@@ -1357,12 +1357,8 @@ ieee_state_set(struct fcm_netif *ff, enum ieee_state new_state)
 				getstr(&ieee_states, new_state));
 	}
 
-	if (new_state == IEEE_GET_STATE) {
-		ff->ieee_state = new_state;
+	if (new_state == IEEE_GET_STATE)
 		clear_ieee_info(ff);
-		ieee_get_req(ff);
-		return;
-	}
 
 	ff->ieee_state = new_state;
 	ff->ieee_resp_pending = 0;
@@ -3035,6 +3031,50 @@ static void fcm_fcoe_action(struct fcoe_port *p)
 
 /*
  * Called for all ports.  For FCoE ports and candidates,
+ * get IEEE DCBX information and set the next action.
+ */
+static void fcm_netif_ieee_advance(struct fcm_netif *ff)
+{
+	enum fcp_action action;
+
+	ASSERT(ff);
+	ASSERT(fcm_clif);
+
+	if (fcm_clif->cl_busy)
+		return;
+
+	if (ff->ieee_resp_pending)
+		return;
+
+	switch (ff->ieee_state) {
+	case IEEE_INIT:
+		break;
+	case IEEE_GET_STATE:
+		ieee_get_req(ff);
+		break;
+	case IEEE_DONE:
+		action = validate_ieee_info(ff);
+		switch (action) {
+		case FCP_DESTROY_IF:
+		case FCP_ENABLE_IF:
+		case FCP_ACTIVATE_IF:
+			fcp_action_set(ff->ifname, action);
+			break;
+		case FCP_DISABLE_IF:
+		case FCP_ERROR:
+			fcp_action_set(ff->ifname, FCP_DISABLE_IF);
+			break;
+		case FCP_WAIT:
+		default:
+			break;
+		}
+	default:
+		break;
+	}
+}
+
+/*
+ * Called for all ports.  For FCoE ports and candidates,
  * get information and send to dcbd.
  */
 static void fcm_netif_advance(struct fcm_netif *ff)
@@ -3161,8 +3201,10 @@ static void fcm_handle_changes(void)
 	/*
 	 * Perform pending actions (dcbd queries) on network interfaces.
 	 */
-	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list)
+	TAILQ_FOREACH(ff, &fcm_netif_head, ff_list) {
 		fcm_netif_advance(ff);
+		fcm_netif_ieee_advance(ff);
+	}
 
 	/*
 	 * Perform actions on FCoE ports

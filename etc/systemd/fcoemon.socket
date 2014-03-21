@@ -1,4 +1,8 @@
+[Unit]
+Description=Open-FCoE daemon control socket
+
 [Socket]
+Service=fcoe.service
 ListenDatagram=@/com/intel/fcoemon
 PassCredentials=true
 

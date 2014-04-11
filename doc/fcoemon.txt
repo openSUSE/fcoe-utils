@@ -53,13 +53,13 @@ OPTIONS
 -------
 *-f*, *--foreground*::
 	Run *fcoemon* in the foreground.
-*-d*, *--debug*::
-	Enable debugging messages.
+*-d*, *--debug=yes|no*::
+	Enable or disable debugging messages.
 *-l*, *--legacy*::
 	Force fcoemon to use the legacy /sys/module/libfcoe/parameters/
 	interface. The default is to use the newer /sys/bus/fcoe/ interfaces
 	if they are available.
-*-s*, *--syslog*::
+*-s*, *--syslog=yes|no*::
 	Use syslogd for logging. The default behavior is to log to stdout
 	and stderr.
 *-h*, *--help*::

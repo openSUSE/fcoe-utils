@@ -4,9 +4,9 @@ After=syslog.target network.target
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/sysconfig/fcoe
+EnvironmentFile=/etc/fcoe/config
 ExecStartPre=/sbin/modprobe -qa $SUPPORTED_DRIVERS
-ExecStart=/usr/sbin/fcoemon $FCOEMON_OPTS
+ExecStart=/usr/sbin/fcoemon --debug=$DEBUG --syslog=$SYSLOG
 
 [Install]
 WantedBy=multi-user.target

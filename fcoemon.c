@@ -335,9 +335,9 @@ static int fcoe_vid_from_ifname(const char *ifname);
  * Table for getopt_long(3).
  */
 static struct option fcm_options[] = {
-	{"debug", 0, NULL, 'd'},
+	{"debug", 1, NULL, 'd'},
 	{"legacy", 0, NULL, 'l'},
-	{"syslog", 0, NULL, 's'},
+	{"syslog", 1, NULL, 's'},
 	{"exec", 1, NULL, 'e'},
 	{"foreground", 0, NULL, 'f'},
 	{"version", 0, NULL, 'v'},
@@ -3235,9 +3235,9 @@ static void fcm_usage(void)
 {
 	printf("Usage: %s\n"
 	       "\t [-f|--foreground]\n"
-	       "\t [-d|--debug]\n"
+	       "\t [-d|--debug=yes|no]\n"
 	       "\t [-l|--legacy]\n"
-	       "\t [-s|--syslog]\n"
+	       "\t [-s|--syslog=yes|no]\n"
 	       "\t [-v|--version]\n"
 	       "\t [-h|--help]\n\n", progname);
 	exit(1);
@@ -3691,22 +3691,28 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "fdhlsv",
+	while ((c = getopt_long(argc, argv, "fd:hls:v",
 				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':
 			fcm_fg = 1;
 			break;
 		case 'd':
-			fcoe_config.debug = 1;
-			enable_debug_log(1);
+			if (!strncmp(optarg, "yes", 3) ||
+			    !strncmp(optarg, "YES", 3)) {
+				fcoe_config.debug = 1;
+				enable_debug_log(1);
+			}
 			break;
 		case 'l':
 			force_legacy = true;
 			break;
 		case 's':
-			fcoe_config.use_syslog = 1;
-			enable_syslog(1);
+			if (!strncmp(optarg, "yes", 3) ||
+			    !strncmp(optarg, "YES", 3)) {
+				fcoe_config.use_syslog = 1;
+				enable_syslog(1);
+			}
 			break;
 		case 'v':
 			printf("%s\n", FCOE_UTILS_VERSION);

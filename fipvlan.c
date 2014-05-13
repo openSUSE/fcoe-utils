@@ -983,7 +983,7 @@ int main(int argc, char **argv)
 
 	ns = rtnl_socket(RTMGRP_LINK);
 	if (ns < 0) {
-		rc = ns;
+		rc = 1;
 		goto ns_err;
 	}
 	pfd_add(ns);
@@ -1003,7 +1003,7 @@ int main(int argc, char **argv)
 				    "no interfaces to perform discovery on");
 		else
 			FIP_LOG("no interfaces to perform discovery on");
-		exit(1);
+		exit(ENODEV);
 	}
 
 	do_vlan_discovery();

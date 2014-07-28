@@ -3,7 +3,7 @@ Description=Open-FCoE daemon control socket
 
 [Socket]
 Service=fcoe.service
-ListenDatagram=@/com/intel/fcoemon
+ListenDatagram=@fcm_clif
 PassCredentials=true
 
 [Install]

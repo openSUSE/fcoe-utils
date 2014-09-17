@@ -110,7 +110,13 @@ struct sa_nameval port_speeds[] = {
 	{ "Unknown",        HBA_PORTSPEED_UNKNOWN },
 	{ "1 Gbit",         HBA_PORTSPEED_1GBIT },
 	{ "2 Gbit",         HBA_PORTSPEED_2GBIT },
+	{ "4 Gbit",         HBA_PORTSPEED_4GBIT },
 	{ "10 Gbit",        HBA_PORTSPEED_10GBIT },
+	{ "8 Gbit",         HBA_PORTSPEED_8GBIT },
+	{ "16 Gbit",        HBA_PORTSPEED_16GBIT },
+	{ "32 Gbit",        HBA_PORTSPEED_32GBIT },
+	{ "20 Gbit",        HBA_PORTSPEED_20GBIT },
+	{ "40 Gbit",        HBA_PORTSPEED_40GBIT },
 	{ "Not Negotiated", HBA_PORTSPEED_NOT_NEGOTIATED },
 	{ NULL, 0 }
 };

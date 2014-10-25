@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 			}
 
 			ifname = argv[optind];
-			rc = fcoeadm_action(cmd, ifname, CLIF_FLAGS_NONE);
+			rc = fcoeadm_action(cmd, ifname, flags);
 			break;
 		case 'r':
 			cmd = CLIF_RESET_CMD;
@@ -303,8 +303,7 @@ int main(int argc, char *argv[])
 			ifname = argv[optind];
 			rc = fcoe_validate_fcoe_conn(ifname);
 			if (!rc)
-				rc = fcoeadm_action(cmd, ifname,
-						    CLIF_FLAGS_NONE);
+				rc = fcoeadm_action(cmd, ifname, flags);
 			break;
 
 		case 'i':
@@ -405,8 +404,7 @@ int main(int argc, char *argv[])
 				rc = display_port_stats(ifname, stat_interval);
 			break;
 		case 'p':
-			rc = fcoeadm_action(CLIF_PID_CMD, NULL,
-					    CLIF_FLAGS_NONE);
+			rc = fcoeadm_action(CLIF_PID_CMD, NULL, flags);
 			break;
 
 		case 'b':

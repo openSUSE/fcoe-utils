@@ -800,12 +800,12 @@ static void fcm_fc_event_log(struct fc_nl_event *fe)
 	for (i = 0; i < ARRAY_SIZE(fc_host_event_code_names); i++) {
 		if (fe->event_code == fc_host_event_code_names[i].value) {
 			/* only do u32 data even len is not, e.g. vendor */
-			FCM_LOG("FC_HOST_EVENT %d at %" PRIu64 " secs on host%d:"
-				"code %d=%s datalen %d data=%d\n",
-				fe->event_num, fe->seconds,
-				fe->host_no, fe->event_code,
-				fc_host_event_code_names[i].name,
-				fe->event_datalen, fe->event_data);
+			FCM_LOG_DBG("FC_HOST_EVENT %d at %" PRIu64 " secs on "
+				    "host%d code %d=%s datalen %d data=%d\n",
+				    fe->event_num, fe->seconds,
+				    fe->host_no, fe->event_code,
+				    fc_host_event_code_names[i].name,
+				    fe->event_datalen, fe->event_data);
 			break;
 		}
 	}

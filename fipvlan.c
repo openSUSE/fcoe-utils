@@ -630,17 +630,18 @@ create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 		if (vlan) {
 			FIP_LOG_DBG("VLAN %s.%d already exists as %s\n",
 				    real_dev->ifname, fcf->vlan, vlan->ifname);
-			return 0;
+			rc = 0;
+		} else {
+			snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+				 real_dev->ifname, fcf->vlan, config.suffix);
+			rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
+			if (rc < 0)
+				printf("Failed to create VLAN device %s\n\t%s\n",
+				       vlan_name, strerror(-rc));
+			else
+				printf("Created VLAN device %s\n", vlan_name);
+			return rc;
 		}
-		snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
-			 real_dev->ifname, fcf->vlan, config.suffix);
-		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
-		if (rc < 0)
-			printf("Failed to create VLAN device %s\n\t%s\n",
-			       vlan_name, strerror(-rc));
-		else
-			printf("Created VLAN device %s\n", vlan_name);
-		return rc;
 	}
 	if (!config.start)
 		return rc;

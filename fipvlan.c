@@ -635,12 +635,12 @@ create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 		snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
 			 real_dev->ifname, fcf->vlan, config.suffix);
 		rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
-		if (rc < 0) {
+		if (rc < 0)
 			printf("Failed to create VLAN device %s\n\t%s\n",
 			       vlan_name, strerror(-rc));
-			return rc;
-		}
-		printf("Created VLAN device %s\n", vlan_name);
+		else
+			printf("Created VLAN device %s\n", vlan_name);
+		return rc;
 	}
 	if (!config.start)
 		return rc;

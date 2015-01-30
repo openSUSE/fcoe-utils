@@ -35,7 +35,10 @@ libopenfcoe_a_SOURCES = libopenfcoe.c
 ## header files that need to be distributed
 noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \
 	include/fcoemon_utils.h include/fcoe_utils.h include/fc_scsi.h \
-	include/fc_types.h include/fip.h include/net_types.h include/rtnetlink.h
+	include/fc_types.h include/fip.h include/net_types.h include/rtnetlink.h \
+	include/libopenfcoe.h include/scsi_netlink_fc.h include/scsi_netlink.h \
+	include/strarr.h include/fc_ns.h include/fc_gs.h include/fc_els.h include/scsi_bsg_fc.h \
+	include/linux/rtnetlink.h include/linux/types.h include/linux/dcbnl.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe
@@ -43,7 +46,7 @@ dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## install systemd service files
 if HAVE_SYSTEMD
-systemdsystemunit_DATA = etc/systemd/fcoe.service etc/systemd/fcoemon.socket
+dist_systemdsystemunit_DATA = etc/systemd/fcoe.service etc/systemd/fcoemon.socket
 endif
 
 ## man pages for fcoeadm and fcoemon
@@ -67,15 +70,17 @@ etc/initd/fcoe:
 init_ddir = ${sysconfdir}/init.d
 init_d_SCRIPTS = etc/initd/fcoe
 
-dist_noinst_DATA = README COPYING INSTALL fcoe-utils.spec etc/config
+dist_noinst_DATA = README COPYING INSTALL CONFIGURE QUICKSTART fcoe-utils.spec etc/config
 
-BASH_COMPLETION_DIR=$(DESTDIR)/etc/bash_completion.d/
+bashcompletiondir = $(sysconfdir)/bash_completion.d
+dist_bashcompletion_DATA = contrib/bash_completion/fcoeadm contrib/bash_completion/fcoemon
 
 install-data-hook:
 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
 		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_configdir}/config; \
-	fi; \
-	if [ ! -d "${BASH_COMPLETION_DIR}" ] ; then \
-		mkdir ${BASH_COMPLETION_DIR}; \
-	fi; \
-	cp -f ${srcdir}/contrib/bash_completion/* ${BASH_COMPLETION_DIR}
+	fi;
+
+uninstall-hook:
+	rm ${DESTDIR}${fcoe_configdir}/config
+
+AM_DISTCHECK_CONFIGURE_FLAGS = --with-systemdsystemunitdir='$${prefix}/lib/systemd/system'

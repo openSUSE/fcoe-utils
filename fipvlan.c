@@ -448,19 +448,6 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 	memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
 	strncpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
 
-	if (!config.automode) {
-		int i, iff_selected = 0;
-
-		for (i = 0; i < config.namec; i++) {
-			if (!strcmp(iff->ifname, config.namev[i]))
-				iff_selected = 1;
-		}
-		if (!iff_selected) {
-			FIP_LOG_DBG("ignoring if %s\n", iff->ifname);
-			free(iff);
-			return;
-		}
-	}
 	if (ifla[IFLA_LINKINFO]) {
 		parse_linkinfo(linkinfo, ifla[IFLA_LINKINFO]);
 		/* Track VLAN devices separately */

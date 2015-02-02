@@ -841,9 +841,21 @@ static int send_vlan_requests(void)
 {
 	struct iff *iff;
 	int skipped = 0;
+	int i;
 
-	TAILQ_FOREACH(iff, &interfaces, list_node) {
-		skipped += probe_fip_interface(iff);
+	if (config.automode) {
+		TAILQ_FOREACH(iff, &interfaces, list_node) {
+			skipped += probe_fip_interface(iff);
+		}
+	} else {
+		for (i = 0; i < config.namec; i++) {
+			iff = lookup_iff(0, config.namev[i]);
+			if (!iff) {
+				skipped++;
+				continue;
+			}
+			skipped += probe_fip_interface(iff);
+		}
 	}
 	return skipped;
 }

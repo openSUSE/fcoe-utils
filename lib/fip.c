@@ -217,7 +217,7 @@ int fip_socket(int ifindex, unsigned char *mac, enum fip_multi multi)
 	}
 
 	rc = fip_socket_sanmac(s, ifindex, mac, 1);
-	if (rc < 0) {
+	if (rc < 0 && rc != -ENXIO) {
 		FIP_LOG_ERR(errno, "Failed to open SANMAC socket.\n");
 		close(s);
 		return rc;

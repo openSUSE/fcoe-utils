@@ -1,4 +1,4 @@
-AC_INIT([fcoe-utils], [1.0.29], [fcoe-devel@open-fcoe.org])
+AC_INIT([fcoe-utils], [1.0.30], [fcoe-devel@open-fcoe.org])
 
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AM_INIT_AUTOMAKE([foreign])
@@ -11,10 +11,10 @@ PKG_CHECK_MODULES([HBAAPI], [HBAAPI])
 AC_SUBST([HBAAPI_CFLAGS])
 AC_SUBST([HBAAPI_LIBS])
 
-PKG_CHECK_MODULES([LLDPAD], [lldpad >= 0.9.43])
+PKG_CHECK_MODULES([LLDPAD], [lldpad >= 0.9.46])
 AC_SUBST([LLDPAD_CFLAGS])
 
-PKG_CHECK_MODULES([LIBHBALINUX], [libhbalinux >= 1.0.13])
+PKG_CHECK_MODULES([LIBHBALINUX], [libhbalinux >= 1.0.17])
 AC_SUBST([LIBHBALINUX_CFLAGS])
 
 PKG_PROG_PKG_CONFIG

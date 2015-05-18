@@ -3719,11 +3719,6 @@ int main(int argc, char **argv)
 	if (argc != optind)
 		fcm_usage();
 
-	if (!fcm_fg && daemon(0, !fcoe_config.use_syslog)) {
-		FCM_LOG("Starting daemon failed");
-		exit(EXIT_FAILURE);
-	}
-
 	umask(0);
 
 	/*
@@ -3770,22 +3765,40 @@ int main(int argc, char **argv)
 	}
 
 	fcm_fcoe_init();
-	fcm_fc_events_init();
-	fcm_link_init();	/* NETLINK_ROUTE protocol */
+	rc = fcm_fc_events_init();
+	if (rc != 0)
+		exit(1);
+
+	rc = fcm_link_init();	/* NETLINK_ROUTE protocol */
+	if (rc != 0)
+		goto err_cleanup;
+
 	fcm_dcbd_init();
-	fcm_srv_create(&srv_info);
+	rc = fcm_srv_create(&srv_info);
+	if (rc != 0)
+		goto err_cleanup;
+
+	if (!fcm_fg && daemon(0, !fcoe_config.use_syslog)) {
+		FCM_LOG("Starting daemon failed");
+		goto err_cleanup;
+	}
+
 	sa_select_set_callback(fcm_handle_changes);
 
 	rc = sa_select_loop();
 	if (rc < 0) {
 		FCM_LOG_ERR(rc, "select error\n");
-		exit(EXIT_FAILURE);
+		goto err_cleanup;
 	}
 	fcm_dcbd_shutdown();
 	fcm_srv_destroy(&srv_info);
 	if (rc == SIGHUP)
 		fcm_cleanup();
 	return 0;
+
+err_cleanup:
+	fcm_cleanup();
+	exit(1);
 }
 
 /*******************************************************

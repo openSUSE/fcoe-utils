@@ -80,6 +80,7 @@ enum ieee_state {
 	IEEE_INIT = 0,	/* Starting state */
 	IEEE_GET_STATE,	/* Getting IEEE DCB state */
 	IEEE_DONE,	/* Received IEEE DCB state */
+	IEEE_ACTIVE,	/* IEEE is in ACTIVE state */
 	IEEE_ERROR,	/* Error receiving IEEE DCB state */
 };
 

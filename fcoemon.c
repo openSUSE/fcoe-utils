@@ -1341,6 +1341,7 @@ STR_ARR(ieee_states, "Unknown", "Out of range",
 	[IEEE_INIT] = "IEEE_INIT",
 	[IEEE_GET_STATE] = "IEEE_GET_STATE",
 	[IEEE_DONE] = "IEEE_DONE",
+	[IEEE_ACTIVE] = "IEEE_ACTIVE",
 );
 
 static void
@@ -3054,20 +3055,14 @@ static void fcm_netif_ieee_advance(struct fcm_netif *ff)
 		break;
 	case IEEE_DONE:
 		action = validate_ieee_info(ff);
-		switch (action) {
-		case FCP_DESTROY_IF:
-		case FCP_ENABLE_IF:
-		case FCP_ACTIVATE_IF:
+		if (action == FCP_ACTIVATE_IF) {
 			fcp_action_set(ff->ifname, action);
-			break;
-		case FCP_DISABLE_IF:
-		case FCP_ERROR:
-			fcp_action_set(ff->ifname, FCP_DISABLE_IF);
-			break;
-		case FCP_WAIT:
-		default:
-			break;
+			ieee_state_set(ff, IEEE_ACTIVE);
 		}
+		break;
+	case IEEE_ACTIVE:
+		/* TBD enable and disable if needed in IEEE mode */
+		break;
 	default:
 		break;
 	}

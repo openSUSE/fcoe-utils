@@ -9,7 +9,7 @@ AM_CFLAGS = -Wall -Wformat=2 -Werror -Wmissing-prototypes -Wstrict-prototypes
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
-fcoeadm_LDADD = lib/libutil.a libopenfcoe.a $(HBAAPI_LIBS)
+fcoeadm_LDADD = lib/libutil.a libopenfcoe.a $(PCIACCESS_LIBS) $(HBAAPI_LIBS)
 fcoeadm_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
 
 ## rules for building fcoemon
@@ -29,7 +29,8 @@ fipvlan_LDADD = lib/libutil.a
 AUTOMAKE_OPTIONS=subdir-objects
 noinst_LIBRARIES = lib/libutil.a libopenfcoe.a
 lib_libutil_a_SOURCES = lib/fcoe_utils.c lib/sa_log.c lib/sa_select.c \
-	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c lib/sa_sys.c
+	lib/sa_timer.c lib/sa_other.c lib/fip.c lib/rtnetlink.c lib/sa_sys.c \
+	lib/sysfs_hba.c
 libopenfcoe_a_SOURCES = libopenfcoe.c
 
 ## header files that need to be distributed
@@ -38,7 +39,7 @@ noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \
 	include/fc_types.h include/fip.h include/net_types.h include/rtnetlink.h \
 	include/libopenfcoe.h include/scsi_netlink_fc.h include/scsi_netlink.h \
 	include/strarr.h include/fc_ns.h include/fc_gs.h include/fc_els.h include/scsi_bsg_fc.h \
-	include/linux/rtnetlink.h include/linux/types.h include/linux/dcbnl.h
+	include/sysfs_hba.h include/linux/rtnetlink.h include/linux/types.h include/linux/dcbnl.h
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe

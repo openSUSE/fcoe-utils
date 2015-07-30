@@ -17,6 +17,9 @@ AC_SUBST([LLDPAD_CFLAGS])
 PKG_CHECK_MODULES([LIBHBALINUX], [libhbalinux >= 1.0.17])
 AC_SUBST([LIBHBALINUX_CFLAGS])
 
+PKG_CHECK_MODULES([PCIACCESS], [pciaccess])
+AC_SUBST([PCIACCESS_LIBS])
+
 PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemdsystemunitdir],
         AS_HELP_STRING([--with-systemdsystemunitdir=DIR],

@@ -43,6 +43,7 @@
 #include "fcoe_utils.h"
 #include "fcoemon_utils.h"
 #include "libopenfcoe.h"
+#include "sysfs_hba.h"
 
 /* #define TEST_HBAAPI_V1 */
 #ifdef TEST_HBAAPI_V1
@@ -121,38 +122,6 @@ struct sa_nameval port_speeds[] = {
 	{ NULL, 0 }
 };
 
-/** sa_enum_decode_speed(buf, len, val)
- *
- * @param buf buffer for result (may be used or not).
- * @param len size of buffer (at least 32 bytes recommended).
- * @param val value to be decoded into a name.
- * @returns pointer to name string.  Unknown values are put into buffer in hex.
- * Uses the port_speeds table to decode speed from value
- */
-static const char *
-sa_enum_decode_speed(char *buf, size_t buflen,
-		     u_int32_t val)
-{
-	char *prefix = "";
-	size_t len;
-	struct sa_nameval *tp = port_speeds;
-	char *cp = buf;
-
-	snprintf(buf, buflen, "Unknown");
-	for (; tp->nv_name != NULL; tp++) {
-		if (tp->nv_val & val) {
-			len = snprintf(cp, buflen, "%s%s", prefix, tp->nv_name);
-			if (len == 0 || len >= buflen)
-				break;
-			cp += len;
-			buflen -= len;
-			prefix = ", ";
-		}
-	}
-
-	return buf;
-}
-
 static void
 sa_dump_wwn(void *Data, int Length, int Break)
 {
@@ -184,58 +153,49 @@ static void show_wwn(unsigned char *pWwn)
 	sa_dump_wwn(pWwn, 8, 0);
 }
 
-static void show_hba_info(HBA_ADAPTERATTRIBUTES *hba_info)
+static void show_hba_info(struct hba_info *hba_info)
 {
-	printf("    Description:      %s\n", hba_info->ModelDescription);
-	printf("    Revision:         %s\n", hba_info->HardwareVersion);
-	printf("    Manufacturer:     %s\n", hba_info->Manufacturer);
-	printf("    Serial Number:    %s\n", hba_info->SerialNumber);
-	printf("    Driver:           %s %s\n", hba_info->DriverName,
-	       hba_info->DriverVersion);
-	printf("    Number of Ports:  %d\n", hba_info->NumberOfPorts);
+	printf("    Description:      %s\n", hba_info->model_description);
+	printf("    Revision:         %s\n", hba_info->hardware_version);
+	printf("    Manufacturer:     %s\n", hba_info->manufacturer);
+	printf("    Serial Number:    %s\n", hba_info->serial_number);
+	printf("    Driver:           %s %s\n", hba_info->driver_name,
+	       hba_info->driver_version);
+	printf("    Number of Ports:  %d\n", hba_info->nports);
 	printf("\n");
 }
 
-static void show_port_info(HBA_PORTATTRIBUTES *lp_info)
+static void show_port_info(struct port_attributes *lp_info)
 {
-	char buf[256];
-	int len = sizeof(buf);
-
 	printf("        Symbolic Name:     %s\n",
-	       lp_info->PortSymbolicName);
+	       lp_info->symbolic_name);
 
 	printf("        OS Device Name:    %s\n",
-	       lp_info->OSDeviceName);
+	       lp_info->device_name);
 
-	printf("        Node Name:         0x");
-	show_wwn(lp_info->NodeWWN.wwn);
-	printf("\n");
+	printf("        Node Name:         %s\n",
+		lp_info->node_name);
 
-	printf("        Port Name:         0x");
-	show_wwn(lp_info->PortWWN.wwn);
-	printf("\n");
+	printf("        Port Name:         %s\n",
+		lp_info->port_name);
 
-	printf("        FabricName:        0x");
-	show_wwn(lp_info->FabricName.wwn);
-	printf("\n");
+	printf("        FabricName:        %s\n",
+		lp_info->fabric_name);
 
-	memset(buf, '\0', len);
-	sa_enum_decode_speed(buf, len, lp_info->PortSpeed);
-	printf("        Speed:             %s\n", buf);
+	printf("        Speed:             %s\n",
+		lp_info->speed);
 
-	memset(buf, '\0', len);
-	sa_enum_decode_speed(buf, len, lp_info->PortSupportedSpeed);
-	printf("        Supported Speed:   %s\n", buf);
+	printf("        Supported Speed:   %s\n",
+		lp_info->supported_speeds);
 
-	printf("        MaxFrameSize:      %d\n",
-	       lp_info->PortMaxFrameSize);
+	printf("        MaxFrameSize:      %s\n",
+	       lp_info->maxframe_size);
 
-	printf("        FC-ID (Port ID):   0x%06X\n",
-	       lp_info->PortFcId);
+	printf("        FC-ID (Port ID):   0x%s\n",
+	       lp_info->port_id);
 
-	sa_enum_decode(buf, sizeof(buf), port_states, lp_info->PortState);
-	printf("        State:             %s\n", buf);
-	printf("\n");
+	printf("        State:             %s\n",
+		lp_info->port_state);
 	/* TODO: Display PortSupportedFc4Types and PortActiveFc4Types */
 }
 
@@ -1226,86 +1186,70 @@ out:
 	return rc;
 }
 
-enum fcoe_status display_adapter_info(const char *ifname)
+static enum fcoe_status display_one_adapter_info(const char *ifname)
 {
-	struct hba_name_table_list *hba_table_list = NULL;
-	enum fcoe_status rc = SUCCESS;
-	int i, j, num_hbas = 0;
-	HBA_PORTATTRIBUTES *port_attrs;
-	HBA_PORTATTRIBUTES *sport_attrs;
-	HBA_ADAPTERATTRIBUTES *hba_attrs;
-	HBA_ADAPTERATTRIBUTES *shba_attrs;
+	struct port_attributes *port_attrs;
+	struct hba_info *hba_info;
+	enum fcoe_status rc = EINTERR;
+	char *pcidev;
+	char *host;
 
-	if (fcoeadm_loadhba())
-		return EHBAAPIERR;
+	pcidev = get_pci_dev_from_netdev(ifname);
+	if (!pcidev)
+		return rc;
 
-	num_hbas = hba_table_list_init(&hba_table_list);
-	if (!num_hbas)
-		goto out;
+	host = get_host_from_netdev(ifname);
+	if (!host)
+		goto free_pcidev;
 
-	if (num_hbas < 0) {
-		rc = EINTERR;
-		goto out;
-	}
+	hba_info = get_hbainfo_by_pcidev(pcidev);
+	if (!hba_info)
+		goto free_host;
+
+	port_attrs = get_port_attribs(host);
+	if (!port_attrs)
+		goto free_hba_info;
 
 	/*
-	 * Loop through each HBA entry and for each serial number
-	 * not already printed print the header and each sub-port
-	 * on that adapter.
+	 * Display the adapter header.
 	 */
-	for (i = 0 ; i < num_hbas ; i++) {
-		if (hba_table_list->hba_table[i].failed ||
-		    hba_table_list->hba_table[i].displayed)
-			continue;
+	show_hba_info(hba_info);
+	show_port_info(port_attrs);
 
-		port_attrs = &hba_table_list->hba_table[i].port_attrs;
-		hba_attrs = &hba_table_list->hba_table[i].hba_attrs;
+	rc = SUCCESS;
 
-		if (ifname && check_symbolic_name_for_interface(
-			    port_attrs->PortSymbolicName,
-			    ifname)) {
-			/*
-			 * Overloading 'displayed' to indicate
-			 * that the HBA/Port should be skipped.
-			 */
-			hba_table_list->hba_table[i].displayed = 1;
-			continue;
-		}
+	free(port_attrs);
+free_hba_info:
+	free(hba_info);
+free_host:
+	free(host);
+free_pcidev:
+	free(pcidev);
+	return rc;
+}
 
-		/*
-		 * Display the adapter header.
-		 */
-		show_hba_info(hba_attrs);
+static int search_fc_adapter(struct dirent *dp, void *arg)
+{
+	display_one_adapter_info(dp->d_name);
+	return 0;
+}
 
-		/*
-		 * Loop through HBAs again to print sub-ports.
-		 */
-		for (j = 0; j < num_hbas ; j++) {
-			sport_attrs = &hba_table_list->hba_table[j].port_attrs;
-			shba_attrs = &hba_table_list->hba_table[j].hba_attrs;
-			if (ifname && check_symbolic_name_for_interface(
-				    sport_attrs->PortSymbolicName,
-				    ifname)) {
-				/*
-				 * Overloading 'displayed' to indicate
-				 * that the HBA/Port should be skipped.
-				 */
-				hba_table_list->hba_table[i].displayed = 1;
-				continue;
-			}
+enum fcoe_status display_adapter_info(const char *ifname)
+{
+	enum fcoe_status rc = SUCCESS;
+	int num_hbas;
+	int err;
 
-			if (!strncmp(hba_attrs->SerialNumber,
-				     shba_attrs->SerialNumber,
-				     strlen(hba_attrs->SerialNumber))) {
-				show_port_info(sport_attrs);
-				hba_table_list->hba_table[j].displayed = 1;
-			}
-		}
-	}
+	if (ifname)
+		return display_one_adapter_info(ifname);
 
-	hba_table_list_destroy(hba_table_list);
-out:
-	HBA_FreeLibrary();
+	num_hbas = get_number_of_adapters();
+	if (!num_hbas)
+		return ENOACTION;
+
+	err = sa_dir_read("/sys/class/net/", search_fc_adapter, NULL);
+	if (err)
+		return EINTERR;
 
 	return rc;
 }

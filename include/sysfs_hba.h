@@ -42,6 +42,9 @@ struct port_attributes {
 	char maxframe_size[256];
 	char port_id[256];
 	char port_state[256];
+	char scsi_target_id[256];
+	char supported_classes[256];
+	char roles[256];
 };
 
 struct hba_info {
@@ -58,6 +61,9 @@ struct hba_info {
 int get_number_of_adapters(void);
 struct hba_info *get_hbainfo_by_pcidev(const char *pcidev);
 struct port_attributes *get_port_attribs(const char *host);
+struct port_attributes *get_port_attribs_by_device(char *path);
+struct port_attributes *get_rport_attribs(const char *rport);
+struct port_attributes *get_rport_attribs_by_device(char *path);
 char *get_pci_dev_from_netdev(const char *netdev);
 char *get_host_from_netdev(const char *netdev);
 

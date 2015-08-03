@@ -27,9 +27,9 @@ enum disp_style {
 	DISP_TARG,
 };
 
-enum fcoe_status display_adapter_info(const char *ifname);
+enum fcoe_status display_adapter_info(char *ifname);
 enum fcoe_status display_fcf_info(const char *ifname);
-enum fcoe_status display_target_info(const char *ifname,
+enum fcoe_status display_target_info(char *ifname,
 				     enum disp_style style);
 enum fcoe_status display_port_stats(const char *ifname,
 				    int stat_interval);

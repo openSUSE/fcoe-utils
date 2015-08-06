@@ -22,7 +22,20 @@
 
 #include <stdint.h>
 
+#define HBA_PORTSTATE_UNKNOWN		1   /* Unknown */
+#define HBA_PORTSTATE_ONLINE		2   /* Operational */
+#define HBA_PORTSTATE_OFFLINE		3   /* User Offline */
+#define HBA_PORTSTATE_BYPASSED		4   /* Bypassed */
+#define HBA_PORTSTATE_DIAGNOSTICS	5   /* In diagnostics mode */
+#define HBA_PORTSTATE_LINKDOWN		6   /* Link Down */
+#define HBA_PORTSTATE_ERROR		7   /* Port Error */
+#define HBA_PORTSTATE_LOOPBACK		8   /* Loopback */
 
+#define HBA_PORTSPEED_UNKNOWN		0x0000  /* Unknown - transceiver incable
+					         * of reporting */
+#define HBA_PORTSPEED_1GBIT		0x0001  /* 1 GBit/sec */
+#define HBA_PORTSPEED_2GBIT		0x0002  /* 2 GBit/sec */
+#define HBA_PORTSPEED_10GBIT		0x0004  /* 10 GBit/sec */
 #define HBA_PORTSPEED_4GBIT		0x0008  /* 4 GBit/sec */
 #define HBA_PORTSPEED_8GBIT		0x0010  /* 8 GBit/sec */
 #define HBA_PORTSPEED_16GBIT		0x0020  /* 16 GBit/sec */

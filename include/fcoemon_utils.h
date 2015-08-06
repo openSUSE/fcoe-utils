@@ -134,9 +134,6 @@ extern void assert_failed(const char *s, ...);
 #endif /* LIBSA_USE_DANGEROUS_ROUTINES */
 
 char *sa_strncpy_safe(char *dest, size_t len, const char *src, size_t src_len);
-char *sa_hex_format(char *buf, size_t buflen,
-			const unsigned char *data, size_t data_len,
-			unsigned int group_len, char *inter_group_sep);
 
 /*
  * Structure for tables encoding and decoding name-value pairs such as enums.

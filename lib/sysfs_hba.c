@@ -290,13 +290,48 @@ free_path:
 	return pa;
 }
 
+struct port_statistics *get_port_statistics(const char *host)
+{
+	struct port_statistics *ps;
+	char *path;
+	int err;
+
+	err = asprintf(&path, "%s/%s/statistics/", SYSFS_HOST_DIR, host);
+	if (err == -1)
+		return NULL;
+
+	ps = calloc(1, sizeof(*ps));
+	if (!ps)
+		goto free_path;
+
+	sa_sys_read_u64(path, "seconds_since_last_reset", &ps->seconds_since_last_reset);
+	sa_sys_read_u64(path, "tx_frames", &ps->tx_frames);
+	sa_sys_read_u64(path, "tx_words", &ps->tx_words);
+	sa_sys_read_u64(path, "rx_frames", &ps->rx_frames);
+	sa_sys_read_u64(path, "rx_words", &ps->rx_words);
+	sa_sys_read_u64(path, "error_frames", &ps->error_frames);
+	sa_sys_read_u64(path, "invalid_crc_count", &ps->invalid_crc_count);
+	sa_sys_read_u64(path, "invalid_tx_word_count", &ps->invalid_tx_word_count);
+	sa_sys_read_u64(path, "link_failure_count", &ps->link_failure_count);
+	sa_sys_read_u64(path, "fcp_control_requests", &ps->fcp_control_requests);
+	sa_sys_read_u64(path, "fcp_input_requests", &ps->fcp_input_requests);
+	sa_sys_read_u64(path, "fcp_input_megabytes", &ps->fcp_input_megabytes);
+	sa_sys_read_u64(path, "fcp_output_requests", &ps->fcp_output_requests);
+	sa_sys_read_u64(path, "fcp_output_megabytes", &ps->fcp_output_megabytes);
+
+free_path:
+	free(path);
+
+	return ps;
+}
+
 struct port_attributes *get_port_attribs(const char *host)
 {
 	struct port_attributes *pa;
 	char *path;
 	int err;
 
-	err = asprintf(&path, "%s/%s", SYSFS_HOST_DIR, host);
+	err = asprintf(&path, "%s/%s/", SYSFS_HOST_DIR, host);
 	if (err == -1)
 		return NULL;
 

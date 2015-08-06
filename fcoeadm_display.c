@@ -514,231 +514,59 @@ static void show_port_stats_header(const char *ifname, int interval)
 }
 
 static void
-show_port_stats_in_row(HBA_INT64 start_time,
-		       HBA_PORTSTATISTICS *port_stats,
-		       HBA_FC4STATISTICS *port_fc4stats)
+show_port_stats_in_row(uint64_t start_time,
+		       struct port_statistics *port_stats)
+
 {
-	printf("%-7lld ", port_stats->SecondsSinceLastReset - start_time);
-	printf("%-9lld ", port_stats->TxFrames);
-	printf("%-12lld ", port_stats->TxWords * FCOE_WORD_TO_BYTE);
-	printf("%-9lld ", port_stats->RxFrames);
-	printf("%-14lld ", port_stats->RxWords * FCOE_WORD_TO_BYTE);
-	printf("%-4lld ", port_stats->ErrorFrames);
-	printf("%-4lld ", port_stats->InvalidCRCCount);
-	printf("%-4lld ", port_stats->InvalidTxWordCount * FCOE_WORD_TO_BYTE);
-	printf("%-4lld ", port_stats->LinkFailureCount);
-	printf("%-4lld ", port_fc4stats->ControlRequests);
-	printf("%-9lld ", port_fc4stats->InputRequests);
-	printf("%-9lld ", port_fc4stats->InputMegabytes);
-	printf("%-9lld ", port_fc4stats->OutputRequests);
-	printf("%-9lld ", port_fc4stats->OutputMegabytes);
+	printf("%-7"PRIu64" ", port_stats->seconds_since_last_reset - start_time);
+	printf("%-9"PRIu64" ", port_stats->tx_frames);
+	printf("%-12"PRIu64" ", port_stats->tx_words * FCOE_WORD_TO_BYTE);
+	printf("%-9"PRIu64" ", port_stats->rx_frames);
+	printf("%-14"PRIu64" ", port_stats->rx_words * FCOE_WORD_TO_BYTE);
+	printf("%-4"PRIu64" ", port_stats->error_frames);
+	printf("%-4"PRIu64" ", port_stats->invalid_crc_count);
+	printf("%-4"PRIu64" ", port_stats->invalid_tx_word_count * FCOE_WORD_TO_BYTE);
+	printf("%-4"PRIu64" ", port_stats->link_failure_count);
+	printf("%-4"PRIu64" ", port_stats->fcp_control_requests);
+	printf("%-9"PRIu64" ", port_stats->fcp_input_requests);
+	printf("%-9"PRIu64" ", port_stats->fcp_input_megabytes);
+	printf("%-9"PRIu64" ", port_stats->fcp_output_requests);
+	printf("%-9"PRIu64" ", port_stats->fcp_output_megabytes);
 	printf("\n");
-}
-
-static void hba_table_list_destroy(struct hba_name_table_list *hba_table_list)
-{
-	int i;
-
-	if (!hba_table_list)
-		return;
-
-	for (i = 0 ; i < hba_table_list->hba_count ; i++)
-		HBA_CloseAdapter(hba_table_list->hba_table[i].hba_handle);
-
-	free(hba_table_list);
-	hba_table_list = NULL;
-}
-
-static enum fcoe_status fcoeadm_loadhba(void)
-{
-	if (HBA_STATUS_OK != HBA_LoadLibrary())
-		return EHBAAPIERR;
-
-	return SUCCESS;
-}
-
-/*
- * This routine leaves all adapters fd's open.
- */
-static int hba_table_list_init(struct hba_name_table_list **hba_table_list)
-{
-	HBA_STATUS retval;
-	char namebuf[1024];
-	int i, num_hbas = 0;
-	struct hba_name_table_list *hba_table_list_temp = NULL;
-	struct hba_name_table *hba_table = NULL;
-	int size = 0;
-
-	num_hbas = HBA_GetNumberOfAdapters();
-	if (!num_hbas) {
-		fprintf(stderr, "No FCoE interfaces created.\n");
-		return num_hbas;
-	}
-
-	size = sizeof(struct hba_name_table_list) + \
-			(num_hbas - 1)*sizeof(struct hba_name_table);
-
-	hba_table_list_temp = (struct hba_name_table_list *)calloc(1, size);
-	if (!hba_table_list_temp) {
-		fprintf(stderr,
-			"Failure allocating memory.\n");
-		return -1;
-	}
-
-	hba_table_list_temp->hba_count = num_hbas;
-
-	/*
-	 * Fill out the HBA table.
-	 */
-	for (i = 0; i < num_hbas ; i++) {
-		retval = HBA_GetAdapterName(i, namebuf);
-		if (retval != HBA_STATUS_OK) {
-			fprintf(stderr,
-				"Failure of HBA_GetAdapterName: %d\n", retval);
-			continue;
-		}
-
-		hba_table = &hba_table_list_temp->hba_table[i];
-		hba_table->hba_handle = HBA_OpenAdapter(namebuf);
-		if (!hba_table->hba_handle) {
-			hba_table->failed = 1;
-			fprintf(stderr, "HBA_OpenAdapter failed\n");
-			perror("HBA_OpenAdapter");
-			continue;
-		}
-
-		retval = HBA_GetAdapterAttributes(hba_table->hba_handle,
-						  &hba_table->hba_attrs);
-		if (retval != HBA_STATUS_OK) {
-			HBA_CloseAdapter(hba_table->hba_handle);
-			hba_table->failed = 1;
-			fprintf(stderr,
-				"HBA_GetAdapterAttributes failed, retval=%d\n",
-				retval);
-			perror("HBA_GetAdapterAttributes");
-			continue;
-		}
-
-		retval = HBA_GetAdapterPortAttributes(hba_table->hba_handle,
-						      0,
-						      &hba_table->port_attrs);
-		if (retval != HBA_STATUS_OK) {
-			HBA_CloseAdapter(hba_table->hba_handle);
-			hba_table->failed = 1;
-			fprintf(stderr,
-				"HBA_GetAdapterPortAttributes failed, "
-				"retval=%d\n", retval);
-			continue;
-		}
-	}
-
-	*hba_table_list = hba_table_list_temp;
-
-	return num_hbas;
-}
-
-/*
- * This routine expects a valid interface name.
- */
-static int get_index_for_ifname(struct hba_name_table_list *hba_table_list,
-				const char *ifname)
-{
-	HBA_PORTATTRIBUTES *port_attrs;
-	int i;
-
-	for (i = 0 ; i < hba_table_list->hba_count ; i++) {
-
-		port_attrs = &hba_table_list->hba_table[i].port_attrs;
-
-		if (!check_symbolic_name_for_interface(
-			    port_attrs->PortSymbolicName,
-			    ifname))
-			return i;
-	}
-
-	return -EINVAL;
 }
 
 enum fcoe_status display_port_stats(const char *ifname, int interval)
 {
-	HBA_STATUS retval;
-	HBA_HANDLE hba_handle;
-	HBA_PORTATTRIBUTES *port_attrs;
-	HBA_PORTSTATISTICS port_stats;
-	HBA_FC4STATISTICS port_fc4stats;
-	HBA_INT64 start_time = 0;
-	struct hba_name_table_list *hba_table_list = NULL;
-	enum fcoe_status rc = SUCCESS;
+	struct port_statistics *port_stats;
+	enum fcoe_status rc = EINTERR;
+	uint64_t start_time = 0;
+	char *host;
 	int i, num_hbas;
 
-	if (fcoeadm_loadhba())
-		return EHBAAPIERR;
+	num_hbas = get_number_of_adapters();
+	if (num_hbas < 0)
+		return rc;
 
-	num_hbas = hba_table_list_init(&hba_table_list);
-	if (!num_hbas)
-		goto out;
-
-	if (num_hbas < 0) {
-		rc = EINTERR;
-		goto out;
-	}
-
-	i = get_index_for_ifname(hba_table_list, ifname);
-
-	/*
-	 * Return error code if a valid index wasn't returned.
-	 */
-	if (i < 0) {
-		hba_table_list_destroy(hba_table_list);
-		HBA_FreeLibrary();
-		return EHBAAPIERR;
-	}
-
-	hba_handle = hba_table_list->hba_table[i].hba_handle;
-	port_attrs = &hba_table_list->hba_table[i].port_attrs;
+	host = get_host_from_netdev(ifname);
+	if (!host)
+		return rc;
 
 	i = 0;
 	while (1) {
 		unsigned int secs_left;
 
-		retval = HBA_GetPortStatistics(hba_handle,
-					       0, &port_stats);
-		if (retval != HBA_STATUS_OK &&
-		    retval != HBA_STATUS_ERROR_NOT_SUPPORTED) {
-			fprintf(stderr,
-				"HBA_GetPortStatistics failed, status=%d\n",
-				retval);
-			break;
-		}
-		if (retval == HBA_STATUS_ERROR_NOT_SUPPORTED) {
-			fprintf(stderr,
-				"Port Statistics not supported by %s\n",
-				ifname);
-			break;
-		}
+		port_stats = get_port_statistics(host);
+		if (!port_stats)
+			goto free_host;
+
 
 		if (!start_time)
-			start_time = port_stats.SecondsSinceLastReset;
+			start_time = port_stats->seconds_since_last_reset;
 
-		retval = HBA_GetFC4Statistics(hba_handle,
-					      port_attrs->PortWWN,
-					      FC_TYPE_FCP,
-					      &port_fc4stats);
-		if (retval != HBA_STATUS_OK &&
-		    retval != HBA_STATUS_ERROR_NOT_SUPPORTED) {
-			fprintf(stderr, "HBA_GetFC4Statistics failed, "
-				"status=%d\n", retval);
-			break;
-		}
-		if (retval == HBA_STATUS_ERROR_NOT_SUPPORTED) {
-			fprintf(stderr,
-				"Port FC4 Statistics not supported by %s\n",
-				ifname);
-			break;
-		}
 		if (!(i % 52))
 			show_port_stats_header(ifname, interval);
-		show_port_stats_in_row(start_time, &port_stats, &port_fc4stats);
+
+		show_port_stats_in_row(start_time, port_stats);
 		i++;
 
 		/* wait for the requested time interval in seconds */
@@ -748,9 +576,12 @@ enum fcoe_status display_port_stats(const char *ifname, int interval)
 		} while (secs_left);
 	}
 
-	hba_table_list_destroy(hba_table_list);
-out:
-	HBA_FreeLibrary();
+	rc = SUCCESS;
+	free(port_stats);
+
+free_host:
+	free(host);
+
 	return rc;
 }
 

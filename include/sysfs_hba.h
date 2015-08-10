@@ -95,6 +95,13 @@ struct port_statistics {
 	uint64_t fcp_output_megabytes;
 };
 
+struct hba_wwn {
+	union {
+		uint8_t wwn[8];
+		uint64_t wwn64;
+	};
+};
+
 int get_number_of_adapters(void);
 struct hba_info *get_hbainfo_by_pcidev(const char *pcidev);
 struct port_statistics *get_port_statistics(const char *host);
@@ -104,5 +111,8 @@ struct port_attributes *get_rport_attribs(const char *rport);
 struct port_attributes *get_rport_attribs_by_device(char *path);
 char *get_pci_dev_from_netdev(const char *netdev);
 char *get_host_from_netdev(const char *netdev);
+char *get_host_by_wwpn(struct hba_wwn wwn);
+char *get_host_by_fcid(uint32_t fcid);
+char *get_rport_by_fcid(uint32_t fcid);
 
 #endif /* _SYSFS_HBA_H */

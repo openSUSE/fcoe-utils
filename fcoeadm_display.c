@@ -20,7 +20,6 @@
 #define _GNU_SOURCE
 
 #include <sys/param.h>
-#include <sys/ioctl.h>
 #include <linux/types.h>
 #include <ctype.h>
 #include <stddef.h>
@@ -32,9 +31,6 @@
 #include <malloc.h>
 #include <pthread.h>
 #include <limits.h>
-#include <scsi/sg.h>
-#include <byteswap.h>
-#include <net/if.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <dirent.h>
@@ -42,24 +38,11 @@
 #include "net_types.h"
 #include "fc_types.h"
 #include "fc_scsi.h"
-#include "hbaapi.h"
 #include "fcoeadm_display.h"
 #include "fcoe_utils.h"
 #include "fcoemon_utils.h"
 #include "libopenfcoe.h"
 #include "sysfs_hba.h"
-
-/* #define TEST_HBAAPI_V1 */
-#ifdef TEST_HBAAPI_V1
-#define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRY
-#define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPING
-#else
-#define HBA_FCP_SCSI_ENTRY	 HBA_FCPSCSIENTRYV2
-#define HBA_FCP_TARGET_MAPPING HBA_FCPTARGETMAPPINGV2
-#endif
-/* #define TEST_REPORT_LUNS */
-/* #define TEST_READ_CAP_V1 */
-/* #define TEST_DEV_SERIAL_NO */
 
 /* Define FC4 Type */
 #define FC_TYPE_FCP        0x08 /* SCSI FCP */
@@ -73,26 +56,6 @@
 #define FCP_TARG_STR "FCP Target"
 
 #define SYSFS_HOST_DIR     "/sys/class/fc_host"
-
-/*
- * HBA and port objects are one-to-one since there
- * is one host created per Ethernet port (vlan).
- */
-struct hba_name_table {
-	HBA_HANDLE            hba_handle;
-	HBA_ADAPTERATTRIBUTES hba_attrs;
-	HBA_PORTATTRIBUTES    port_attrs;
-	int                   failed;
-	int                   displayed;
-};
-
-/*
- * List of HBA objects.
- */
-struct hba_name_table_list {
-	int			hba_count;
-	struct hba_name_table	hba_table[1];
-};
 
 /*
  * Options for displaying target/LUN info.
@@ -115,14 +78,6 @@ struct sa_nameval port_states[] = {
 	{ "Deleted",        HBA_PORTSTATE_UNKNOWN },
 	{ NULL, 0 }
 };
-
-#define HBA_PORTSPEED_4GBIT		0x0008  /* 4 GBit/sec */
-#define HBA_PORTSPEED_8GBIT		0x0010  /* 8 GBit/sec */
-#define HBA_PORTSPEED_16GBIT		0x0020  /* 16 GBit/sec */
-#define HBA_PORTSPEED_32GBIT		0x0040  /* 32 GBit/sec */
-#define HBA_PORTSPEED_20GBIT		0x0080  /* 20 GBit/sec */
-#define HBA_PORTSPEED_40GBIT		0x0100  /* 40 GBit/sec */
-#define HBA_PORTSPEED_NOT_NEGOTIATED	(1 << 15) /* Speed not established */
 
 
 /*

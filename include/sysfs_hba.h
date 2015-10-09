@@ -55,9 +55,26 @@ struct hba_info {
 	uint32_t nports;
 };
 
+struct port_statistics {
+	uint64_t seconds_since_last_reset;
+	uint64_t tx_frames;
+	uint64_t tx_words;
+	uint64_t rx_frames;
+	uint64_t rx_words;
+	uint64_t error_frames;
+	uint64_t invalid_crc_count;
+	uint64_t invalid_tx_word_count;
+	uint64_t link_failure_count;
+	uint64_t fcp_control_requests;
+	uint64_t fcp_input_requests;
+	uint64_t fcp_input_megabytes;
+	uint64_t fcp_output_requests;
+	uint64_t fcp_output_megabytes;
+};
 
 int get_number_of_adapters(void);
 struct hba_info *get_hbainfo_by_pcidev(const char *pcidev);
+struct port_statistics *get_port_statistics(const char *host);
 struct port_attributes *get_port_attribs(const char *host);
 struct port_attributes *get_port_attribs_by_device(char *path);
 struct port_attributes *get_rport_attribs(const char *rport);

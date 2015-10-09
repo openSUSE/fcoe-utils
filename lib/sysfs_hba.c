@@ -352,6 +352,39 @@ char *get_pci_dev_from_netdev(const char *netdev)
 	return pcidev;
 }
 
+static int get_ctlr_num(const char *netdev)
+{
+	struct dirent *dp;
+	int ctlr_num = -1;
+	char path[1024];
+	char *ctlr;
+	DIR *dir;
+
+	sprintf(path, "%s/%s", SYSFS_NET_DIR, netdev);
+
+	dir = opendir(path);
+	if (!dir)
+		return -1;
+
+	for (dp = readdir(dir); dp != NULL; dp = readdir(dir)) {
+		if (dp->d_name[0] == '.' && dp->d_name[1] == '\0')
+			continue;
+		if (dp->d_name[1] == '.' && dp->d_name[2] == '\0')
+			continue;
+
+		ctlr = strstr(dp->d_name, "ctlr_");
+		if (!ctlr)
+			continue;
+
+		ctlr_num = atoi(&ctlr[strlen(ctlr) - 1]);
+		break;
+	}
+
+	closedir(dir);
+
+	return ctlr_num;
+}
+
 char *get_host_from_netdev(const char *netdev)
 {
 	struct dirent *dp;
@@ -359,8 +392,14 @@ char *get_host_from_netdev(const char *netdev)
 	char *path = NULL;
 	DIR *dir;
 	int ret;
+	int ctlr_num;
 
-	ret = asprintf(&path, "%s/%s/ctlr_0/", SYSFS_NET_DIR, netdev);
+	ctlr_num = get_ctlr_num(netdev);
+	if (ctlr_num == -1)
+		return NULL;
+
+	ret = asprintf(&path, "%s/%s/ctlr_%d/", SYSFS_NET_DIR,
+		       netdev, ctlr_num);
 	if (ret == -1)
 		return NULL;
 
@@ -381,8 +420,8 @@ char *get_host_from_netdev(const char *netdev)
 		if (host) {
 			struct stat sb;
 
-			ret = asprintf(&path, "%s/%s/ctlr_0/%s/fc_host/%s",
-				SYSFS_NET_DIR, netdev, host, host);
+			ret = asprintf(&path, "%s/%s/ctlr_%d/%s/fc_host/%s",
+				SYSFS_NET_DIR, netdev, ctlr_num, host, host);
 			if (ret == -1)
 				goto out_closedir;
 

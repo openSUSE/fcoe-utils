@@ -32,6 +32,44 @@
 #include "sysfs_hba.h"
 #include "fcoemon_utils.h"
 
+struct port_attributes *get_port_attribs_by_device(char *path)
+{
+	char link[1024];
+	char *host;
+	char *rport;
+	int ret;
+
+	ret = readlink(path, link, sizeof(link));
+	if (ret == -1)
+		return NULL;
+
+	host = strstr(link, "host");
+	rport = strstr(link, "rport");
+
+	host[strlen(host) - strlen(rport) - 1] = '\0';
+
+	return get_port_attribs(host);
+}
+
+struct port_attributes *get_rport_attribs_by_device(char *path)
+{
+	char link[1024];
+	char *target;
+	char *rport;
+	int ret;
+
+	ret = readlink(path, link, sizeof(link));
+	if (ret == -1)
+		return NULL;
+
+	target = strstr(link, "target");
+	rport = strstr(link, "rport");
+
+	rport[strlen(rport) - strlen(target) - 1] = '\0';
+
+	return get_rport_attribs(rport);
+}
+
 static void get_device_serial_number(struct pci_device *dev,
 				     struct hba_info *info)
 {
@@ -248,6 +286,42 @@ struct hba_info *get_hbainfo_by_pcidev(const char *pcidev)
 	pci_system_cleanup();
 
 	return info;
+}
+
+struct port_attributes *get_rport_attribs(const char *rport)
+{
+	struct port_attributes *pa;
+	char *path;
+	int err;
+
+	err = asprintf(&path, "%s/%s", SYSFS_RPORT_DIR, rport);
+	if (err == -1)
+		return NULL;
+
+	pa = calloc(1, sizeof(*pa));
+	if (!pa)
+		goto free_path;
+
+	strncpy(pa->device_name, rport, sizeof(pa->device_name));
+	sa_sys_read_line(path, "node_name", pa->node_name,
+			 sizeof(pa->node_name));
+	sa_sys_read_line(path, "port_name", pa->port_name,
+			 sizeof(pa->port_name));
+	sa_sys_read_line(path, "port_id", pa->port_id, sizeof(pa->port_id));
+	sa_sys_read_line(path, "scsi_target_id", pa->scsi_target_id,
+			 sizeof(pa->scsi_target_id));
+	sa_sys_read_line(path, "maxframe_size", pa->maxframe_size,
+			 sizeof(pa->maxframe_size));
+	sa_sys_read_line(path, "port_state", pa->port_state,
+			 sizeof(pa->port_state));
+	sa_sys_read_line(path, "supported_classes", pa->supported_classes,
+			 sizeof(pa->supported_classes));
+	sa_sys_read_line(path, "roles", pa->roles, sizeof(pa->roles));
+
+free_path:
+	free(path);
+
+	return pa;
 }
 
 struct port_attributes *get_port_attribs(const char *host)

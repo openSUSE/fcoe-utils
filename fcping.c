@@ -745,8 +745,6 @@ static void fp_check_data_len(void)
 	maxframe_size = strtoul(port_attrs->maxframe_size, NULL, 16);
 	sid = strtoul(port_attrs->port_id, NULL, 16);
 
-	free(port_attrs);
-
 	slen = maxframe_size - FP_LEN_ECHO;
 	plen = MIN(flen, MIN(slen, dlen));
 

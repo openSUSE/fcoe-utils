@@ -43,6 +43,14 @@
 #define HBA_PORTSPEED_40GBIT		0x0100  /* 40 GBit/sec */
 #define HBA_PORTSPEED_NOT_NEGOTIATED	(1 << 15) /* Speed not established */
 
+/* Event Codes */
+#define HBA_EVENT_LIP_OCCURRED		1
+#define HBA_EVENT_LINK_UP		2
+#define HBA_EVENT_LINK_DOWN		3
+#define HBA_EVENT_LIP_RESET_OCCURRED	4
+#define HBA_EVENT_RSCN			5
+#define HBA_EVENT_PROPRIETARY		0xFFFF
+
 struct port_attributes {
 	char device_name[256];
 	char symbolic_name[256];

@@ -60,7 +60,7 @@
 #include "fcoemon.h"
 #include "fcoe_clif.h"
 #include "fcoe_utils.h"
-#include "hbaapi.h"
+#include "sysfs_hba.h"
 #include "strarr.h"
 
 #include "fip.h"

@@ -19,7 +19,7 @@ fcoemon_CFLAGS = $(AM_CFLAGS) $(DCBD_CFLAGS)
 
 ## rules for building fcping
 fcping_SOURCES = fcping.c
-fcping_LDADD = lib/libutil.a $(HBAAPI_LIBS) -lrt
+fcping_LDADD = lib/libutil.a $(HBAAPI_LIBS) $(PCIACCESS_LIBS) -lrt
 fcping_CFLAGS = $(AM_CFLAGS) $(HBAAPI_CFLAGS)
 
 ## rules for building fipvlan

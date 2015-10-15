@@ -42,8 +42,6 @@
 #include <sys/time.h>
 #include <net/ethernet.h>
 #include <netinet/ether.h>
-#include <hbaapi.h>
-#include <vendorhbaapi.h>
 #include <linux/types.h>
 #include <linux/bsg.h>
 #include "net_types.h"
@@ -55,6 +53,8 @@ typedef uint8_t u8;
 #include "fc_gs.h"
 #include "fc_els.h"
 #include "scsi_bsg_fc.h"
+
+#include "sysfs_hba.h"
 
 static const char *cmdname;
 
@@ -116,19 +116,12 @@ static uint32_t fp_interval = FP_DEF_INTVL * 1000; /* in milliseconds */
 static int fp_quiet;
 static int fp_hex;
 static char *fp_hba;	/* name of interface to be used */
-static int fp_hba_type;
-#define FP_HBA_FCID_TYPE	1
-#define FP_HBA_WWPN_TYPE	2
-#define FP_HBA_HOST_TYPE	3
-#define FP_HBA_ETH_TYPE		4
 static char fp_dev[64];
 static int fp_fd;	/* file descriptor for openfc ioctls */
 static void *fp_buf;	/* sending buffer */
 static int fp_debug;
-
-static HBA_HANDLE hba_handle;
-static HBA_ADAPTERATTRIBUTES hba_attrs;
-static HBA_PORTATTRIBUTES port_attrs;
+static char *host;
+static struct port_attributes *port_attrs;
 
 struct fp_stats {
 	uint32_t fp_tx_frames;
@@ -471,17 +464,17 @@ fp_options(int argc, char *argv[])
 static int
 fp_find_hba(void)
 {
-	HBA_STATUS retval;
-	HBA_UINT32 hba_cnt;
-	HBA_UINT32 fcid = 0;
 	struct stat statbuf;
-	char namebuf[1028];
 	char hba_dir[256];
 	fc_wwn_t wwn = 0;
-	HBA_WWN wwpn;
+	struct hba_wwn wwpn;
 	char *endptr;
-	unsigned int i;
-	int found = 0;
+	uint32_t fcid;
+	int hba_cnt;
+
+	hba_cnt = get_number_of_adapters();
+	if (!hba_cnt)
+		SA_LOG_EXIT("No FCoE interfaces created");
 
 	/*
 	 * Parse HBA spec. if there is one.
@@ -494,15 +487,14 @@ fp_find_hba(void)
 	 *    mac address xx:xx:xx:xx:xx:xx
 	 *    otherwise, try parsing as a wwn and match that.
 	 */
-
 	snprintf(hba_dir, sizeof(hba_dir), SYSFS_HBA_DIR "/%s", fp_hba);
 	if (!stat(hba_dir, &statbuf)) {
-		fp_hba_type = FP_HBA_ETH_TYPE;
+		host = get_host_from_netdev(fp_hba);
 	} else if (strstr(fp_hba, "host") == fp_hba) {
-		i = strtoul(fp_hba + 4, &endptr, 10);
+		(void) strtoul(fp_hba + strlen("host"), &endptr, 10);
 		if (*endptr != '\0')
 			SA_LOG_EXIT("invalid hba name %s", fp_hba);
-		fp_hba_type = FP_HBA_HOST_TYPE;
+		host = strdup(fp_hba);
 	} else if (strstr(fp_hba, ":")) {
 		if (strlen(fp_hba) == strlen("xx:yy:aa:bb:cc:dd:ee:ff")) {
 			fc_wwn_t wwn1;
@@ -518,84 +510,35 @@ fp_find_hba(void)
 			SA_LOG_EXIT("invalid WWPN or MAC address %s", fp_hba);
 		}
 		hton64(wwpn.wwn, wwn);
-		fp_hba_type = FP_HBA_WWPN_TYPE;
+		host = get_host_by_wwpn(wwpn);
 	} else {
 		wwn = strtoull(fp_hba, &endptr, 16);
 		if (wwn < 0x1000000) {
 			fcid = wwn;
-			fp_hba_type = FP_HBA_FCID_TYPE;
+			host = get_host_by_fcid(fcid);
 		} else {
 			if (*endptr != '\0')
 				SA_LOG_EXIT("unsupported hba name");
 			wwn = fp_parse_wwn(fp_hba, "HBA", 2, 0);
 			hton64(wwpn.wwn, wwn);
-			fp_hba_type = FP_HBA_WWPN_TYPE;
+			host = get_host_by_wwpn(wwpn);
 		}
 	}
 
-	hba_cnt = HBA_GetNumberOfAdapters();
-	if (!hba_cnt)
-		SA_LOG_EXIT("No FCoE interfaces created");
-
-	for (i = 0; i < hba_cnt; i++) {
-		retval = HBA_GetAdapterName(i, namebuf);
-		if (retval != HBA_STATUS_OK) {
-			SA_LOG("HBA_GetAdapterName"
-			       " failed, retval=%d", retval);
-			continue;
-		}
-
-		hba_handle = HBA_OpenAdapter(namebuf);
-		if (!hba_handle) {
-			SA_LOG("HBA_OpenAdapter failed");
-			continue;
-		}
-
-		retval = HBA_GetAdapterAttributes(hba_handle, &hba_attrs);
-		if (retval != HBA_STATUS_OK) {
-			SA_LOG("HBA_GetAdapterAttributes"
-			       " failed, retval=%d", retval);
-			continue;
-		}
-
-		retval = HBA_GetAdapterPortAttributes(
-			hba_handle, 0, &port_attrs);
-		if (retval != HBA_STATUS_OK) {
-			SA_LOG("HBA_GetAdapterPortAttributes"
-			       " failed, retval=%d", retval);
-			continue;
-		}
-
-		switch (fp_hba_type) {
-		case FP_HBA_FCID_TYPE:
-			if (port_attrs.PortFcId != fcid)
-				continue;
-			break;
-		case FP_HBA_WWPN_TYPE:
-			if (memcmp(&port_attrs.PortWWN, &wwpn, sizeof(wwpn)))
-				continue;
-			break;
-		case FP_HBA_HOST_TYPE:
-			if (!strstr(port_attrs.OSDeviceName, fp_hba))
-				continue;
-			break;
-		default:
-			if (check_symbolic_name_for_interface(
-				    port_attrs.PortSymbolicName,
-				    fp_hba))
-				continue;
-			break;
-		}
-
-		snprintf(fp_dev, sizeof(fp_dev),
-			 "fc_%s", port_attrs.OSDeviceName);
-		found = 1;
-		break;
-	}
-	if (!found)
+	if (!host) {
 		SA_LOG("FCoE interface %s not found", fp_hba);
+		return 0;
+	}
 
-	return found;
+	snprintf(fp_dev, sizeof(fp_dev), "fc_%s", host);
+
+	port_attrs = get_port_attribs(host);
+	if (!port_attrs) {
+		free(host);
+		return 0;
+	}
+
+	return 1;
 }
 
 static void
@@ -728,32 +671,10 @@ static int fp_lookup_target(void)
  */
 static uint32_t fp_get_max_data_len(fc_fid_t fcid)
 {
-	HBA_STATUS retval;
-	HBA_PORTATTRIBUTES rport_attrs;
-	unsigned int i;
-	uint32_t dlen = 0;
-
-	if (!hba_handle) {
-		SA_LOG("%s: Invalid handle! HBA_OpenAdapter failed?", fp_dev);
-		goto out;
-	}
-
-	/* locate targets */
-	for (i = 0; i < port_attrs.NumberofDiscoveredPorts; i++) {
-		retval = HBA_GetDiscoveredPortAttributes(hba_handle, 0, i,
-							 &rport_attrs);
-		if (retval != HBA_STATUS_OK) {
-			SA_LOG("HBA_GetDiscoveredPortAttributes() "
-			       "failed for HBA %s on target index %d, "
-			       "status=%d\n", fp_dev, i, retval);
-			continue;
-		}
-		if (rport_attrs.PortFcId == fcid) {
-			dlen = rport_attrs.PortMaxFrameSize - FP_LEN_ECHO;
-			goto out;
-		}
-
-	}
+	struct port_attributes *rport_attrs;
+	uint32_t dlen = FP_LEN_DEF;
+	uint32_t maxframe_size;
+	char *rport;
 
 	/* not found from disovered ports, if it's one of the
 	 * WKA from FC-LS Table 30, use FC_MAX_PAYLOAD */
@@ -761,7 +682,22 @@ static uint32_t fp_get_max_data_len(fc_fid_t fcid)
 		dlen = FP_LEN_MAX;
 		goto out;
 	}
-	dlen = FP_LEN_DEF;
+
+	rport = get_rport_by_fcid(fcid);
+	if (!rport)
+		goto out;
+
+	rport_attrs = get_rport_attribs(rport);
+	if (!rport_attrs)
+		goto free_rport;
+
+	maxframe_size = strtoul(rport_attrs->maxframe_size, NULL, 16);
+	dlen = maxframe_size - FP_LEN_ECHO;
+
+	free(rport_attrs);
+free_rport:
+	free(rport);
+
 out:
 	/* returns maximum allowed ECHO data length, excluding the 4
 	 * bytes ECHO command in the payload */
@@ -790,6 +726,7 @@ static void fp_check_data_len(void)
 	uint32_t dlen = 0;
 	uint32_t flen = 0;
 	uint32_t plen = FP_LEN_DEF;
+	uint32_t maxframe_size;
 
 	/* find out maximum payload supported by the fabric */
 	flen = fp_get_max_data_len(FC_WKA_FABRIC_CONTROLLER);
@@ -804,8 +741,13 @@ static void fp_check_data_len(void)
 	if (!dlen)
 		dlen = FP_LEN_DEF;
 
-	sid = port_attrs.PortFcId;
-	slen = port_attrs.PortMaxFrameSize - FP_LEN_ECHO;
+
+	maxframe_size = strtoul(port_attrs->maxframe_size, NULL, 16);
+	sid = strtoul(port_attrs->port_id, NULL, 16);
+
+	free(port_attrs);
+
+	slen = maxframe_size - FP_LEN_ECHO;
 	plen = MIN(flen, MIN(slen, dlen));
 
 	printf("Maximum ECHO data allowed by the Fabric (0x%06x) : %d bytes.\n"
@@ -1020,8 +962,8 @@ static void fp_start(void)
 	sigaction(SIGQUIT, &act, NULL);		/* Signal 3: Ctrl-\ */
 	sigaction(SIGINT,  &act, NULL);		/* Signal 2: Ctrl-C */
 
-	printf("Sending FC ELS ECHO from 0x%X (%s) to 0x%X:\n",
-	       port_attrs.PortFcId, fp_dev, fp_did);
+	printf("Sending FC ELS ECHO from %s (%s) to 0x%X:\n",
+	       port_attrs->port_id, fp_dev, fp_did);
 
 	for (i = 0; fp_count == -1 || i < fp_count; i++) {
 		rc = fp_send_ping();
@@ -1045,11 +987,6 @@ int main(int argc, char *argv[])
 	int rc = 1;
 
 	fp_options(argc, argv);
-
-	if (HBA_LoadLibrary() != HBA_STATUS_OK)
-		SA_LOG_ERR_EXIT(errno, "HBA_LoadLibrary failed");
-
-	hba_handle = 0;
 	if (fp_find_hba()) {
 		sprintf(bsg_dev, "/dev/bsg/%s", fp_dev);
 		fp_fd = open(bsg_dev, O_RDWR);
@@ -1064,12 +1001,10 @@ int main(int argc, char *argv[])
 			fp_report();
 			rc = 0;
 		}
+		free(port_attrs);
+		free(host);
 		close(fp_fd);
 	}
 
-	if (hba_handle)
-		HBA_CloseAdapter(hba_handle);
-
-	HBA_FreeLibrary();
 	return rc;
 }

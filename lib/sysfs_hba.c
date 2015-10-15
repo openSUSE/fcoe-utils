@@ -31,6 +31,19 @@
 
 #include "sysfs_hba.h"
 #include "fcoemon_utils.h"
+#include "net_types.h"
+
+#define hton64(p, v)					\
+	do {						\
+		p[0] = (u_char) ((v) >> 56) & 0xFF;	\
+		p[1] = (u_char) ((v) >> 48) & 0xFF;	\
+		p[2] = (u_char) ((v) >> 40) & 0xFF;	\
+		p[3] = (u_char) ((v) >> 32) & 0xFF;	\
+		p[4] = (u_char) ((v) >> 24) & 0xFF;	\
+		p[5] = (u_char) ((v) >> 16) & 0xFF;	\
+		p[6] = (u_char) ((v) >> 8) & 0xFF;	\
+		p[7] = (u_char) (v) & 0xFF;		\
+	} while (0)
 
 struct port_attributes *get_port_attribs_by_device(char *path)
 {
@@ -463,6 +476,110 @@ char *get_pci_dev_from_netdev(const char *netdev)
 		return NULL;
 
 	return pcidev;
+}
+
+char *get_host_by_wwpn(struct hba_wwn wwn)
+{
+	struct dirent *dp;
+	DIR *dir;
+	char *host = NULL;
+	char path[1024];
+	uint64_t port_name;
+	struct hba_wwn port_wwn;
+
+	dir = opendir(SYSFS_HOST_DIR);
+	if (!dir)
+		return NULL;
+
+	for (dp = readdir(dir); dp != NULL; dp = readdir(dir)) {
+		if (dp->d_name[0] == '.' && dp->d_name[1] == '\0')
+			continue;
+		if (dp->d_name[1] == '.' && dp->d_name[2] == '\0')
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%s", SYSFS_HOST_DIR,
+			 dp->d_name);
+
+		sa_sys_read_u64(path, "port_name", &port_name);
+		hton64(port_wwn.wwn, port_name);
+		if (memcmp((void *)&port_wwn, &wwn, sizeof(struct hba_wwn)))
+			continue;
+
+		host = strdup(dp->d_name);
+		break;
+	}
+
+	closedir(dir);
+
+	return host;
+}
+
+char *get_host_by_fcid(uint32_t fcid)
+{
+	struct dirent *dp;
+	DIR *dir;
+	char *host = NULL;
+	char path[1024];
+	uint32_t port_id;
+
+	dir = opendir(SYSFS_HOST_DIR);
+	if (!dir)
+		return NULL;
+
+	for (dp = readdir(dir); dp != NULL; dp = readdir(dir)) {
+		if (dp->d_name[0] == '.' && dp->d_name[1] == '\0')
+			continue;
+		if (dp->d_name[1] == '.' && dp->d_name[2] == '\0')
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%s", SYSFS_HOST_DIR,
+			dp->d_name);
+
+		sa_sys_read_u32(path, "port_id", &port_id);
+		if (port_id != fcid)
+			continue;
+
+		host = strdup(dp->d_name);
+		break;
+	}
+
+	closedir(dir);
+
+	return host;
+}
+
+char *get_rport_by_fcid(uint32_t fcid)
+{
+	struct dirent *dp;
+	DIR *dir;
+	char *rport = NULL;
+	char path[1024];
+	uint32_t port_id;
+
+	dir = opendir(SYSFS_RPORT_DIR);
+	if (!dir)
+		return NULL;
+
+	for (dp = readdir(dir); dp != NULL; dp = readdir(dir)) {
+		if (dp->d_name[0] == '.' && dp->d_name[1] == '\0')
+			continue;
+		if (dp->d_name[1] == '.' && dp->d_name[2] == '\0')
+			continue;
+
+		snprintf(path, sizeof(path), "%s/%s", SYSFS_RPORT_DIR,
+			dp->d_name);
+
+		sa_sys_read_u32(path, "port_id", &port_id);
+		if (port_id != fcid)
+			continue;
+
+		rport = strdup(dp->d_name);
+		break;
+	}
+
+	closedir(dir);
+
+	return rport;
 }
 
 static int get_ctlr_num(const char *netdev)

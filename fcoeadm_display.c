@@ -540,6 +540,44 @@ free_host:
 	return rc;
 }
 
+static int get_host_from_vport(struct dirent *dp, void *arg)
+{
+	if (!strncmp(dp->d_name, "host", strlen("host"))) {
+		struct port_attributes *port_attrs;
+
+		port_attrs = get_port_attribs(dp->d_name);
+		if (!port_attrs)
+			return 0;
+		printf("\n");
+		show_port_info(port_attrs);
+		free(port_attrs);
+	}
+
+	return 0;
+}
+
+static int crawl_vports(struct dirent *dp, void *arg)
+{
+	char *oldpath = arg;
+
+	if (!strncmp(dp->d_name, "vport", strlen("vport"))) {
+		char path[1024];
+
+		snprintf(path, sizeof(path), "%s/%s", oldpath, dp->d_name);
+		sa_dir_read(path, get_host_from_vport, NULL);
+	}
+	return 0;
+}
+
+static void show_host_vports(const char *host)
+{
+	char path[1024];
+
+	snprintf(path, sizeof(path), "%s/%s/device/", SYSFS_HOST_DIR, host);
+	sa_dir_read(path, crawl_vports, path);
+
+}
+
 static enum fcoe_status display_one_adapter_info(char *ifname)
 {
 	struct port_attributes *port_attrs;
@@ -569,6 +607,7 @@ static enum fcoe_status display_one_adapter_info(char *ifname)
 	 */
 	show_hba_info(hba_info);
 	show_port_info(port_attrs);
+	show_host_vports(host);
 
 	rc = SUCCESS;
 

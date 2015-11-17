@@ -165,6 +165,13 @@ option). *SUPPORTED_DRIVERS* is the list of drivers to automatically load
 during fcoe service start. Any changes to this file will require a restart
 of the *fcoe* service.
 
+/etc/sysconfig/fcoe
+~~~~~~~~~~~~~~~~~~~
+On systemd-enabled systems, this is the primary configuration file used for
+the *fcoe* system service. Add *--debug* to *FCOEMON_OPTS* to enable debug 
+log messages. Any changes to this file will require a restart of the *fcoe*
+service.
+
 /etc/fcoe/cfg-<ifname>
 ~~~~~~~~~~~~~~~~~~~~~~
 These files are read by *fcoemon* on initialization. They are used to

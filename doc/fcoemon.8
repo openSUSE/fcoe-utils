@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: fcoemon
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 02/06/2013
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 09/30/2015
 .\"    Manual: Open-FCoE Tools
 .\"    Source: Open-FCoE
 .\"  Language: English
 .\"
-.TH "FCOEMON" "8" "02/06/2013" "Open\-FCoE" "Open\-FCoE Tools"
+.TH "FCOEMON" "8" "09/30/2015" "Open\-FCoE" "Open\-FCoE Tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -61,7 +61,7 @@ Enable debugging messages\&.
 .PP
 \fB\-l\fR, \fB\-\-legacy\fR
 .RS 4
-Force fcoemon to use the legacy /sys/modlue/libfcoe/parameters/ interface\&. The default is to use the newer /sys/bus/fcoe/ interfaces if they are available\&.
+Force fcoemon to use the legacy /sys/module/libfcoe/parameters/ interface\&. The default is to use the newer /sys/bus/fcoe/ interfaces if they are available\&.
 .RE
 .PP
 \fB\-s\fR, \fB\-\-syslog\fR
@@ -324,6 +324,9 @@ Once these configuration steps have been performed, use \fBfcoeadm\fR to query t
 .SS "/etc/fcoe/config"
 .sp
 This is the primary configuration file for the \fBfcoe\fR system service\&. The default options in this file are: \fBDEBUG="no"\fR and \fBUSE_SYSLOG="yes"\fR\&. The former is used to enable debugging messages from the fcoe service script and \fBfcoemon\fR (via the \fB\-\-debug\fR option)\&. The latter is to indicate if the log messages are to be output to the system log (via the \fB\-\-syslog\fR option)\&. \fBSUPPORTED_DRIVERS\fR is the list of drivers to automatically load during fcoe service start\&. Any changes to this file will require a restart of the \fBfcoe\fR service\&.
+.SS "/etc/sysconfig/fcoe"
+.sp
+On systemd\-enabled systems, this is the primary configuration file used for the \fBfcoe\fR system service\&. Add \fB\-\-debug\fR to \fBFCOEMON_OPTS\fR to enable debug log messages\&. Any changes to this file will require a restart of the \fBfcoe\fR service\&.
 .SS "/etc/fcoe/cfg\-<ifname>"
 .sp
 These files are read by \fBfcoemon\fR on initialization\&. They are used to indicate which Ethernet or VLAN interfaces should have FCoE instances created\&. The option values in this file normally are: \fBFCOE_ENABLE="yes"\fR, \fBDCB_REQUIRED="yes"\fR, and \fBAUTO_VLAN="yes"\fR, though if the variable values are omitted, they default to "no"\&.
@@ -358,7 +361,7 @@ indicates whether a FIP responder should be activated on this device to support 
 Note that the attached Ethernet peer device (e\&.g\&. FCoE capable switch port) must have compatible settings For DCB and FCoE to function properly\&.
 .SS "/etc/init\&.d/fcoe"
 .sp
-This is the \fBfcoe\fR system service script\&. This script is invoked by the init process or by the service command to start and stop the \fBfcoemon\fR\&.  On systemd-enabled systems, \fBfcoemon\fR is controlled via the \fBfcoe.service\fR unit.
+This is the \fBfcoe\fR system service script\&. This script is invoked by the init process or by the service command to start and stop the \fBfcoemon\fR\&. On systemd\-enabled systems, \fBfcoemon\fR is controlled via the \fBfcoe\&.service\fR unit\&.
 .SH "VLAN NAMING CONVENTIONS"
 .sp
 If a new VLAN device is created (see the description of the \fIAUTO_VLAN\fR setting above), it will have the name \fIdev\fR\&.\fIvlan\fR\-fcoe; where \fIdev\fR is the name of the Ethernet parent device and \fIvlan\fR is the discovered VLAN ID number\&.

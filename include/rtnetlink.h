@@ -20,7 +20,7 @@
 #ifndef _RTNETLINK_
 #define _RTNETLINK_
 
-int rtnl_socket(void);
+int rtnl_socket(unsigned int group);
 typedef int rtnl_handler(struct nlmsghdr *nh, void *arg);
 int rtnl_recv(int s, rtnl_handler *fn, void *arg);
 ssize_t send_getlink_dump(int s);

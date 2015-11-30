@@ -52,11 +52,11 @@
 /**
  * rtnl_socket - create and bind a routing netlink socket
  */
-int rtnl_socket(void)
+int rtnl_socket(unsigned int groups)
 {
 	struct sockaddr_nl sa = {
 		.nl_family = AF_NETLINK,
-		.nl_groups = RTMGRP_LINK,
+		.nl_groups = groups,
 	};
 	int s;
 	int rc;
@@ -507,7 +507,7 @@ int rtnl_get_sanmac(const char *ifname, unsigned char *addr)
 	add_rtattr(nh, DCB_ATTR_IFNAME, (void *)ifname, strlen(ifname) + 1);
 	add_rtattr(nh, DCB_ATTR_PERM_HWADDR, NULL, 0);
 
-	s = rtnl_socket();
+	s = rtnl_socket(0);
 	if (s < 0) {
 		RTNL_LOG_ERRNO("failed to create the socket");
 		return s;

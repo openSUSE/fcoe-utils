@@ -979,7 +979,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	ns = rtnl_socket();
+	ns = rtnl_socket(RTMGRP_LINK);
 	if (ns < 0) {
 		rc = ns;
 		goto ns_err;

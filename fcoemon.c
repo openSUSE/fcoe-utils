@@ -557,6 +557,9 @@ static int fcm_read_config_files(void)
 		if (!strncasecmp(val, "yes", 3) && rc == 1)
 			next->dcb_required = 1;
 
+		if (next->dcb_required == 1 && fcoe_config.dcb_init == 0)
+			fcoe_config.dcb_init = 1;
+
 		/* AUTO_VLAN */
 		rc = fcm_read_config_variable(file, val, sizeof(val),
 					      fp, CFG_IF_VAR_AUTOVLAN);
@@ -3768,7 +3771,9 @@ int main(int argc, char **argv)
 	if (rc != 0)
 		goto err_cleanup;
 
-	fcm_dcbd_init();
+	if (fcoe_config.dcb_init)
+		fcm_dcbd_init();
+
 	rc = fcm_srv_create(&srv_info);
 	if (rc != 0)
 		goto err_cleanup;

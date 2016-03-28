@@ -25,6 +25,7 @@
 struct fcoe_config {
 	int debug;
 	int use_syslog;
+	int dcb_init;
 	struct fcoe_port *port;
 } fcoe_config;
 

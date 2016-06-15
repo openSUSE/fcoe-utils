@@ -267,13 +267,13 @@ static void show_full_lun_info(unsigned int hba, unsigned int port,
 	if (!port_attrs)
 		goto free_rport;
 
-	strncat(path, "/device/", sizeof(path));
+	strncat(path, "/device/", sizeof(path) - strlen(path) - 1);
 
 	sa_sys_read_line(path, "rev", rev, sizeof(rev));
 	sa_sys_read_line(path, "model", model, sizeof(model));
 	sa_sys_read_line(path, "vendor", vendor, sizeof(vendor));
 
-	strncat(path, "block", sizeof(path));
+	strncat(path, "block", sizeof(path) - strlen(path) - 1);
 
 	dir = opendir(path);
 	if (!dir)
@@ -349,7 +349,7 @@ static void show_short_lun_info(unsigned int hba, unsigned int port,
 	sa_sys_read_line(path, "model", model, sizeof(model));
 	sa_sys_read_line(path, "vendor", vendor, sizeof(vendor));
 
-	strncat(path, "block", sizeof(path));
+	strncat(path, "block", sizeof(path) - strlen(path) - 1);
 
 	dir = opendir(path);
 	if (!dir)

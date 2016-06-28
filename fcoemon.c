@@ -748,7 +748,7 @@ static void fcm_fc_event_handler(struct fc_nl_event *fc_event)
 	}
 }
 
-static void log_nlmsg_error(struct nlmsghdr *hp, size_t rlen, const char *str)
+static int log_nlmsg_error(struct nlmsghdr *hp, size_t rlen, const char *str)
 {
 	struct nlmsgerr *ep;
 
@@ -756,8 +756,10 @@ static void log_nlmsg_error(struct nlmsghdr *hp, size_t rlen, const char *str)
 		ep = (struct nlmsgerr *)NLMSG_DATA(hp);
 		FCM_LOG_DBG("%s, err=%d, type=%d\n",
 			    str, ep->error, ep->msg.nlmsg_type);
+		return ep->error;
 	} else {
 		FCM_LOG("%s", str);
+		return 0;
 	}
 }
 
@@ -1880,7 +1882,7 @@ static void fcm_link_recv(UNUSED void *arg)
 			break;
 
 		if (hp->nlmsg_type == NLMSG_ERROR) {
-			log_nlmsg_error(hp, rlen, "nlmsg error");
+			rc = log_nlmsg_error(hp, rlen, "nlmsg error");
 			break;
 		}
 
@@ -1910,6 +1912,11 @@ static void fcm_link_recv(UNUSED void *arg)
 			FCM_LOG_DBG("%s: Unexpected type %d\n", __func__, type);
 			break;
 		}
+	}
+	if (rc == -EBUSY) {
+		FCM_LOG_DBG("%s: netlink returned -EBUSY, retry\n",
+			      __func__);
+		fcm_link_getlink();
 	}
 }
 

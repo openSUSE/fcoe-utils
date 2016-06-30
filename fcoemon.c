@@ -1055,7 +1055,7 @@ static int fcm_vlan_disc_socket(struct fcoe_port *p)
 	int fd;
 	int origdev = 1;
 
-	fd = fip_socket(p->ifindex, FIP_NONE);
+	fd = fip_socket(p->ifindex, p->mac, FIP_NONE);
 	if (fd < 0) {
 		FCM_LOG_ERR(errno, "socket error");
 		return fd;
@@ -1494,7 +1494,7 @@ static void init_fip_vn2vn_responder(struct fcoe_port *p)
 	if (p->fip_responder_socket >= 0)
 		return;
 
-	s = fip_socket(p->ifindex, FIP_ALL_VN2VN);
+	s = fip_socket(p->ifindex, p->mac, FIP_ALL_VN2VN);
 	if (s < 0) {
 		FCM_LOG_ERR(errno, "%s: Failed to get fip socket\n", p->ifname);
 		return;

@@ -122,13 +122,13 @@ fip_socket_add_addr(int s, int ifindex, bool add, const __u8 *mac, bool multi)
  * @ifindex: network interface index to send on
  * @add: 1 to add 0 to del
  */
-static int fip_socket_sanmac(int s, int ifindex, int add)
+static int fip_socket_sanmac(int s, int ifindex, unsigned char *mac, int add)
 {
 	unsigned char smac[ETHER_ADDR_LEN];
 
 	if (fip_get_sanmac(ifindex, smac)) {
 		FIP_LOG_DBG("%s: no sanmac, ifindex %d\n", __func__, ifindex);
-		return -ENXIO;
+		memcpy(smac, mac, ETHER_ADDR_LEN);
 	}
 
 	return fip_socket_add_addr(s, ifindex, add, smac, false);
@@ -200,7 +200,7 @@ static void drain_socket(int s)
  * @ifindex: ifindex of netdevice to bind to
  * @multi: Indication of any multicast address to bind to
  */
-int fip_socket(int ifindex, enum fip_multi multi)
+int fip_socket(int ifindex, unsigned char *mac, enum fip_multi multi)
 {
 	struct sockaddr_ll sa = {
 		.sll_family = AF_PACKET,
@@ -214,7 +214,7 @@ int fip_socket(int ifindex, enum fip_multi multi)
 	if (s < 0)
 		return s;
 
-	rc = fip_socket_sanmac(s, ifindex, 1);
+	rc = fip_socket_sanmac(s, ifindex, mac, 1);
 	if (rc < 0) {
 		close(s);
 		return rc;

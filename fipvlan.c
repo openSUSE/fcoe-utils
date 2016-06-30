@@ -815,7 +815,7 @@ static int probe_fip_interface(struct iff *iff)
 		return 0;
 
 	if (!iff->fip_ready) {
-		iff->ps = fip_socket(iff->ifindex, FIP_NONE);
+		iff->ps = fip_socket(iff->ifindex, iff->mac_addr, FIP_NONE);
 		if (iff->ps < 0) {
 			FIP_LOG_DBG("if %d not ready\n", iff->ifindex);
 			return 0;

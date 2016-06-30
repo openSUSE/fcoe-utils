@@ -755,7 +755,7 @@ static void log_nlmsg_error(struct nlmsghdr *hp, size_t rlen, const char *str)
 	struct nlmsgerr *ep;
 
 	if (NLMSG_OK(hp, rlen)) {
-		ep = (struct nlmsgerr *)NLMSG_NEXT(hp, rlen);
+		ep = (struct nlmsgerr *)NLMSG_DATA(hp);
 		FCM_LOG_DBG("%s, err=%d, type=%d\n",
 			    str, ep->error, ep->msg.nlmsg_type);
 	} else {

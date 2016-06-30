@@ -2204,6 +2204,7 @@ static void fcm_dcbd_rx(void *arg)
 		len = strlen(buf);
 		ASSERT(len <= rc);
 
+		FCM_LOG_DBG("recv '%s', len=%d bytes succeeded", buf, (int)len);
 		switch (buf[CLIF_RSP_MSG_OFF]) {
 		case CMD_RESPONSE:
 			st = fcm_get_hex(buf + CLIF_STAT_OFF, CLIF_STAT_LEN,

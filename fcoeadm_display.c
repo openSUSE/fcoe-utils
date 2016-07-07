@@ -132,7 +132,7 @@ static void show_port_info(struct port_attributes *lp_info)
 	printf("        Port Name:         %s\n",
 		lp_info->port_name);
 
-	printf("        FabricName:        %s\n",
+	printf("        Fabric Name:        %s\n",
 		lp_info->fabric_name);
 
 	printf("        Speed:             %s\n",

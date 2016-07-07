@@ -98,7 +98,7 @@ static void fp_usage(void)
 		cmdname, FP_LEN_MAX);
 
 	fprintf(stderr, "\nNote that the default maximum FC payload allowed "
-		"is %lu bytes and the default maxmaxium fcping payload, "
+		"is %lu bytes and the default maximum fcping payload, "
 		"i.e., the FC ELS ECHO data, allowed is %lu "
 		"bytes.\n",
 		FC_MAX_PAYLOAD, FP_LEN_MAX);

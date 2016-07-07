@@ -124,6 +124,8 @@ static void pfd_remove(int fd)
 	npfd = realloc(pfd, pfd_len * sizeof(struct pollfd));
 	if (npfd)
 		pfd = npfd;
+	else
+		perror("realloc failed");
 }
 
 TAILQ_HEAD(iff_list_head, iff);

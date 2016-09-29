@@ -2906,10 +2906,22 @@ static void fcm_send_fip_request(const struct fcoe_port *p)
 void fcm_vlan_disc_timeout(void *arg)
 {
 	struct fcoe_port *p = arg;
+	int s;
+
 	FCM_LOG_DBG("%s: VLAN discovery TIMEOUT [%d]",
 		    p->ifname, p->vlan_disc_count);
 	p->vlan_disc_count++;
+	if (p->fip_socket < 0) {
+		s = fcm_vlan_disc_socket(p);
+		if (s < 0) {
+			FCM_LOG_ERR(errno, "Could not acquire fip socket.\n");
+			goto set_timeout;
+		}
+		p->fip_socket = s;
+		p->vlan_disc_count = 1;
+	}
 	fcm_send_fip_request(p);
+set_timeout:
 	sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 }
 
@@ -2918,8 +2930,16 @@ static int fcm_start_vlan_disc(struct fcoe_port *p)
 	int s;
 	if (p->fip_socket < 0) {
 		s = fcm_vlan_disc_socket(p);
-		if (s < 0)
+		if (s < 0) {
+			/*
+			 * If we can't open the socket set the timeout
+			 * anyways so we will retry sending the fipvlan
+			 * request.
+			 */
+			FCM_LOG_ERR(errno, "Failed to open socket, setting VLAN DISC timer.\n");
+			sa_timer_set(&p->vlan_disc_timer, FCM_VLAN_DISC_TIMEOUT);
 			return s;
+		}
 		p->fip_socket = s;
 	}
 	p->vlan_disc_count = 1;

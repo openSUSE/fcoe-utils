@@ -211,11 +211,14 @@ int fip_socket(int ifindex, unsigned char *mac, enum fip_multi multi)
 	int rc;
 
 	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_FIP));
-	if (s < 0)
+	if (s < 0) {
+		FIP_LOG_ERR(errno, "Failed to open FIP socket.\n");
 		return s;
+	}
 
 	rc = fip_socket_sanmac(s, ifindex, mac, 1);
 	if (rc < 0) {
+		FIP_LOG_ERR(errno, "Failed to open SANMAC socket.\n");
 		close(s);
 		return rc;
 	}
@@ -224,6 +227,7 @@ int fip_socket(int ifindex, unsigned char *mac, enum fip_multi multi)
 
 	rc = bind(s, (struct sockaddr *) &sa, sizeof(sa));
 	if (rc < 0) {
+		FIP_LOG_ERR(errno, "Bind failed.\n");
 		close(s);
 		return rc;
 	}

@@ -660,17 +660,19 @@ static char *get_ifname_from_rport(char *rport)
 
 	err = asprintf(&path, "%s/%s", "/sys/class/fc_remote_ports", rport);
 	if (err == -1)
-		return false;
+		return NULL;
 
 	ret = readlink(path, link, sizeof(link));
 	free(path);
 	if (ret == -1)
-		return false;
+		return NULL;
 
 	if (link[ret] != '\0')
 		link[ret] = '\0';
 
 	offs = strstr(link, "/net/");
+	if (!offs)
+		return NULL;
 
 	offs = offs + 5;
 
@@ -778,7 +780,7 @@ static int search_rports(struct dirent *dp, void *arg)
 	} else {
 		ifname = get_ifname_from_rport(rport);
 		if (!ifname)
-			return -ENOMEM;
+			return 0;
 		allocated = true;
 	}
 

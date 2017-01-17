@@ -1,0 +1,71 @@
+From 6e6831fcdc63425c2af09f41190b010d1fdec091 Mon Sep 17 00:00:00 2001
+From: Robert Love <robert.w.love@intel.com>
+Date: Fri, 2 Aug 2013 10:33:11 -0700
+Subject: [PATCH 1/4] fcnsq: Fix build warnings
+
+I was unsure exactly how to fix this. It seems that the 'x' formatter for
+printf will not accept a u64. 'u' will print it, but then it won't be in
+hex format. I tried printing it as a __64 thinking that somehow the typedef
+from __64 to 64 might be confusing the compiler, but that did not seem to
+help. Since inittype.h is already imported I decided to simply cast the
+variables before printing them.
+
+fcnsq.c: In function 'gpn_id':
+fcnsq.c:230:2: error: format '%llx' expects argument of type 'long long unsigned int', but argument 3 has type 'u64' [-Werror=format]
+fcnsq.c: In function 'gnn_id':
+fcnsq.c:251:2: error: format '%llx' expects argument of type 'long long unsigned int', but argument 3 has type 'u64' [-Werror=format]
+fcnsq.c: In function 'main':
+fcnsq.c:405:4: error: format '%llx' expects argument of type 'long long unsigned int *', but argument 3 has type 'u64 *' [-Werror=format]
+cc1: all warnings being treated as errors
+make[1]: *** [fcnsq.o] Error 1
+make[1]: Leaving directory ...
+dh_auto_build: make -j1 returned exit code 2
+make: *** [build-arch] Error 2
+
+Signed-off-by: Robert Love <robert.w.love@intel.com>
+---
+ fcnsq.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/fcnsq.c b/fcnsq.c
+index 1d52f85..943e138 100644
+--- a/fcnsq.c
++++ b/fcnsq.c
+@@ -33,6 +33,7 @@
+ #include <sys/ioctl.h>
+ #include <sys/stat.h>
+ #include <linux/types.h>
++#include <inttypes.h>
+ typedef __u8 u8;
+ typedef __u16 u16;
+ typedef __u32 u32;
+@@ -227,7 +228,7 @@ static int gpn_id(int bsg, u32 fcid)
+ 	rjt = gn_id(bsg, fcid, FC_NS_GPN_ID, &wwpn);
+ 	if (rjt)
+ 		goto fail;
+-	print_result("Port Name", "%16.16llx\n", wwpn);
++	print_result("Port Name", "%16.16" PRIx64 "\n", (u_int64_t)wwpn);
+ 	return 0;
+ fail:
+ 	if (rjt == (u16) ~0)
+@@ -248,7 +249,7 @@ static int gnn_id(int bsg, u32 fcid)
+ 	rjt = gn_id(bsg, fcid, FC_NS_GNN_ID, &wwnn);
+ 	if (rjt)
+ 		goto fail;
+-	print_result("Node Name", "%16.16llx\n", wwnn);
++	print_result("Node Name", "%16.16" PRIx64 "\n", (u_int64_t)wwnn);
+ 	return 0;
+ fail:
+ 	if (rjt == (u16) ~0)
+@@ -402,7 +403,7 @@ int main(int argc, char *argv[])
+ 			if (cmd)
+ 				help(-1);
+ 			cmd = c;
+-			sscanf(optarg, "%llx", &wwnn);
++			sscanf(optarg, "%" PRIx64, (u_int64_t *)&wwnn);
+ 			break;
+ 		}
+ 	}
+-- 
+1.7.10.4
+

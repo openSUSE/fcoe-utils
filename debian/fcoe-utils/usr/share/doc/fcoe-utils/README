@@ -1,0 +1,74 @@
+                  FCoE Management Tools Installation Guide
+                  ========================================
+
+The FCoE Management Tools included in this package are
+
+        fcoeadm - program to create, reset, destroy, and display FCoE interfaces
+        fcoemon - program to monitor the events from the DCB daemon
+
+Requirements:
+
+        The HBAAPI library and the HBAAPI vendor library source must be built
+and installed before you can build the management tools. Both the HBAAPI library,
+libHBAAPI, and the HBAAPI vendor library, libhbalinux, may be downloaded from
+www.Open-FCoE.org. The instructions in the package describe how to download and
+build the libraries.
+
+Best Practices :
+
+Any newly discovered disk can be mounted using udev rules, autofs and possibly by
+other methods as needed. However, if a fcoe disk is needed by any other system service
+that follows the fcoe service then the disk will need to be mounted at some point
+after the fcoe service, but before the service that requires the disk. That mounting
+could possibly be added to the fcoe service script itself, or to a new service script
+that would run after fcoe, but before the script that requires the fcoe disk.
+The following is an example of how to mount a fcoe disk formatted with an ext3 file
+system using /etc/fstab.
+
+	mount_fcoe_disks_from_fstab()
+	{
+	    local timeout=20
+	    local done=1
+	    local fcoe_disks=($(egrep 'by-path\/fc-.*_netdev' /etc/fstab | cut -d ' ' -f1))
+
+	    test -z $fcoe_disks && return 0
+
+	    echo -n "Waiting for fcoe disks . "
+	    while [ $timeout -gt 0 ]; do
+		for disk in ${fcoe_disks[*]}; do
+			if ! test -b $disk; then
+				done=0
+				break
+			fi
+		done
+
+		test $done -eq 1 && break;
+		sleep 1
+		echo -n ". "
+		done=1
+		let timeout--
+	    done
+
+	    if test $timeout -eq 0; then
+		echo "timeout!"
+	    else
+		echo "done!"
+	    fi
+
+	    # mount any newly discovered disk
+	    mount -a 2>/dev/null
+	}
+
+	The mount_fcoe_disks_from_fstab function should be invoked after the
+fcoemon daemon is started by the fcoe service script to mount any fcoe disk
+specified by path in /etc/fstab as:-
+
+	/dev/disk/by-path/fc-0xXX:0xXX /mnt/fcoe-disk1 ext3  defaults,_netdev    0 0
+	/dev/disk/by-path/fc-0xYY:0xYY /mnt/fcoe-disk2 ext3  defaults,_netdev    0 0
+
+	The /dev/disk/by-path entries with "fc-" and "_netdev" in their names
+enables mount_fcoe_disks_from_fstab to identify the fcoe disks so that it can
+wait for the fcoe disks to be discovered. If they are not added to the system
+within the timeout period the function will exit, the timeout is set to 20
+seconds but can be changed to suit the environment. See man fstab(5) for for
+more details on mounting filesystems.

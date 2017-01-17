@@ -1,0 +1,3 @@
+fcoe-utils depends on a bunch of headers from the kernel.
+I've fixed this upstream (which will be part of the next release), until then
+we alter files outside the debian/ folder

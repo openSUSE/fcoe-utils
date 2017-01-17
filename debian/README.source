@@ -1,0 +1,3 @@
+This package is prepared from an archive file pulled from upstream git repository.
+The exact command used is:
+git archive --format=tar.gz --prefix=fcoe-utils-1.0.21/ v1.0.21   >fcoe-utils-1.0.21.tar.gz

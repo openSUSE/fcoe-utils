@@ -1,0 +1,109 @@
+From 790483b5eeb8c851c73aab07340418ee379df60c Mon Sep 17 00:00:00 2001
+From: Robert Love <robert.w.love@intel.com>
+Date: Fri, 2 Aug 2013 10:33:27 -0700
+Subject: [PATCH 4/4] libsa: Fix build warning on sparc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Simply change the formatting string to resolve the below warning.
+
+tv_usec is a suseconds_t
+suseconds_t is a __kernel_suseconds_t
+__kernel_suseconds_t is a long
+
+I was unable to get PRId64 to work with printf. I am unsure if this
+fix will actually work on all archs. Testing will tell...
+
+make[1]: Entering directory `/«PKGBUILDDIR»'
+depbase=`echo lib/fcoe_utils.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+	      gcc -DPACKAGE_NAME=\"fcoe-utils\" -DPACKAGE_TARNAME=\"fcoe-utils\" -DPACKAGE_VERSION=\"1.0.28\" -DPACKAGE_STRING=\"fcoe-utils\ 1.0.28\" -DPACKAGE_BUGREPORT=\"fcoe-devel@open-fcoe.org\" -DPACKAGE_URL=\"\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -I.  -I./include -I./include -DSYSCONFDIR="\"/etc\"" -D_FORTIFY_SOURCE=2 -Wall -Wformat=2 -Werror -g -O2 -fPIE -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -MT lib/fcoe_utils.o -MD -MP -MF $depbase.Tpo -c -o lib/fcoe_utils.o lib/fcoe_utils.c &&\
+	      mv -f $depbase.Tpo $depbase.Po
+depbase=`echo lib/sa_log.o | sed 's|[^/]*$|.deps/&|;s|\.o$||'`;\
+	      gcc -DPACKAGE_NAME=\"fcoe-utils\" -DPACKAGE_TARNAME=\"fcoe-utils\" -DPACKAGE_VERSION=\"1.0.28\" -DPACKAGE_STRING=\"fcoe-utils\ 1.0.28\" -DPACKAGE_BUGREPORT=\"fcoe-devel@open-fcoe.org\" -DPACKAGE_URL=\"\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -I.  -I./include -I./include -DSYSCONFDIR="\"/etc\"" -D_FORTIFY_SOURCE=2 -Wall -Wformat=2 -Werror -g -O2 -fPIE -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -MT lib/sa_log.o -MD -MP -MF $depbase.Tpo -c -o lib/sa_log.o lib/sa_log.c &&\
+	      mv -f $depbase.Tpo $depbase.Po
+lib/sa_log.c: In function 'sa_log_timestamp':
+lib/sa_log.c:179:4: error: format '%ld' expects argument of type 'long int', but argument 4 has type 'int' [-Werror=format]
+lib/sa_log.c:189:5: error: format '%ld' expects argument of type 'long int', but argument 4 has type 'int' [-Werror=format]
+cc1: all warnings being treated as errors
+make[1]: *** [lib/sa_log.o] Error 1
+make[1]: Leaving directory `/«PKGBUILDDIR»'
+dh_auto_build: make -j1 returned exit code 2
+make: *** [build-arch] Error 2
+dpkg-buildpackage: error: debian/rules build-arch gave error exit status 2
+────────────────────────────────────────────────────────────────────────────────
+Build finished at 20130725-0957
+
+Finished
+────────
+
+E: Build failure (dpkg-buildpackage died)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Cleanup                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Purging /«BUILDDIR»
+Not cleaning session: cloned chroot in use
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Summary                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Build Architecture: sparc
+Build-Space: 1900
+Build-Time: 25
+Distribution: experimental
+Fail-Stage: build
+Host Architecture: sparc
+Install-Time: 82
+Job: fcoe-utils_1.0.28-3
+Machine Architecture: sparc
+Package: fcoe-utils
+Package-Time: 204
+Source-Version: 1.0.28-3
+Space: 1900
+Status: attempted
+Version: 1.0.28-3
+
+Signed-off-by: Robert Love <robert.w.love@intel.com>
+---
+ lib/sa_log.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+Index: fcoe-utils/lib/sa_log.c
+===================================================================
+--- fcoe-utils.orig/lib/sa_log.c	2014-02-23 01:26:32.658308143 +0530
++++ fcoe-utils/lib/sa_log.c	2014-02-23 01:28:01.802311729 +0530
+@@ -18,6 +18,9 @@
+  */
+ 
+ #define _GNU_SOURCE		/* for GNU definition of strerror_r */
++
++#include <inttypes.h>
++
+ #include "fcoemon_utils.h"
+ #include "net_types.h"
+ #include "fc_types.h"
+@@ -169,8 +172,8 @@
+ 	if (sa_log_flags & SA_LOGF_TIME) {
+ 		ctime_r(&t.tv_sec, ctime_buf);
+ 		ctime_buf[11 + 8] = '\0';   /* trim ctime after seconds */
+-		fprintf(stderr, "%s.%3.3ld ",
+-			ctime_buf + 11, t.tv_usec / 1000);
++		fprintf(stderr, "%s.%3.3" PRIu64 "",
++			ctime_buf + 11, (u_int64_t) t.tv_usec / 1000);
+ 	}
+ 	if (sa_log_flags & SA_LOGF_DELTA) {
+ 		if (tlast.tv_sec == 0)
+@@ -179,8 +182,8 @@
+ 		tlast = t;
+ 		if (diff.tv_sec != 0 ||
+ 		    diff.tv_usec >= sa_log_time_delta_min * 1000)
+-			fprintf(stderr, "%4ld.%3.3ld ",
+-				diff.tv_sec, diff.tv_usec / 1000);
++			fprintf(stderr, "%4ld.%3.3" PRIu64 "",
++				diff.tv_sec, (u_int64_t)diff.tv_usec / 1000);
+ 		else
+ 			fprintf(stderr, "%8s ", "");
+ 	}

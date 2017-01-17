@@ -1,0 +1,16 @@
+Fix wrong handling of paths with overlapping DESTDIR
+Index: fcoe-utils/Makefile.am
+===================================================================
+--- fcoe-utils.orig/Makefile.am	2014-02-21 12:51:26.248356286 +0530
++++ fcoe-utils/Makefile.am	2014-02-21 12:52:45.176359461 +0530
+@@ -63,7 +63,7 @@
+ 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
+ 		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_configdir}/config; \
+ 	fi; \
+-	if [ ! -d "${DESTDIR}${BASH_COMPLETION_DIR}" ] ; then \
+-		mkdir ${DESTDIR}${BASH_COMPLETION_DIR}; \
++	if [ ! -d "${BASH_COMPLETION_DIR}" ] ; then \
++		mkdir ${BASH_COMPLETION_DIR}; \
+ 	fi; \
+-	cp -f ${srcdir}/contrib/bash_completion/* ${DESTDIR}${BASH_COMPLETION_DIR}
++	cp -f ${srcdir}/contrib/bash_completion/* ${BASH_COMPLETION_DIR}

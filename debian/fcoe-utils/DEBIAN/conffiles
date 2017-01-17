@@ -1,0 +1,5 @@
+/etc/bash_completion.d/fcoeadm
+/etc/bash_completion.d/fcoemon
+/etc/fcoe/cfg-ethx
+/etc/fcoe/config
+/etc/init.d/fcoe-utils

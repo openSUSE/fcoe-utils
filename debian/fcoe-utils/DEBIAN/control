@@ -1,0 +1,13 @@
+Package: fcoe-utils
+Version: 1.0.31+git20160622-1
+Architecture: amd64
+Maintainer: Debian FCoE Maintainers <pkg-fcoe-general@lists.alioth.debian.org>
+Installed-Size: 276
+Depends: libc6 (>= 2.15), libpciaccess0, init-system-helpers (>= 1.18~)
+Section: misc
+Priority: extra
+Homepage: http://www.open-fcoe.org
+Description: Fibre Channel over Ethernet utilities
+ This package allows users to use Fibre Channel over Ethernet. It contains:
+ fcoeadm - command line tool for configuring FCoE interfaces
+ fcoemon - service to configure DCB Ethernet QOS filters, works with dcbd

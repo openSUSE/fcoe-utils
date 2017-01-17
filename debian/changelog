@@ -1,0 +1,100 @@
+fcoe-utils (1.0.31+git20160622-1) unstable; urgency=low
+
+  * fcoeadm: Fix possible buffer overflows
+
+ -- Vasu Dev <vasu.dev@intel.com>  Wed, 22 Jun 2016 17:53:09 +0000
+
+fcoe-utils (1.0.31+git20160502-1) unstable; urgency=low
+  
+  * fcoemon.c: Add a check to verify if dcbd is to be initialized, else do not try to connect to dcbd/lldpad  
+
+ -- Vasu Dev <vasu.dev@intel.com>  Mon, 2 May 2016 16:40:33 +0000
+ 
+fcoe-utils (1.0.31+git20160205-1) unstable; urgency=low
+
+  * Up to this version is tested against stable kernel 4.4 .
+
+ -- Vasu Dev <vasu.dev@intel.com>  Fri, 5 Feb 2016 19:53:34 +0000  
+
+fcoe-utils (1.0.29+git20140505-1) unstable; urgency=low
+
+  * Added myself as a maintainer of this package. 
+  * Updated to include some recent updates from the git repository.
+  * Updated to policy version 3.9.6; no changes required.
+  * Clarify debian/copyright as much as I can find.
+
+ -- Jacob Luna Lundberg <jacob@gnifty.net>  Thu, 23 Oct 2014 12:30:48 -0700
+
+fcoe-utils (1.0.29+git0.09caead4-2) unstable; urgency=medium
+
+  * [2e6112d] Update patch to fix build failures on almost all
+    architectures
+
+ -- Ritesh Raj Sarraf <rsarraf@netapp.com>  Sun, 23 Feb 2014 01:30:14 +0530
+
+fcoe-utils (1.0.29+git0.09caead4-1) unstable; urgency=medium
+
+  * [e54bb50] Imported Upstream version 1.0.29
+  * [7e3fd92] Imported Upstream version 1.0.29+git0.09caead4
+    Closes: #724136
+  * [048e654] Refresh patches and drop unneeded ones
+  * [a769fd2] Clean broken links in clean target
+
+ -- Ritesh Raj Sarraf <rsarraf@netapp.com>  Thu, 20 Feb 2014 20:45:25 +0530
+
+fcoe-utils (1.0.28-4) experimental; urgency=low
+
+  * [57e3369] Drop old patches, and add new patches from upstream
+
+ -- Ritesh Raj Sarraf <rsarraf@netapp.com>  Wed, 07 Aug 2013 19:10:33 +0530
+
+fcoe-utils (1.0.28-3) experimental; urgency=low
+
+  * [3f1e16d] Drop libnl as fcoe does not use it
+  * [1fc3782] Add upstream patches to fix build warning
+
+ -- Ritesh Raj Sarraf <rsarraf@netapp.com>  Thu, 25 Jul 2013 14:35:18 +0530
+
+fcoe-utils (1.0.28-2) unstable; urgency=low
+
+  * [ee6f461] Add patch fix-build-error-Werror.patch to fix build errors
+    caused by -Werror
+
+ -- Ritesh Raj Sarraf <rrs@debian.org>  Tue, 23 Jul 2013 21:01:39 +0530
+
+fcoe-utils (1.0.28-1) unstable; urgency=low
+
+  * [612eb6f] Imported Upstream version 1.0.28
+  * [40d7afb] Fix Vcs links
+  * [45f6981] Enable Hardening Build Flags
+  * [7d54af6] fix debian/copyright syntax
+  * [05ff2e6] Update libnl build dependency to version 3 family
+    (Closes: #688161)
+
+ -- Ritesh Raj Sarraf <rrs@debian.org>  Wed, 17 Jul 2013 00:12:18 +0530
+
+fcoe-utils (1.0.23-1) unstable; urgency=low
+
+  * [55bb5a4] fix non-dash shell construct
+  * [5dbbead] fix typo in variable name
+  * [8ac9a4f] fix dash string comparison operation
+  * [a3b17d2] fix lock path in /var/lock
+  * [77900ee] fix Vcs header
+  * [3871f84] Imported Upstream version 1.0.23
+  * [ad7efbf] revive the copyright details
+
+ -- Ritesh Raj Sarraf <rrs@debian.org>  Sat, 28 Apr 2012 16:09:51 +0530
+
+fcoe-utils (1.0.21-1) unstable; urgency=low
+
+  * New upstream release
+    - Upload to unstable 
+
+ -- Ritesh Raj Sarraf <rrs@debian.org>  Mon, 19 Dec 2011 23:14:41 +0530
+
+fcoe-utils (1.0.18-1) experimental; urgency=low
+
+  * Initial Release (Closes: #572454)
+  * Thanks to Ubuntu packagers. Initial work taken from them
+
+ -- Ritesh Raj Sarraf <rrs@debian.org>  Fri, 20 May 2011 16:38:35 +0530

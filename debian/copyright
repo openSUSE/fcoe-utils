@@ -1,0 +1,84 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: fcoe-utils
+Upstream-Contact: Open-FCoE Project <http://www.open-fcoe.org>
+Source: http://www.open-fcoe.org
+
+
+
+Files: *
+       contrib/*
+       contrib/bash_completion/*
+       debug/*
+       doc/*
+       etc/*
+       etc/initd/*
+       include/*
+       lib/*
+Copyright: 2009 Intel Corporation
+License: GPL-2
+
+
+Files: contrib/fcc.sh
+Copyright: 2008 - 2010 Cisco Systems
+License: GPL-2
+
+
+Files: contrib/fcoe-setup.sh
+       etc/systemd/*
+Copyright: 2010, 2013 Hannes Reinecke
+License: GPL-2
+
+
+Files: include/fc_scsi.h
+       include/fc_types.h
+       include/net_types.h
+Copyright: 2008 Intel Corporation
+License: LGPL-2.1
+
+
+Files: include/linux/*
+Comment: Upstream copied these files from the Linux kernel source.
+Copyright: 2008 - 2011 Intel Corporation
+	   1991 - 2012 Linus Torvalds and many others
+License: GPL-2
+
+
+Files: debian/*
+Copyright: 2011 - 2012 Ritesh Raj Sarraf <rrs@debian.org>
+License: GPL-2
+
+
+
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify it
+ under the terms and conditions of the GNU General Public License,
+ version 2, as published by the Free Software Foundation.
+ .
+ This program is distributed in the hope it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ more details.
+ .
+ You should have received a copy of the GNU General Public License along with
+ this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 2 can be found in /usr/share/common-licenses/GPL-2
+
+License: LGPL-2.1
+ This program is free software; you can redistribute it and/or modify it
+ under the terms and conditions of the GNU Lesser General Public License,
+ version 2.1, as published by the Free Software Foundation.
+ .
+ This program is distributed in the hope it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
+ for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public License
+ along with this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the complete text of the GNU Lesser General Public License
+ version 2.1 can be found in /usr/share/common-licenses/LGPL-2.1

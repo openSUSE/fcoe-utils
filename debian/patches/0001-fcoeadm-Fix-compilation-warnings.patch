@@ -1,0 +1,36 @@
+From bb8cc3463c433d3ced8ae70ca98ded7110f37d8c Mon Sep 17 00:00:00 2001
+From: Robert Love <robert.w.love@intel.com>
+Date: Wed, 24 Jul 2013 14:13:37 -0700
+Subject: [PATCH 1/2] fcoeadm: Fix compilatoin warnings
+
+Use PRIx64.
+
+fcoeadm_display.c:1429:2: error: format '%lx' expects argument of type 'long unsigned int', but argument 2 has type 'u_int64_t' [-Werror=format=]
+  printf("        Fabric Name:      0x%016lx\n", fcf->fabric_name);
+  ^
+fcoeadm_display.c:1430:2: error: format '%lx' expects argument of type 'long unsigned int', but argument 2 has type 'u_int64_t' [-Werror=format=]
+  printf("        Switch Name       0x%016lx\n", fcf->switch_name);
+
+Signed-off-by: Ritesh Raj Sarraf <rsarraf@netapp.com>
+---
+ fcoeadm_display.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fcoeadm_display.c b/fcoeadm_display.c
+index e1cbd48..a6cf7a3 100644
+--- a/fcoeadm_display.c
++++ b/fcoeadm_display.c
+@@ -1426,8 +1426,8 @@ void print_fcoe_fcf_device(void *ep, void *arg)
+ 	if (!buf)
+ 		buf = temp;
+ 	printf("        Connection Mode:  %s\n", buf);
+-	printf("        Fabric Name:      0x%016lx\n", fcf->fabric_name);
+-	printf("        Switch Name       0x%016lx\n", fcf->switch_name);
++	printf("        Fabric Name:      0x%016" PRIx64 "\n", fcf->fabric_name);
++	printf("        Switch Name       0x%016" PRIx64 "\n", fcf->switch_name);
+ 	mac2str(fcf->mac, mac, MAX_STR_LEN);
+ 	printf("        MAC Address:      %s\n", mac);
+ 	printf("        FCF Priority:     %u\n", fcf->priority);
+-- 
+1.7.10.4
+

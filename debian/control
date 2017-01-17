@@ -1,0 +1,18 @@
+Source: fcoe-utils
+Section: misc
+Priority: extra
+Maintainer: Debian FCoE Maintainers <pkg-fcoe-general@lists.alioth.debian.org>
+Uploaders: Ritesh Raj Sarraf <rrs@debian.org>, Liang Guo <bluestonechina@gmail.com>, Jacob Luna Lundberg <jacob@gnifty.net>
+Build-Depends: debhelper (>= 7), autotools-dev, libhbaapi-dev, lldpad-dev (>= 0.9.43), pkg-config, autoconf, automake, libhbalinux-dev (>= 1.0.13), libhbalinux2 (>= 1.0.13), dpkg-dev (>= 1.16.1~)
+Standards-Version: 3.9.6
+Vcs-Git: git://anonscm.debian.org/pkg-fcoe/fcoe-utils.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-fcoe/fcoe-utils.git;a=summary
+Homepage: http://www.open-fcoe.org
+
+Package: fcoe-utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Fibre Channel over Ethernet utilities
+ This package allows users to use Fibre Channel over Ethernet. It contains:
+ fcoeadm - command line tool for configuring FCoE interfaces 
+ fcoemon - service to configure DCB Ethernet QOS filters, works with dcbd 

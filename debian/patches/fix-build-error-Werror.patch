@@ -1,0 +1,13 @@
+Index: fcoe-utils/Makefile.am
+===================================================================
+--- fcoe-utils.orig/Makefile.am	2013-07-16 19:05:29.948947562 +0530
++++ fcoe-utils/Makefile.am	2013-07-23 21:00:55.180379142 +0530
+@@ -5,7 +5,7 @@
+ AM_CPPFLAGS = -I${srcdir}/include -I${builddir}/include
+ ## pass the sysconfdir into the C proprocessor
+ AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\""
+-AM_CFLAGS = -Wall -Wformat=2 -Werror
++AM_CFLAGS = -Wall -Wformat=2
+ 
+ ## rules for building fcoeadm
+ fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c

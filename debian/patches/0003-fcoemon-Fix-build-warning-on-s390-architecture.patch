@@ -1,0 +1,68 @@
+From 9808a2ec2007243a9869c1702d822cd82019907c Mon Sep 17 00:00:00 2001
+From: Robert Love <robert.w.love@intel.com>
+Date: Fri, 2 Aug 2013 10:33:22 -0700
+Subject: [PATCH 3/4] fcoemon: Fix build warning on s390 architecture
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Simply fix the print formatting to fix the below warning.
+
+gcc -DPACKAGE_NAME=\"fcoe-utils\" -DPACKAGE_TARNAME=\"fcoe-utils\" -DPACKAGE_VERSION=\"1.0.28\" -DPACKAGE_STRING=\"fcoe-utils\ 1.0.28\" -DPACKAGE_BUGREPORT=\"fcoe-devel@open-fcoe.org\" -DPACKAGE_URL=\"\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -DPACKAGE=\"fcoe-utils\" -DVERSION=\"1.0.28\" -I.  -I./include -I./include -DSYSCONFDIR="\"/etc\"" -D_FORTIFY_SOURCE=2 -Wall -Wformat=2 -Werror  -g -O2 -fPIE -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -MT fcoemon-fcoemon.o -MD -MP -MF .deps/fcoemon-fcoemon.Tpo -c -o fcoemon-fcoemon.o `test -f 'fcoemon.c' || echo './'`fcoemon.c
+fcoemon.c: In function 'fcm_dcbd_get_oper':
+fcoemon.c:2642:3: error: format '%ld' expects argument of type 'long int', but argument 3 has type 'int' [-Werror=format]
+cc1: all warnings being treated as errors
+make[1]: *** [fcoemon-fcoemon.o] Error 1
+make[1]: Leaving directory `/build/buildd-fcoe-utils_1.0.28-3-s390-pTRgAl/fcoe-utils-1.0.28'
+dh_auto_build: make -j1 returned exit code 2
+make: *** [build-arch] Error 2
+dpkg-buildpackage: error: debian/rules build-arch gave error exit status 2
+────────────────────────────────────────────────────────────────────────────────
+Build finished at 20130729-0835
+FAILED [dpkg-buildpackage died]
+────────────────────────────────────────────────────────────────────────────────
+Purging /var/lib/schroot/mount/sid-experimental-s390-sbuild-1385d1be-9296-41a4-ab40-54363167bbf3/build/buildd-fcoe-utils_1.0.28-3-s390-pTRgAl
+Not cleaning session: cloned chroot in use
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Summary                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Architecture: s390
+Build-Space: 2624
+Build-Time: 9
+Distribution: experimental
+Fail-Stage: build
+Install-Time: 24
+Job: fcoe-utils_1.0.28-3
+Package: fcoe-utils
+Package-Time: 49
+Source-Version: 1.0.28-3
+Space: 2624
+Status: attempted
+Version: 1.0.28-3
+
+Signed-off-by: Robert Love <robert.w.love@intel.com>
+---
+ fcoemon.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/fcoemon.c b/fcoemon.c
+index 80360fd..37eee91 100644
+--- a/fcoemon.c
++++ b/fcoemon.c
+@@ -2639,8 +2639,9 @@ static void fcm_dcbd_get_oper(struct fcm_netif *ff, char *resp, char *cp)
+ 	val = fcm_get_hex(cp + OPER_ERROR, 2, &ep);
+ 
+ 	if (ep) {
+-		FCM_LOG_DEV(ff, "Invalid get oper response "
+-			    "parse error byte %ld, resp %s", ep - cp, cp);
++		FCM_LOG_DEV(ff,
++			    "Invalid get oper response parse error byte %"
++			    PRId64 ", resp %s", ep - cp, cp);
+ 		fcm_dcbd_state_set(ff, FCD_ERROR);
+ 	} else {
+ 		if (val && fcoe_config.debug)
+-- 
+1.7.10.4
+

@@ -606,7 +606,7 @@ static int get_ctlr_num(const char *netdev)
 		if (!ctlr)
 			continue;
 
-		ctlr_num = atoi(&ctlr[strlen(ctlr) - 1]);
+		ctlr_num = atoi(&ctlr[sizeof("ctlr_") - 1]);
 		break;
 	}
 

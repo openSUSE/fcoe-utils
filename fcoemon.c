@@ -328,7 +328,6 @@ static int fcm_link_socket;
 static int fcm_link_seq;
 static void fcm_link_recv(void *);
 static void fcm_link_getlink(void);
-static int fcm_link_buf_check(size_t);
 static void clear_dcbd_info(struct fcm_netif *ff);
 static int fcoe_vid_from_ifname(const char *ifname);
 
@@ -354,8 +353,7 @@ char progname[20];
  * large enough to fit and expand it if we ever do a read that almost fills it.
  */
 static char *fcm_link_buf;
-static size_t fcm_link_buf_size = 4096;	/* initial size */
-static const size_t fcm_link_buf_fuzz = 300;	/* "almost full" remainder */
+static size_t fcm_link_buf_size = 8192;	/* initial size */
 
 /*
  * A value must be surrounded by quates, e.g. "x".
@@ -1848,18 +1846,27 @@ static void fcm_link_recv(UNUSED void *arg)
 	size_t plen;
 	size_t rlen;
 
+	/* check to make sure our receive buffer is large enough,
+	 * or scale it up as needed */
+	rc = recv(fcm_link_socket, NULL, 0, MSG_PEEK | MSG_TRUNC);
+	if (rc > fcm_link_buf_size) {
+		FCM_LOG_DBG("resizing link buf to %d bytes\n", rc);
+		void *resize = realloc(fcm_link_buf, rc);
+		if (resize) {
+			fcm_link_buf = resize;
+			fcm_link_buf_size = rc;
+		} else {
+			FCM_LOG_ERR(errno, "Failed to allocate link buffer");
+		}
+	}
+
 	buf = fcm_link_buf;
-	rc = read(fcm_link_socket, buf, fcm_link_buf_size);
+	rc = recv(fcm_link_socket, buf, fcm_link_buf_size, 0);
 	if (rc <= 0) {
 		if (rc < 0)
 			FCM_LOG_ERR(errno, "Error reading from "
 				    "netlink socket with fd %d",
 				    fcm_link_socket);
-		return;
-	}
-
-	if (fcm_link_buf_check(rc)) {
-		fcm_link_getlink();
 		return;
 	}
 
@@ -1927,34 +1934,9 @@ static void fcm_link_getlink(void)
 	msg.nl.nlmsg_pid = getpid();
 	msg.ifi.ifi_family = AF_UNSPEC;
 	msg.ifi.ifi_type = ARPHRD_ETHER;
-	rc = write(fcm_link_socket, &msg, sizeof(msg));
+	rc = send(fcm_link_socket, &msg, sizeof(msg), 0);
 	if (rc < 0)
-		FCM_LOG_ERR(errno, "write error");
-}
-
-/*
- * Check for whether buffer needs to grow based on amount read.
- * Free's the old buffer so don't use that after this returns non-zero.
- */
-static int fcm_link_buf_check(size_t read_len)
-{
-	char *buf;
-	size_t len = read_len;
-
-	if (len > fcm_link_buf_size - fcm_link_buf_fuzz) {
-		len = fcm_link_buf_size;
-		len = len + len / 2;	/* grow by 50% */
-		buf = malloc(len);
-		if (buf != NULL) {
-			free(fcm_link_buf);
-			fcm_link_buf = buf;
-			fcm_link_buf_size = len;
-			return 1;
-		} else {
-			FCM_LOG_ERR(errno, "failed to allocate link buffer");
-		}
-	}
-	return 0;
+		FCM_LOG_ERR(errno, "send error");
 }
 
 static void fcm_fcoe_init(void)

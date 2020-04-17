@@ -27,7 +27,7 @@ if [ "${IFNAME}" == "" ] ; then
 fi
 
 # Ensure that the interface name provided is valid
-if ifconfig ${IFNAME} 2>&1 | grep -q "Device not found" ; then
+if ip link show dev ${IFNAME} 2>&1 | grep -q "does not exist" ; then
     echo "Please provide a valid interface name." >&2
     exit 1
 fi

@@ -593,6 +593,36 @@ static int rtnl_listener_handler(struct nlmsghdr *nh, UNUSED void *arg)
 }
 
 static int
+safe_makevlan_name(char *vlan_name, size_t vsz,
+		char *ifname, int vlan_num, char *suffix)
+{
+	size_t ifsz = strlen(ifname);
+	size_t susz = strlen(suffix);	/* should never be NULL */
+	int nusz;
+	char numbuf[16];
+	char *cp = vlan_name;
+
+	nusz = snprintf(numbuf, sizeof(numbuf), "%d", vlan_num);
+
+	if ((ifsz + susz + nusz + 2) > vsz) {
+		FIP_LOG_ERR(EINVAL,
+			"Cannot make VLAN name from ifname=\"%s\", vlan %d, and suffix=\"%s\"\n",
+			ifname, vlan_num, suffix);
+		return -EINVAL;
+	}
+	memcpy(cp, ifname, ifsz);
+	cp += ifsz;
+	memcpy(cp, numbuf, nusz);
+	cp += nusz;
+	if (susz > 0) {
+		memcpy(cp, suffix, susz);
+		cp += susz;
+	}
+	*cp = '\0';
+	return 0;
+}
+
+static int
 create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 {
 	struct iff *real_dev, *vlan;
@@ -621,8 +651,10 @@ create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 				    real_dev->ifname, fcf->vlan, vlan->ifname);
 			rc = 0;
 		} else {
-			snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+			rc = safe_makevlan_name(vlan_name, sizeof(vlan_name),
 				 real_dev->ifname, fcf->vlan, config.suffix);
+			if (rc < 0)
+				return rc;
 			rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
 			if (rc < 0)
 				printf("Failed to create VLAN device %s\n\t%s\n",

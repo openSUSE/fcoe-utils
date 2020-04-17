@@ -1849,7 +1849,7 @@ static void fcm_link_recv(UNUSED void *arg)
 	/* check to make sure our receive buffer is large enough,
 	 * or scale it up as needed */
 	rc = recv(fcm_link_socket, NULL, 0, MSG_PEEK | MSG_TRUNC);
-	if (rc > fcm_link_buf_size) {
+	if (rc > (int)fcm_link_buf_size) {
 		FCM_LOG_DBG("resizing link buf to %d bytes\n", rc);
 		void *resize = realloc(fcm_link_buf, rc);
 		if (resize) {

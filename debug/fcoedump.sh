@@ -78,8 +78,10 @@ adapter_info()
 		ethtool -i $DEVICE
 		echo -e "#ethtool offloads:"
 		ethtool -k $DEVICE
-		echo -e "#ifconfig:"
-		ifconfig $DEVICE
+		echo -e "#ip link:"
+		ip link show dev $DEVICE
+		echo -e "#ip addr:"
+		ip addr show dev $DEVICE
 	fi
 
 	echo -e "\n###Adapter INFO $PHYSDEV"
@@ -93,8 +95,10 @@ adapter_info()
 	ethtool -k $PHYSDEV
 	echo -e "#ethtool stats:"
 	ethtool -S $PHYSDEV
-	echo -e "#ifconfig:"
-	ifconfig $PHYSDEV
+	echo -e "#ip link:"
+	ip link show dev $PHYSDEV
+	echo -e "#ip addr:"
+	ip addr show dev $PHYSDEV
 }
 
 dcbtool_info()

@@ -19,7 +19,7 @@ fcoemon - Open-FCoE service daemon
 
 SYNOPSIS
 --------
-*fcoemon* [-f|--foreground] [-l|--legacy] [-d|--debug] [-s|--syslog]
+*fcoemon* [-f|--foreground] [-l|--legacy] [-d|--debug] [-e|--start] [-s|--syslog]
 
 *fcoemon* -h|--help
 
@@ -55,6 +55,8 @@ OPTIONS
 	Run *fcoemon* in the foreground.
 *-d*, *--debug=yes|no*::
 	Enable or disable debugging messages.
+*-e*, *--start*::
+	Start fcoemon daemon/service manually.
 *-l*, *--legacy*::
 	Force fcoemon to use the legacy /sys/module/libfcoe/parameters/
 	interface. The default is to use the newer /sys/bus/fcoe/ interfaces
@@ -168,7 +170,7 @@ of the *fcoe* service.
 /etc/sysconfig/fcoe
 ~~~~~~~~~~~~~~~~~~~
 On systemd-enabled systems, this is the primary configuration file used for
-the *fcoe* system service. Add *--debug* to *FCOEMON_OPTS* to enable debug 
+the *fcoe* system service. Add *--debug* to *FCOEMON_OPTS* to enable debug
 log messages. Any changes to this file will require a restart of the *fcoe*
 service.
 

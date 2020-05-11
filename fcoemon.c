@@ -338,7 +338,7 @@ static struct option fcm_options[] = {
 	{"debug", 1, NULL, 'd'},
 	{"legacy", 0, NULL, 'l'},
 	{"syslog", 1, NULL, 's'},
-	{"exec", 1, NULL, 'e'},
+	{"exec", 0, NULL, 'e'},
 	{"foreground", 0, NULL, 'f'},
 	{"version", 0, NULL, 'v'},
 	{NULL, 0, NULL, 0}
@@ -3243,6 +3243,7 @@ static void fcm_usage(void)
 	printf("Usage: %s\n"
 	       "\t [-f|--foreground]\n"
 	       "\t [-d|--debug=yes|no]\n"
+				 "\t [-e]--start\n"
 	       "\t [-l|--legacy]\n"
 	       "\t [-s|--syslog=yes|no]\n"
 	       "\t [-v|--version]\n"
@@ -3698,7 +3699,7 @@ int main(int argc, char **argv)
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);
 
-	while ((c = getopt_long(argc, argv, "fd:hls:v",
+	while ((c = getopt_long(argc, argv, "fd:ehls:v",
 				fcm_options, NULL)) != -1) {
 		switch (c) {
 		case 'f':
@@ -3710,6 +3711,8 @@ int main(int argc, char **argv)
 				fcoe_config.debug = 1;
 				enable_debug_log(1);
 			}
+			break;
+		case 'e':
 			break;
 		case 'l':
 			force_legacy = true;
@@ -3730,7 +3733,7 @@ int main(int argc, char **argv)
 		break;
 		}
 	}
-	if (argc != optind)
+	if (argc != optind || argc == 1)
 		fcm_usage();
 
 	umask(0);

@@ -16,6 +16,7 @@ missing
 fcoe-utils.spec
 fcoeplumb
 fcoe_utils_version.h
+ar-lib
 
 # compile generated files
 *.o

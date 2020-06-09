@@ -443,7 +443,9 @@ char *get_pci_dev_from_netdev(const char *netdev)
 			return NULL;
 
 		len = strlen(netdev) - strlen(subif);
-		strncpy(realdev, netdev, len);
+		if (len > (sizeof(realdev) - 1))
+			return NULL;
+		strncpy(realdev, netdev, sizeof(realdev)-1);
 		if (realdev[len] != '\0')
 			realdev[len] = '\0';
 
@@ -484,7 +486,7 @@ char *get_host_by_wwpn(struct hba_wwn wwn)
 	DIR *dir;
 	char *host = NULL;
 	char path[1024];
-	uint64_t port_name;
+	uint64_t port_name = 0;
 	struct hba_wwn port_wwn;
 
 	dir = opendir(SYSFS_HOST_DIR);

@@ -1089,9 +1089,14 @@ static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
 
 	memset(&ifv, 0, sizeof(ifv));
 	ifv.cmd = GET_VLAN_REALDEV_NAME_CMD;
-	strncpy(ifv.device1, vlan_ifname, strlen(vlan_ifname)+1);
+	if (strlen(vlan_ifname) > (sizeof(ifv.device1) - 1)) {
+		FCM_LOG_ERR(ENOSPC, "no room for vlan ifname");
+		goto close_fd;
+	}
+	strncpy(ifv.device1, vlan_ifname, sizeof(ifv.device1));
 	if (ioctl(fd, SIOCGIFVLAN, &ifv) == 0)
-		strncpy(real_ifname, ifv.u.device2, strlen(ifv.u.device2)+1);
+		strncpy(real_ifname, ifv.u.device2, IFNAMSIZ-1);
+close_fd:
 	close(fd);
 }
 
@@ -1643,7 +1648,7 @@ static void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		real_dev[0] = '\0';
 		fcm_vlan_dev_real_dev(ifname, real_dev);
 		if (strlen(real_dev))
-			strncpy(p->real_ifname, real_dev, strlen(real_dev)+1);
+			strncpy(p->real_ifname, real_dev, IFNAMSIZ-1);
 		if (p->ready)
 			update_fcoe_port_state(p, type, operstate,
 					       FCP_CFG_IFNAME);
@@ -1655,7 +1660,7 @@ static void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		if (p) {
 			p->ifindex = ifindex;
 			memcpy(p->mac, mac, ETHER_ADDR_LEN);
-			strncpy(p->real_ifname, ifname, strlen(ifname)+1);
+			strncpy(p->real_ifname, ifname, IFNAMSIZ-1);
 			update_fcoe_port_state(p, type, operstate,
 					       FCP_REAL_IFNAME);
 		}
@@ -3507,7 +3512,7 @@ static void fcm_srv_receive(void *arg)
 	socklen_t fromlen = sizeof(struct sockaddr_un);
 	struct sock_info *reply = NULL;
 	char buf[MAX_MSGBUF], rbuf[MAX_MSGBUF];
-	char ifname[sizeof(data->ifname) + 1];
+	char ifname[IFNAMSIZ + 1];
 	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
 	size_t size;
@@ -3538,7 +3543,7 @@ static void fcm_srv_receive(void *arg)
 	}
 
 	cmd = data->cmd;
-	strncpy(ifname, data->ifname, sizeof(data->ifname));
+	strncpy(ifname, data->ifname, IFNAMSIZ);
 	ifname[sizeof(data->ifname)] = 0;
 
 	if (cmd != CLIF_PID_CMD) {

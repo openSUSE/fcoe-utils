@@ -73,7 +73,7 @@ init_d_SCRIPTS = etc/initd/fcoe
 
 dist_noinst_DATA = README COPYING INSTALL CONFIGURE QUICKSTART fcoe-utils.spec etc/config
 
-bashcompletiondir = $(sysconfdir)/bash_completion.d
+bashcompletiondir = $(datadir)/bash-completion/completions
 dist_bashcompletion_DATA = contrib/bash_completion/fcoeadm contrib/bash_completion/fcoemon
 
 install-data-hook:

@@ -59,7 +59,7 @@ static char *safe_makepath(char *path, size_t path_sz,
 		char *dname, char *fname)
 {
 	size_t dsz = sizeof(dname);
-	size_t fsz = sizeof(fname);
+	size_t fsz = strlen(fname);
 	char *cp = path;
 
 	if ((dsz + fsz + 2) > path_sz) {

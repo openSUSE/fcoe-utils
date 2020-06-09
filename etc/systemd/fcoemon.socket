@@ -1,5 +1,9 @@
+[Unit]
+Description=Open-FCoE daemon control socket
+
 [Socket]
-ListenDatagram=@/com/intel/fcoemon
+Service=fcoe.service
+ListenDatagram=@fcm_clif
 PassCredentials=true
 
 [Install]

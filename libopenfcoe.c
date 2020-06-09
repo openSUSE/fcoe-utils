@@ -55,6 +55,33 @@ out_err:
 	return rc;
 }
 
+static char *safe_makepath(char *path, size_t path_sz,
+		char *dname, char *fname)
+{
+	size_t dsz = sizeof(dname);
+	size_t fsz = strlen(fname);
+	char *cp = path;
+
+	if ((dsz + fsz + 2) > path_sz) {
+		fprintf(stderr,
+			"error: no room to expand pathname (%d+%d > %d)\n",
+			(int)dsz, (int)fsz, (int)path_sz);
+		return NULL;
+	}
+
+	memcpy(cp, dname, dsz);
+	cp += dsz;
+
+	*cp++ = '/';
+
+	memcpy(cp, fname, fsz);
+	cp += fsz;
+
+	*cp = '\0';
+
+	return path;
+}
+
 static int add_fcoe_fcf_device(struct dirent *dp, void *arg)
 {
 	struct fcoe_ctlr_device *ctlr = (struct fcoe_ctlr_device *)arg;
@@ -71,8 +98,9 @@ static int add_fcoe_fcf_device(struct dirent *dp, void *arg)
 	memset(fcf, 0, sizeof(struct fcoe_fcf_device));
 
 	/* Save the path */
-	snprintf(fcf->path, sizeof(fcf->path),
-		 "%s/%s", ctlr->path, dp->d_name);
+	if (safe_makepath(fcf->path, sizeof(fcf->path),
+				ctlr->path, dp->d_name) == NULL)
+		goto fail;
 
 	/* Use the index from the logical enumeration */
 	fcf->index = atoi(dp->d_name + sizeof("fcf_") - 1);
@@ -198,7 +226,9 @@ static int read_fcoe_ctlr_device(struct dirent *dp, void *arg)
 	sa_sys_read_line(ctlr->path, "mode", buf, sizeof(buf));
 	sa_enum_encode(fip_conn_type_table, buf, &ctlr->mode);
 
-	snprintf(lesb_path, sizeof(lesb_path), "%s/lesb/", ctlr->path);
+	if (safe_makepath(lesb_path, sizeof(lesb_path),
+				ctlr->path, "lesb") == NULL)
+		goto fail;
 
 	/* Get LESB statistics */
 	sa_sys_read_u32(lesb_path, "link_fail",

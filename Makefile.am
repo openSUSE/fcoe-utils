@@ -5,7 +5,7 @@ sbin_PROGRAMS = fcoeadm fcoemon fcping fipvlan fcnsq fcrls
 AM_CPPFLAGS = -I${srcdir}/include -I${builddir}/include
 ## pass the sysconfdir into the C proprocessor
 AM_CPPFLAGS += -DSYSCONFDIR="\"${sysconfdir}\"" -D_FORTIFY_SOURCE=2
-AM_CFLAGS = -Wall -Wformat=2 -Werror -Wmissing-prototypes -Wstrict-prototypes
+AM_CFLAGS = -Wall -Wformat=2 -Werror -Wextra -Wmissing-prototypes -Wstrict-prototypes
 
 ## rules for building fcoeadm
 fcoeadm_SOURCES = fcoeadm.c fcoeadm_display.c
@@ -73,7 +73,7 @@ init_d_SCRIPTS = etc/initd/fcoe
 
 dist_noinst_DATA = README COPYING INSTALL CONFIGURE QUICKSTART fcoe-utils.spec etc/config
 
-bashcompletiondir = $(sysconfdir)/bash_completion.d
+bashcompletiondir = $(datadir)/bash-completion/completions
 dist_bashcompletion_DATA = contrib/bash_completion/fcoeadm contrib/bash_completion/fcoemon
 
 install-data-hook:

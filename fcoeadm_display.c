@@ -455,7 +455,7 @@ static void scan_device_map(char *rport, enum disp_style style)
 static void show_port_stats_header(const char *ifname, int interval)
 {
 	printf("\n");
-	printf("%-7s interval: %-2d                                    Err  Inv  "
+	printf("%-15s interval: %-2d                            Err  Inv  "
 	       "IvTx Link Cntl Input     Input     Output    Output\n",
 	       ifname, interval);
 	printf("Seconds TxFrames  TxBytes      RxFrames  RxBytes        "
@@ -893,7 +893,7 @@ static void
 print_interface_fcoe_lesb_stats_header(const char *ifname, int interval)
 {
 	printf("\n");
-	printf("%-7s interval: %-2d\n", ifname, interval);
+	printf("%-15s interval: %-2d\n", ifname, interval);
 	printf("LinkFail VLinkFail MissFKA SymbErr ErrBlkCnt FCSErrCnt\n");
 	printf("-------- --------- ------- ------- --------- ---------\n");
 }

@@ -3796,8 +3796,10 @@ int main(int argc, char **argv)
 		fcm_dcbd_init();
 
 	rc = fcm_srv_create(&srv_info);
-	if (rc != 0)
-		goto err_cleanup;
+	if (rc != 0) {
+		FCM_LOG_DBG("Daemon already running OR Failed to create socket so exiting!\n");
+		exit(1);
+	}
 
 	if (!fcm_fg && daemon(0, !fcoe_config.use_syslog)) {
 		FCM_LOG("Starting daemon failed");

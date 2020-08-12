@@ -3797,7 +3797,7 @@ int main(int argc, char **argv)
 
 	rc = fcm_srv_create(&srv_info);
 	if (rc == EADDRINUSE) {
-		FCM_LOG_DBG("Daemon already running OR Failed to bind socket so exiting!\n");
+		FCM_LOG("Daemon already running OR Failed to bind socket so exiting!\n");
 		exit(1);
 	}
 	if (rc != 0)

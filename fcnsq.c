@@ -381,7 +381,7 @@ int main(int argc, char *argv[])
 	u64 wwnn = 0;
 	int rc = 0;
 	enum commands cmd = 0;
-	char c;
+	signed char c;
 	uintmax_t wwnn_tmp = 0;
 
 	while(1) {

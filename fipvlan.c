@@ -449,6 +449,7 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 		iff->iflink = iff->ifindex;
 	memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
 	strncpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+	iff->ifname[IFNAMSIZ - 1] = '\0';
 
 	if (ifla[IFLA_LINKINFO]) {
 		parse_linkinfo(linkinfo, ifla[IFLA_LINKINFO]);
@@ -541,8 +542,10 @@ static void parse_cmdline(int argc, char **argv)
 			config.start = true;
 			break;
 		case 'f':
-			if (optarg && strlen(optarg))
+			if (optarg && strlen(optarg)) {
 				strncpy(config.suffix, optarg, 256);
+				config.suffix[256 - 1] = '\0';
+			}
 			break;
 		case 'l':
 			config.link_retry = strtoul(optarg, NULL, 10);

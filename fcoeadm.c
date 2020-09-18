@@ -185,9 +185,10 @@ fcoeadm_action(enum clif_action cmd, char *ifname, enum clif_flags flags)
 	struct clif_sock_info clif_info;
 	int rc;
 
-	if (ifname)
-		strncpy(data.ifname, ifname, sizeof(data.ifname));
-	else
+	if (ifname) {
+		strncpy(data.ifname, ifname, IFNAMSIZ);
+		data.ifname[IFNAMSIZ - 1] = '\0';
+	} else
 		data.ifname[0] = '\0';
 	data.cmd = cmd;
 	data.flags = flags;
@@ -232,6 +233,7 @@ int main(int argc, char *argv[])
 	 * expects progname to be valid.
 	 */
 	strncpy(progname, basename(argv[0]), sizeof(progname));
+	progname[sizeof(progname) - 1] = '\0';
 
 	/* check if we have sysfs */
 	if (fcoe_checkdir(SYSFS_MOUNT)) {

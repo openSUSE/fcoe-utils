@@ -188,6 +188,7 @@ static void sa_dir_crawl(char *dir_name,
 	struct dirent *dp;
 	void (*f)(char *dirname, enum disp_style style);
 	char path[1024];
+	int rc;
 
 	f = func;
 
@@ -199,8 +200,9 @@ static void sa_dir_crawl(char *dir_name,
 		if (dp->d_name[0] == '.' && (dp->d_name[1] == '\0' ||
 		   (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 			continue;
-		snprintf(path, sizeof(path), "%s/%s", dir_name, dp->d_name);
-
+		rc = snprintf(path, sizeof(path), "%s/%s", dir_name, dp->d_name);
+		if (rc < 0 || (size_t) rc >= sizeof(path))
+			continue;
 		f(path, style);
 	}
 	closedir(dir);
@@ -254,10 +256,13 @@ static void show_full_lun_info(unsigned int hba, unsigned int port,
 	struct dirent *dp;
 	struct port_attributes *rport_attrs;
 	struct port_attributes *port_attrs;
+	int rc;
 
-	snprintf(path, sizeof(path),
-		"/sys/class/scsi_device/%u:%u:%u:%u",
-		hba, port, tgt, lun);
+	rc = snprintf(path, sizeof(path),
+		      "/sys/class/scsi_device/%u:%u:%u:%u",
+		      hba, port, tgt, lun);
+	if (rc < 0 || (size_t) rc >= sizeof(path))
+		return;
 
 	rport_attrs = get_rport_attribs_by_device(path);
 	if (!rport_attrs)
@@ -287,10 +292,14 @@ static void show_full_lun_info(unsigned int hba, unsigned int port,
 
 		osname = dp->d_name;
 
-		snprintf(npath, sizeof(npath), "%s/%s/", path, osname);
+		rc = snprintf(npath, sizeof(npath), "%s/%s/", path, osname);
+		if (rc < 0 || (size_t) rc >= sizeof(npath))
+			continue;
 		sa_sys_read_u64(npath, "size", &lba);
 
-		snprintf(npath, sizeof(npath), "%s/%s/queue/", path, osname);
+		rc = snprintf(npath, sizeof(npath), "%s/%s/queue/", path, osname);
+		if (rc < 0 || (size_t) rc >= sizeof(npath))
+			continue;
 		sa_sys_read_u32(npath, "hw_sector_size", &blksize);
 	}
 
@@ -340,10 +349,13 @@ static void show_short_lun_info(unsigned int hba, unsigned int port,
 	char *capstr = "Unknown";
 	char *osname = "Unknown";
 	uint64_t size;
+	int rc;
 
-	snprintf(path, sizeof(path),
-		"/sys/class/scsi_device/%u:%u:%u:%u/device/",
-		hba, port, tgt, lun);
+	rc = snprintf(path, sizeof(path),
+		      "/sys/class/scsi_device/%u:%u:%u:%u/device/",
+		      hba, port, tgt, lun);
+	if (rc < 0 || (size_t) rc >= sizeof(path))
+		return;
 
 	sa_sys_read_line(path, "rev", rev, sizeof(rev));
 	sa_sys_read_line(path, "model", model, sizeof(model));
@@ -363,10 +375,14 @@ static void show_short_lun_info(unsigned int hba, unsigned int port,
 
 		osname = dp->d_name;
 
-		snprintf(npath, sizeof(npath), "%s/%s/", path, osname);
+		rc = snprintf(npath, sizeof(npath), "%s/%s/", path, osname);
+		if (rc < 0 || (size_t) rc >= sizeof(npath))
+			continue;
 		sa_sys_read_u64(npath, "size", &size);
 
-		snprintf(npath, sizeof(npath), "%s/%s/queue/", path, osname);
+		rc = snprintf(npath, sizeof(npath), "%s/%s/queue/", path, osname);
+		if (rc < 0 || (size_t) rc >= sizeof(npath))
+			continue;
 		sa_sys_read_u32(npath, "hw_sector_size", &blksize);
 	}
 
@@ -419,8 +435,11 @@ static void list_luns_by_rport(char *rport, enum disp_style style)
 	char *substr;
 	int len;
 	int ret;
+	int rc;
 
-	snprintf(path, sizeof(path), "/sys/class/fc_remote_ports/%s", rport);
+	rc = snprintf(path, sizeof(path), "/sys/class/fc_remote_ports/%s", rport);
+	if (rc < 0 || (size_t) rc >= sizeof(path))
+		return;
 
 	ret = readlink(path, link, sizeof(link));
 	if (ret == -1)
@@ -430,7 +449,9 @@ static void list_luns_by_rport(char *rport, enum disp_style style)
 		link[ret] = '\0';
 
 	substr = strstr(link, "net");
-	snprintf(path, sizeof(path), "/sys/class/%s", substr);
+	rc = snprintf(path, sizeof(path), "/sys/class/%s", substr);
+	if (rc < 0 || (size_t) rc >= sizeof(path))
+		return;
 
 	substr = strstr(path, "fc_remote_ports");
 
@@ -560,11 +581,16 @@ static int get_host_from_vport(struct dirent *dp,
 static int crawl_vports(struct dirent *dp, void *arg)
 {
 	char *oldpath = arg;
+	int rc;
 
 	if (!strncmp(dp->d_name, "vport", strlen("vport"))) {
 		char path[1024];
 
-		snprintf(path, sizeof(path), "%s/%s", oldpath, dp->d_name);
+		rc = snprintf(path, sizeof(path), "%s/%s", oldpath, dp->d_name);
+		if (rc < 0 || (size_t) rc >= sizeof(path)) {
+			// ignore error and continue
+			return 0;
+		}
 		sa_dir_read(path, get_host_from_vport, NULL);
 	}
 	return 0;
@@ -573,10 +599,12 @@ static int crawl_vports(struct dirent *dp, void *arg)
 static void show_host_vports(const char *host)
 {
 	char path[1024];
+	int rc;
 
-	snprintf(path, sizeof(path), "%s/%s/device/", SYSFS_HOST_DIR, host);
+	rc = snprintf(path, sizeof(path), "%s/%s/device/", SYSFS_HOST_DIR, host);
+	if (rc < 0 || (size_t) rc >= sizeof(path))
+		return;
 	sa_dir_read(path, crawl_vports, path);
-
 }
 
 static enum fcoe_status display_one_adapter_info(char *ifname)

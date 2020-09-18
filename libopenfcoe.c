@@ -207,7 +207,9 @@ static int read_fcoe_ctlr_device(struct dirent *dp, void *arg)
 	if (!rc)
 		goto fail;
 
-	sprintf(hpath, "%s/%s/", SYSFS_FCHOST, fchost);
+	rc = snprintf(hpath, MAX_STR_LEN, "%s/%s/", SYSFS_FCHOST, fchost);
+	if (rc < 0 || rc >= MAX_STR_LEN)
+		goto fail;
 
 	rc = sa_sys_read_line(hpath, "symbolic_name", buf, sizeof(buf));
 

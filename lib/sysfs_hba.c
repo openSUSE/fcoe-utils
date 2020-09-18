@@ -215,6 +215,7 @@ static void get_pci_device_info(struct pci_device *dev, struct hba_info *info)
 		vname = unknown;
 
 	strncpy(info->manufacturer, vname, sizeof(info->manufacturer));
+	info->manufacturer[sizeof(info->manufacturer) - 1] = '\0';
 
 	dname = pci_device_get_device_name(dev);
 	if (!dname)
@@ -222,6 +223,7 @@ static void get_pci_device_info(struct pci_device *dev, struct hba_info *info)
 
 	strncpy(info->model_description, dname,
 		sizeof(info->model_description));
+	info->model_description[sizeof(info->model_description) - 1] = '\0';
 
 	pci_device_cfg_read_u8(dev, &revision, PCI_REVISION_ID);
 	snprintf(info->hardware_version, sizeof(info->hardware_version),
@@ -259,6 +261,7 @@ static void get_module_info(const char *pcidev, struct hba_info *info)
 		strncpy(info->driver_name,
 			strstr(buf, "module") + strlen("module") + 1,
 			sizeof(info->driver_name));
+	info->driver_name[sizeof(info->driver_name) - 1] = '\0';
 
 }
 
@@ -316,6 +319,8 @@ struct port_attributes *get_rport_attribs(const char *rport)
 		goto free_path;
 
 	strncpy(pa->device_name, rport, sizeof(pa->device_name));
+	pa->device_name[sizeof(pa->device_name) - 1] = '\0';
+
 	sa_sys_read_line(path, "node_name", pa->node_name,
 			 sizeof(pa->node_name));
 	sa_sys_read_line(path, "port_name", pa->port_name,
@@ -391,6 +396,7 @@ struct port_attributes *get_port_attribs(const char *host)
 		goto free_path;
 
 	strncpy(pa->device_name, host, sizeof(pa->device_name));
+	pa->device_name[sizeof(pa->device_name) - 1] = '\0';
 
 	sa_sys_read_line(path, "symbolic_name", pa->symbolic_name,
 			 sizeof(pa->symbolic_name));

@@ -528,7 +528,7 @@ char *get_host_by_fcid(uint32_t fcid)
 	DIR *dir;
 	char *host = NULL;
 	char path[1024];
-	uint32_t port_id;
+	uint32_t port_id = 0;
 
 	dir = opendir(SYSFS_HOST_DIR);
 	if (!dir)
@@ -562,7 +562,7 @@ char *get_rport_by_fcid(uint32_t fcid)
 	DIR *dir;
 	char *rport = NULL;
 	char path[1024];
-	uint32_t port_id;
+	uint32_t port_id = 0;
 
 	dir = opendir(SYSFS_RPORT_DIR);
 	if (!dir)

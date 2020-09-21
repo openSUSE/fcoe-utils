@@ -348,7 +348,7 @@ static void show_short_lun_info(unsigned int hba, unsigned int port,
 	uint32_t blksize = 0;
 	char *capstr = "Unknown";
 	char *osname = "Unknown";
-	uint64_t size;
+	uint64_t size = 0;
 	int rc;
 
 	rc = snprintf(path, sizeof(path),

@@ -518,6 +518,7 @@ static int fcm_read_config_files(void)
 		}
 		strncpy(file, CONFIG_DIR "/", sizeof(file));
 		strncat(file, dp->d_name, sizeof(file) - strlen(file));
+		file[sizeof(file) - 1] = '\0';
 		fp = fopen(file, "r");
 		if (!fp) {
 			FCM_LOG_ERR(errno, "Failed to read %s\n", file);
@@ -939,6 +940,7 @@ static struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 		[false] = CLIF_FLAGS_FABRIC,
 		[true] = CLIF_FLAGS_VN2VN,
 	};
+	int rc;
 
 	if (vn2vn)
 		FCM_LOG_DBG("Auto VLAN found vn2vn on VID %d\n", vid);
@@ -947,8 +949,15 @@ static struct fcoe_port *fcm_new_vlan(int ifindex, int vid, bool vn2vn)
 
 	if (rtnl_find_vlan(ifindex, vid, vlan_name)) {
 		rtnl_get_linkname(ifindex, real_name);
-		snprintf(vlan_name, sizeof(vlan_name), FCOE_VLAN_FORMAT,
-			 real_name, vid);
+		rc = snprintf(vlan_name, sizeof(vlan_name), FCOE_VLAN_FORMAT,
+			      real_name, vid);
+		if (rc < 0 || (size_t) rc >= sizeof(vlan_name)) {
+			FCM_LOG("Warning: Generating FCoE VLAN device name for"
+				"interface %s VLAN %d: format resulted in a"
+				"name larger than IFNAMSIZ\n", real_name, vid);
+			vlan_name[sizeof(vlan_name) - 1] = 0;
+			FCM_LOG("\tTruncating VLAN name to %s\n", vlan_name);
+		}
 		vlan_create(ifindex, vid, vlan_name);
 	}
 	rtnl_set_iff_up(0, vlan_name);
@@ -1077,6 +1086,7 @@ static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
 {
 	int fd;
 	struct vlan_ioctl_args ifv;
+	int rc;
 
 	real_ifname[0] = '\0';
 
@@ -1093,9 +1103,18 @@ static void fcm_vlan_dev_real_dev(char *vlan_ifname, char *real_ifname)
 		FCM_LOG_ERR(ENOSPC, "no room for vlan ifname");
 		goto close_fd;
 	}
-	strncpy(ifv.device1, vlan_ifname, sizeof(ifv.device1));
-	if (ioctl(fd, SIOCGIFVLAN, &ifv) == 0)
-		strncpy(real_ifname, ifv.u.device2, IFNAMSIZ-1);
+
+	rc = snprintf(ifv.device1, IFNAMSIZ, "%s", vlan_ifname);
+	if (rc < 0 || rc >= IFNAMSIZ)
+		goto close_fd;
+
+	if (ioctl(fd, SIOCGIFVLAN, &ifv) == 0) {
+		rc = snprintf(real_ifname, IFNAMSIZ, "%s", ifv.u.device2);
+		if (rc < 0 || rc >= IFNAMSIZ) {
+			real_ifname[0] = '\0';
+			goto close_fd;
+		}
+	}
 close_fd:
 	close(fd);
 }
@@ -1647,8 +1666,10 @@ static void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		/* try to find the real device name */
 		real_dev[0] = '\0';
 		fcm_vlan_dev_real_dev(ifname, real_dev);
-		if (strlen(real_dev))
-			strncpy(p->real_ifname, real_dev, IFNAMSIZ-1);
+		if (strlen(real_dev)) {
+			strncpy(p->real_ifname, real_dev, IFNAMSIZ);
+			p->real_ifname[IFNAMSIZ - 1] = '\0';
+		}
 		if (p->ready)
 			update_fcoe_port_state(p, type, operstate,
 					       FCP_CFG_IFNAME);
@@ -1660,7 +1681,8 @@ static void fcm_process_link_msg(struct ifinfomsg *ip, int len, unsigned type)
 		if (p) {
 			p->ifindex = ifindex;
 			memcpy(p->mac, mac, ETHER_ADDR_LEN);
-			strncpy(p->real_ifname, ifname, IFNAMSIZ-1);
+			strncpy(p->real_ifname, ifname, IFNAMSIZ);
+			p->real_ifname[IFNAMSIZ - 1] = '\0';
 			update_fcoe_port_state(p, type, operstate,
 					       FCP_REAL_IFNAME);
 		}
@@ -1788,7 +1810,9 @@ static void fcm_process_ieee_msg(struct nlmsghdr *nlh)
 	if (rta_parent->rta_type != DCB_ATTR_IFNAME)
 		return;
 
-	strncpy(ifname, NLA_DATA(rta_parent), sizeof(ifname));
+	strncpy(ifname, NLA_DATA(rta_parent), IFNAMSIZ);
+	ifname[IFNAMSIZ - 1] = '\0';
+
 	ff = fcm_netif_lookup_create(ifname);
 	if (!ff) {
 		FCM_LOG("Processing IEEE message: %s not found or created\n",
@@ -3699,6 +3723,8 @@ int main(int argc, char **argv)
 	memset(&fcoe_config, 0, sizeof(fcoe_config));
 
 	strncpy(progname, basename(argv[0]), sizeof(progname));
+	progname[sizeof(progname) - 1] = '\0';
+
 	sa_log_prefix = progname;
 	sa_log_flags = 0;
 	openlog(sa_log_prefix, LOG_CONS, LOG_DAEMON);

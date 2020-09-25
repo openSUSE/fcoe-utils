@@ -68,9 +68,10 @@ static int fcoe_check_fchost(const char *ifname, const char *dname)
 
 enum fcoe_status fcoe_find_fchost(const char *ifname, char *fchost, int len)
 {
-	int n, dname_len, status;
+	int n, status;
 	struct dirent **namelist;
 	int rc = ENOFCOECONN;
+	int rrc;
 
 	status = n = scandir(SYSFS_FCHOST, &namelist, 0, alphasort);
 
@@ -78,19 +79,17 @@ enum fcoe_status fcoe_find_fchost(const char *ifname, char *fchost, int len)
 		if (rc) {
 			/* check symbolic name */
 			if (!fcoe_check_fchost(ifname, namelist[n]->d_name)) {
-				dname_len = strnlen(namelist[n]->d_name, len);
-
-				if (len > dname_len) {
-					strncpy(fchost, namelist[n]->d_name,
-						dname_len + 1);
-					/* rc = 0 indicates found */
-					rc = SUCCESS;
-				} else {
+				rrc = snprintf(fchost, len, "%s", namelist[n]->d_name);
+				if (rrc < 0 || rrc >= len) {
+					fchost[0] = '\0';
 					/*
 					 * The fc_host is too large
 					 * for the buffer.
 					 */
 					rc = EINTERR;
+				} else {
+					/* rc = 0 indicates found */
+					rc = SUCCESS;
 				}
 			}
 		}

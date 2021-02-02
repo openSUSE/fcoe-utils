@@ -40,7 +40,7 @@ FCOEMON_OPTS=
 . $CONFIG_DIR/config
 
 if [ "$USE_SYSLOG" = "yes" ] || [ "$USE_SYSLOG" = "YES" ]; then
-    FCOEMON_OPTS+=" --syslog"
+    FCOEMON_OPTS+=" --syslog=yes"
 fi
 
 if [ "$DEBUG" = "yes" ] || [ "$DEBUG" = "YES" ]; then

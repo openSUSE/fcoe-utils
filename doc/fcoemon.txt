@@ -239,6 +239,5 @@ SEE ALSO
 
 SUPPORT
 -------
-*fcoemon* is part of the _fcoe-utils_ package, maintained through the
-_Open-FCoE_ project. Resources for both developers and users can be found
-at the _Open-FCoE_ website <http://open-fcoe.org/>
+*fcoemon* is part of the _fcoe-utils_ package, which can be found
+at the website <https://github.com/openSUSE/open-fcoe>

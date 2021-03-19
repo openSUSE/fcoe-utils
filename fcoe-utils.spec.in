@@ -5,8 +5,8 @@ Summary:        Fibre Channel over Ethernet utilities
 
 Group:          Applications/System
 License:        GPLv2
-URL:            http://www.open-fcoe.org
-Source0:        http://www.open-fcoe.org/openfc/%{name}-%{version}.tar.gz
+URL:            https://github.com/openSUSE/fcoe-utils
+Source0:        https://github.com/openfc/%{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:  libHBAAPI-devel lldpad-devel libpciaccess0

@@ -624,8 +624,16 @@ create_and_start_vlan(struct fcf *fcf, bool vn2vn)
 				    real_dev->ifname, fcf->vlan, vlan->ifname);
 			rc = 0;
 		} else {
-			snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
-				 real_dev->ifname, fcf->vlan, config.suffix);
+			rc = snprintf(vlan_name, IFNAMSIZ, "%s.%d%s",
+					real_dev->ifname, fcf->vlan,
+					config.suffix);
+			if (rc < 0 || rc >= IFNAMSIZ) {
+				printf("Failed to create VLAN device "
+					"(name %s.%d%s is too long)\n",
+					real_dev->ifname, fcf->vlan,
+					config.suffix);
+				return -EINVAL;
+			}
 			rc = vlan_create(fcf->ifindex, fcf->vlan, vlan_name);
 			if (rc < 0)
 				printf("Failed to create VLAN device %s\n\t%s\n",

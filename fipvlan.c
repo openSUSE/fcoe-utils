@@ -447,8 +447,15 @@ static void rtnl_recv_newlink(struct nlmsghdr *nh)
 		iff->iflink = *(int *)RTA_DATA(ifla[IFLA_LINK]);
 	else
 		iff->iflink = iff->ifindex;
-	memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
-	strncpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
+
+	/*
+	 * copy MAC address and interface name using intermediate
+	 * arrays, so gcc-11 knows we are not overflowing buffers
+	 */
+	if (ifla[IFLA_ADDRESS])
+		memcpy(iff->mac_addr, RTA_DATA(ifla[IFLA_ADDRESS]), ETHER_ADDR_LEN);
+	if (ifla[IFLA_IFNAME])
+		memcpy(iff->ifname, RTA_DATA(ifla[IFLA_IFNAME]), IFNAMSIZ);
 	iff->ifname[IFNAMSIZ - 1] = '\0';
 
 	if (ifla[IFLA_LINKINFO]) {

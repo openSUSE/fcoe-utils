@@ -58,7 +58,7 @@ out_err:
 static char *safe_makepath(char *path, size_t path_sz,
 		char *dname, char *fname)
 {
-	size_t dsz = sizeof(dname);
+	size_t dsz = strlen(dname);
 	size_t fsz = strlen(fname);
 	char *cp = path;
 

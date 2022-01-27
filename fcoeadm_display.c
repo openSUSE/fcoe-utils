@@ -246,7 +246,7 @@ static void show_full_lun_info(unsigned int hba, unsigned int port,
 	char vendor[256];
 	char model[256];
 	char rev[256];
-	char *osname;
+	char *osname = NULL;
 	char *capstr;
 	uint64_t lba = 0;
 	uint32_t blksize = 0;

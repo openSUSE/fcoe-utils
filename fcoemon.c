@@ -3135,55 +3135,55 @@ static void fcm_netif_advance(struct fcm_netif *ff)
 	case FCD_ERROR:
 		break;
 	case FCD_GET_DCB_STATE:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_DCB, 0,
-			 (u_int) strlen(ff->ifname), ff->ifname);
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname);
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_SEND_CONF:
 		snprintf(params, sizeof(params), "%x1%x02",
 			 ff->ff_app_info.enable,
 			 ff->ff_app_info.willing);
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_SET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ifname), ff->ifname, params);
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, params);
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_CONFIG:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_PFC, 0,
-			 (u_int) strlen(ff->ifname), ff->ifname, "");
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, "");
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_CONFIG:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_CONFIG, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ifname), ff->ifname, "");
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, "");
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PFC_OPER:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_PFC, 0,
-			 (u_int) strlen(ff->ifname), ff->ifname, "");
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, "");
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_APP_OPER:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_OPER, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ifname), ff->ifname, "");
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, "");
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_GET_PEER:
-		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%s%s",
+		snprintf(buf, sizeof(buf), "%c%x%2.2x%2.2x%2.2x%2.2x%.*s%s",
 			 DCB_CMD, CLIF_RSP_VERSION,
 			 CMD_GET_PEER, FEATURE_APP, APP_FCOE_STYPE,
-			 (u_int) strlen(ff->ifname), ff->ifname, "");
+			 (u_int) strlen(ff->ifname), IFNAMSIZ, ff->ifname, "");
 		ff->response_pending = fcm_dcbd_request(buf);
 		break;
 	case FCD_DONE:

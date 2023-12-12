@@ -43,6 +43,9 @@ noinst_HEADERS = fcoeadm_display.h fcoe_clif.h fcoemon.h \
 
 ## install configuration file in $(prefix)/etc/fcoe
 fcoe_configdir = ${sysconfdir}/fcoe
+if USE_VENDORDIR
+fcoe_vendorconfigdir = ${vendordir}/fcoe
+endif
 dist_fcoe_config_DATA = etc/cfg-ethx
 
 ## install systemd service files
@@ -77,11 +80,32 @@ bashcompletiondir = $(datadir)/bash-completion/completions
 dist_bashcompletion_DATA = contrib/bash_completion/fcoeadm contrib/bash_completion/fcoemon
 
 install-data-hook:
+if USE_VENDORDIR
+	if [ ! -f ${DESTDIR}${fcoe_vendorconfigdir}/config ] ; then \
+		mkdir ${DESTDIR}${fcoe_vendorconfigdir}; \
+		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_vendorconfigdir}/config; \
+	fi;
+	mv ${DESTDIR}${fcoe_configdir}/cfg-ethx ${DESTDIR}${fcoe_vendorconfigdir}/cfg-ethx
+if HAVE_SYSTEMD
+		sed -z "s|EnvironmentFile=/etc/fcoe/config|EnvironmentFile=${fcoe_vendorconfigdir}/config\nEnvironmentFile=-${fcoe_configdir}/config|" \
+			${srcdir}/etc/systemd/fcoe.service >${systemdsystemunitdir}/fcoe.service
+endif
+	sed -z "s|CONFIG_DIR=/etc/fcoe|CONFIG_DIR=${fcoe_vendorconfigdir}|" \
+		${srcdir}/etc/initd/fcoe >${init_ddir}/fcoe
+	sed -z "s|/etc/fcoe/config|/etc/fcoe/config or ${fcoe_vendorconfigdir}/config if it is not available|" \
+		${srcdir}/doc/fcoemon.8 >${man8dir}/fcoemon.8
+else
 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
 		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_configdir}/config; \
 	fi;
+endif
 
 uninstall-hook:
+if USE_VENDORDIR
+	rm ${DESTDIR}${fcoe_vendorconfigdir}/config
+	rm ${DESTDIR}${fcoe_vendorconfigdir}/cfg-ethx
+else
 	rm ${DESTDIR}${fcoe_configdir}/config
+endif
 
 AM_DISTCHECK_CONFIGURE_FLAGS = --with-systemdsystemunitdir='$${prefix}/lib/systemd/system'

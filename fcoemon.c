@@ -505,6 +505,7 @@ static int fcm_read_config_files(void)
 		if (rc)
 			continue;
 
+		/* do not read template file*/
 		if (!strncmp(dp->d_name, DEF_CFG_FILE,
 			     strlen(DEF_CFG_FILE)))
 			continue;

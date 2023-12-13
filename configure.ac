@@ -21,6 +21,35 @@ AC_ARG_WITH([systemdsystemunitdir],
 AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
 AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir"])
 
+AC_ARG_WITH([vendordir],
+  AS_HELP_STRING([--with-vendordir=DIR], [Directory for distribution provided configuration files]),
+  [], []
+)
+
+AC_SUBST([vendordir], [$with_vendordir])
+AM_CONDITIONAL([USE_VENDORDIR], [test "x$with_vendordir" != x])
+AS_IF([test "x$with_vendordir" != x], [
+  AC_DEFINE([USE_VENDORDIR], [1], [Define to 1 to use vendordir])
+])
+
 AC_CONFIG_FILES([Makefile fcoe-utils.spec include/fcoe_utils_version.h])
 AC_OUTPUT
 
+AC_MSG_RESULT([
+
+        prefix:                    ${prefix}
+        exec prefix:               ${exec_prefix}
+        bindir:                    ${bindir}
+        sbindir:                   ${sbindir}
+        libdir:                    ${libdir}
+        includedir:                ${includedir}
+        sysconfdir:                ${sysconfdir}
+        systemdsystemunitdir:      ${with_systemdsystemunitdir}
+        vendordir:                 ${with_vendordir}
+	compiler:                  ${CC}
+        ldflags:                   ${LDFLAGS}
+        cflags:                    ${CFLAGS}
+        warnings:                  ${WARN_CFLAGS}
+
+ Type 'make' to compile.
+])

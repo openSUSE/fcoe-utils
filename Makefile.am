@@ -82,18 +82,18 @@ dist_bashcompletion_DATA = contrib/bash_completion/fcoeadm contrib/bash_completi
 install-data-hook:
 if USE_VENDORDIR
 	if [ ! -f ${DESTDIR}${fcoe_vendorconfigdir}/config ] ; then \
-		mkdir ${DESTDIR}${fcoe_vendorconfigdir}; \
+		mkdir -p ${DESTDIR}${fcoe_vendorconfigdir}; \
 		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_vendorconfigdir}/config; \
 	fi;
 	mv ${DESTDIR}${fcoe_configdir}/cfg-ethx ${DESTDIR}${fcoe_vendorconfigdir}/cfg-ethx
 if HAVE_SYSTEMD
 		sed -z "s|EnvironmentFile=/etc/fcoe/config|EnvironmentFile=${fcoe_vendorconfigdir}/config\nEnvironmentFile=-${fcoe_configdir}/config|" \
-			${srcdir}/etc/systemd/fcoe.service >${systemdsystemunitdir}/fcoe.service
+			${srcdir}/etc/systemd/fcoe.service >${DESTDIR}${systemdsystemunitdir}/fcoe.service
 endif
 	sed -z "s|CONFIG_DIR=/etc/fcoe|CONFIG_DIR=${fcoe_vendorconfigdir}|" \
-		${srcdir}/etc/initd/fcoe >${init_ddir}/fcoe
+		${srcdir}/etc/initd/fcoe >${DESTDIR}${init_ddir}/fcoe
 	sed -z "s|/etc/fcoe/config|/etc/fcoe/config or ${fcoe_vendorconfigdir}/config if it is not available|" \
-		${srcdir}/doc/fcoemon.8 >${man8dir}/fcoemon.8
+		${srcdir}/doc/fcoemon.8 >${DESTDIR}${man8dir}/fcoemon.8
 else
 	if [ ! -f ${DESTDIR}${fcoe_configdir}/config ] ; then \
 		cp ${srcdir}/etc/config ${DESTDIR}${fcoe_configdir}/config; \

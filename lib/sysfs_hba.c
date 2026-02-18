@@ -441,7 +441,7 @@ char *get_pci_dev_from_netdev(const char *netdev)
 	free(path);
 	if (ret == -1) {
 		char realdev[256];
-		char *subif;
+		const char *subif;
 		size_t len;
 
 		subif = strchr(netdev, '.');

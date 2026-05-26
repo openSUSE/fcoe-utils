@@ -235,7 +235,7 @@ static char *format_capstr(uint64_t size, unsigned int blksize)
 
 	ret = asprintf(&capstr, "%0.2f %s", cap_abbr, abbr);
 	if (ret == -1)
-		return "Unknown";
+		return NULL;
 
 	return capstr;
 }
@@ -322,7 +322,7 @@ static void show_full_lun_info(unsigned int hba, unsigned int port,
 	printf("        LUN ID:             %d\n", lun);
 
 	capstr = format_capstr(lba, blksize);
-	printf("        Capacity:           %s\n", capstr);
+	printf("        Capacity:           %s\n", capstr ? capstr : "Unknown");
 	printf("        Capacity in Blocks: %" PRIu64 "\n", lba);
 	printf("        Block Size:         %" PRIu32 " bytes\n", blksize);
 	printf("        Status:             Attached\n");
@@ -393,7 +393,7 @@ static void show_short_lun_info(unsigned int hba, unsigned int port,
 	/* Show the LUN info */
 	printf("%10d  %-11s  %10s  %7d     %s %s (rev %s)\n",
 	       lun, osname,
-	       capstr, blksize,
+	       capstr ? capstr : "Unknown", blksize,
 	       vendor, model, rev);
 
 	free(capstr);

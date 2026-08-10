@@ -1044,6 +1044,12 @@ fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 			FCM_LOG_DBG("ignoring TLV type %d", tlv->tlv_type);
 			break;
 		}
+		if (tlv->tlv_len == 0) {
+			FCM_LOG_ERR(EINVAL,
+				    "zero-length TLV (type %d), aborting parse",
+				    tlv->tlv_type);
+			return -1;
+		}
 		len -= tlv->tlv_len;
 		tlv = ((void *) tlv) + (tlv->tlv_len << 2);
 	};

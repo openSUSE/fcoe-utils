@@ -266,6 +266,11 @@ fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
 			FIP_LOG("unrecognized TLV type %d", tlv->tlv_type);
 			break;
 		}
+		if (tlv->tlv_len == 0) {
+			FIP_LOG("zero-length TLV (type %d), aborting parse",
+				tlv->tlv_type);
+			break;
+		}
 		len -= tlv->tlv_len;
 		tlv = ((void *) tlv) + (tlv->tlv_len << 2);
 	};

@@ -1465,7 +1465,7 @@ static int fip_recv_vlan_req(struct sockaddr_ll *ssa, struct fcoe_port *sp)
 		vid = fcoe_vid_from_ifname(p->ifname);
 		if (vid < 0)
 			continue;
-		vtp = realloc(vlan_tlvs, sizeof(*vlan_tlvs));
+		vtp = realloc(vlan_tlvs, (vlan_count + 1) * sizeof(*vlan_tlvs));
 		if (!vtp)
 			break;
 		memset(&vtp[vlan_count], 0, sizeof(*vtp));

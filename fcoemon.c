@@ -1348,7 +1348,7 @@ static void ieee_get_req(struct fcm_netif *ff)
 	msg.dcbmsg.dcb_pad = 0;
 	msg.rta.rta_len = NLMSG_ALIGN(NLA_HDRLEN + iflen + 1);
 	msg.rta.rta_type = DCB_ATTR_IFNAME;
-	strncpy(msg.ifname, ff->ifname, iflen);
+	strncpy(msg.ifname, ff->ifname, IFNAMSIZ);
 	ff->ieee_resp_pending = seq;
 	rc = write(fcm_link_socket, &msg, msg.nl.nlmsg_len);
 	if (rc < 0) {

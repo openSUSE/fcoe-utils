@@ -18,6 +18,9 @@
  */
 
 #define __STDC_FORMAT_MACROS 1
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include <ctype.h>
 #include <getopt.h>
 #include <inttypes.h>
@@ -3538,17 +3541,47 @@ static void fcm_srv_receive(void *arg)
 	struct sock_info *reply = NULL;
 	char buf[MAX_MSGBUF], rbuf[MAX_MSGBUF];
 	char ifname[IFNAMSIZ + 1];
+	struct msghdr msg;
+	struct iovec iov;
+	struct cmsghdr *cmsg;
+	struct ucred *cred = NULL;
+	char cbuf[CMSG_SPACE(sizeof(struct ucred))];
 	enum fcoe_status rc = EFAIL;
 	int res, cmd, snum;
 	size_t size;
 
 	snum = srv_info->srv_sock;
-	res = recvfrom(snum, buf, sizeof(buf) - 1,
-		       MSG_DONTWAIT, (struct sockaddr *)&from, &fromlen);
+	memset(&msg, 0, sizeof(msg));
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf) - 1;
+	msg.msg_name = &from;
+	msg.msg_namelen = sizeof(from);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = cbuf;
+	msg.msg_controllen = sizeof(cbuf);
+
+	res = recvmsg(snum, &msg, MSG_DONTWAIT);
 	if (res < 0) {
 		FCM_LOG_ERR(errno, "Failed to receive data from socket %d",
 			    snum);
 		return;
+	}
+	fromlen = msg.msg_namelen;
+
+	/*
+	 * This is an administrative interface of a root daemon.  Reject
+	 * requests that do not originate from root, based on the
+	 * SCM_CREDENTIALS attached by the kernel (SO_PASSCRED).
+	 */
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL;
+	     cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		if (cmsg->cmsg_level == SOL_SOCKET &&
+		    cmsg->cmsg_type == SCM_CREDENTIALS &&
+		    cmsg->cmsg_len >= CMSG_LEN(sizeof(struct ucred))) {
+			cred = (struct ucred *)CMSG_DATA(cmsg);
+			break;
+		}
 	}
 
 	data = (struct clif_data *)buf;
@@ -3570,6 +3603,13 @@ static void fcm_srv_receive(void *arg)
 	cmd = data->cmd;
 	strncpy(ifname, data->ifname, IFNAMSIZ);
 	ifname[sizeof(data->ifname)] = 0;
+
+	if (cmd != CLIF_PID_CMD && (cred == NULL || cred->uid != 0)) {
+		FCM_LOG_ERR(EPERM, "Rejected CLIF request from uid %d",
+			    cred ? (int)cred->uid : -1);
+		rc = EFAIL;
+		goto err;
+	}
 
 	if (cmd != CLIF_PID_CMD) {
 		rc = fcoe_validate_interface(ifname);
@@ -3671,7 +3711,7 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 	srv_info->srv_sock = fcm_systemd_socket();
 	if (srv_info->srv_sock > 0) {
 		FCM_LOG_DBG("Using systemd socket\n");
-		goto out_done;
+		goto out_setsockopt;
 	}
 
 	srv_info->srv_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
@@ -3692,7 +3732,21 @@ static int fcm_srv_create(struct fcm_srv_info *srv_info)
 		rc = errno;
 		goto err_close;
 	}
-out_done:
+out_setsockopt:
+	{
+		int one = 1;
+
+		/*
+		 * Let the kernel attach SCM_CREDENTIALS to every datagram so
+		 * that fcm_srv_receive() can verify the sender is root.
+		 */
+		if (setsockopt(srv_info->srv_sock, SOL_SOCKET, SO_PASSCRED,
+			       &one, sizeof(one)) < 0) {
+			FCM_LOG_ERR(errno, "Failed to enable SO_PASSCRED\n");
+			rc = errno;
+			goto err_close;
+		}
+	}
 	sa_select_add_fd(srv_info->srv_sock, fcm_srv_receive,
 			 NULL, NULL, srv_info);
 

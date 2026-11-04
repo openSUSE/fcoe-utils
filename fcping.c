@@ -20,6 +20,8 @@
 /*
  * FCPing - FC fabric diagnostic.
  */
+
+#define __GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -32,6 +34,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <limits.h>
+typedef unsigned __int128 __u128;
 #include <signal.h>
 #include <libgen.h>
 #include <assert.h>

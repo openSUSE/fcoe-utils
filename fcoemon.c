@@ -1044,6 +1044,12 @@ fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 			FCM_LOG_DBG("ignoring TLV type %d", tlv->tlv_type);
 			break;
 		}
+		if (tlv->tlv_len == 0) {
+			FCM_LOG_ERR(EINVAL,
+				    "zero-length TLV (type %d), aborting parse",
+				    tlv->tlv_type);
+			return -1;
+		}
 		len -= tlv->tlv_len;
 		tlv = ((void *) tlv) + (tlv->tlv_len << 2);
 	};
@@ -1459,7 +1465,7 @@ static int fip_recv_vlan_req(struct sockaddr_ll *ssa, struct fcoe_port *sp)
 		vid = fcoe_vid_from_ifname(p->ifname);
 		if (vid < 0)
 			continue;
-		vtp = realloc(vlan_tlvs, sizeof(*vlan_tlvs));
+		vtp = realloc(vlan_tlvs, (vlan_count + 1) * sizeof(*vlan_tlvs));
 		if (!vtp)
 			break;
 		memset(&vtp[vlan_count], 0, sizeof(*vtp));

@@ -682,7 +682,6 @@ enum fcoe_status display_adapter_info(char *ifname)
 static char *get_ifname_from_rport(char *rport)
 {
 	char link[1024];
-	char ifname[32];
 	ssize_t ret;
 	char *path;
 	char *offs;
@@ -709,11 +708,7 @@ static char *get_ifname_from_rport(char *rport)
 		if (offs[i] == '/')
 			break;
 
-	strncpy(ifname, offs, i);
-	if (ifname[i] != '\0')
-		ifname[i] = '\0';
-
-	return strdup(ifname);
+	return strndup(offs, i);
 }
 
 static enum fcoe_status display_one_target_info(char *ifname, char *rport,

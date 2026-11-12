@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <inttypes.h>
 #include <malloc.h>
+typedef unsigned __int128 __u128;
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>

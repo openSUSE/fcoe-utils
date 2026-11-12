@@ -21,6 +21,7 @@
 #define _FCOEMON_UTILS_H_
 
 #include <sys/types.h>
+typedef unsigned __int128 __u128;
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/queue.h>

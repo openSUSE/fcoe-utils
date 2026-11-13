@@ -259,6 +259,11 @@ fip_parse_tlvs(void *ptr, int len, struct fip_tlv_ptrs *tlv_ptrs)
 		case FIP_TLV_VLAN:
 			if (TLV_LEN_CHECK(tlv, 1))
 				break;
+			if (tlv_ptrs->vlanc >=
+			    (sizeof(tlv_ptrs->vlan) / sizeof(tlv_ptrs->vlan[0]))) {
+				FIP_LOG("too many VLAN TLVs, ignoring extras");
+				break;
+			}
 			SET_BIT(bitmap, FIP_TLV_VLAN);
 			tlv_ptrs->vlan[tlv_ptrs->vlanc++] = (void *) tlv;
 			break;

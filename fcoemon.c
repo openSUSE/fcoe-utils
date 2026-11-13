@@ -1013,6 +1013,10 @@ fcm_vlan_disc_handler(struct fiphdr *fh, struct sockaddr_ll *sa, void *arg)
 	while (len > 0) {
 		switch (tlv->tlv_type) {
 		case FIP_TLV_MAC_ADDR:
+			if (tlv->tlv_len != 2) {
+				FCM_LOG_ERR(EINVAL, "bad length on VLAN TLV");
+				break;
+			}
 			memcpy(mac, ((struct fip_tlv_mac_addr *)tlv)->mac_addr,
 			       ETHER_ADDR_LEN);
 			desc_mask |= VALID_MAC;

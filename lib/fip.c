@@ -405,7 +405,7 @@ int fip_recv(int s, fip_handler *fn, void *arg)
 		.msg_iovlen = ARRAY_SIZE(iov),
 	};
 	struct fiphdr *fh;
-	size_t len, desc_len;
+	size_t len, desc_len, fh_start;
 	int rc;
 	struct ethhdr *eth = (struct ethhdr *)buf;
 
@@ -416,18 +416,21 @@ int fip_recv(int s, fip_handler *fn, void *arg)
 	}
 
 	len = rc;
-	if (len < sizeof(*fh)) {
-		FIP_LOG_ERR(EINVAL, "received packed smaller that FIP header");
+	if (len < sizeof(struct ethhdr) ) {
+		FIP_LOG_ERR(EINVAL, "received packet smaller than eth header");
 		return -1;
 	}
 
-	if (eth->h_proto == htons(ETH_P_8021Q))
-		fh = (struct fiphdr *) (buf + sizeof(struct ethhdr) + VLAN_HLEN);
-	else
-		fh = (struct fiphdr *) (buf + sizeof(struct ethhdr));
+	fh_start = sizeof(struct ethhdr) + (eth->h_proto == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
+	if (len < fh_start + sizeof(*fh)) {
+		FIP_LOG_ERR(EINVAL, "received packet smaller that FIP header");
+		return -1;
+	}
+
+	fh = (struct fiphdr *) (buf + fh_start);
 
 	desc_len = ntohs(fh->fip_desc_len);
-	if (len < (sizeof(*fh) + (desc_len << 2))) {
+	if (len < (fh_start + sizeof(*fh) + (desc_len << 2))) {
 		FIP_LOG_ERR(EINVAL, "received data less that FIP descriptor");
 		return -1;
 	}

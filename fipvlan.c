@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <poll.h>
+typedef unsigned __int128 __u128;
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>

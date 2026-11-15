@@ -19,7 +19,6 @@
 
 #define _GNU_SOURCE
 
-typedef unsigned __int128 __u128;
 #include <sys/param.h>
 #include <linux/types.h>
 #include <ctype.h>

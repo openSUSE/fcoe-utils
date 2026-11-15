@@ -47,5 +47,10 @@ typedef __u32 __bitwise __wsum;
 #define __aligned_be64 __be64 __attribute__((aligned(8)))
 #define __aligned_le64 __le64 __attribute__((aligned(8)))
 
+/*
+ * The 7.3 kernel needs this type
+ */
+typedef unsigned __int128 __u128;
+
 #endif /*  __ASSEMBLY__ */
 #endif /* _LINUX_TYPES_H */

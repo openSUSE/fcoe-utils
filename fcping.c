@@ -34,7 +34,6 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <limits.h>
-typedef unsigned __int128 __u128;
 #include <signal.h>
 #include <libgen.h>
 #include <assert.h>

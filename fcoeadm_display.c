@@ -434,7 +434,7 @@ static void list_luns_by_rport(char *rport, enum disp_style style)
 	char link[1024];
 	char *substr;
 	int len;
-	int ret;
+	ssize_t ret;
 	int rc;
 
 	rc = snprintf(path, sizeof(path), "/sys/class/fc_remote_ports/%s", rport);
@@ -442,13 +442,14 @@ static void list_luns_by_rport(char *rport, enum disp_style style)
 		return;
 
 	ret = readlink(path, link, sizeof(link));
-	if (ret == -1)
+	if (ret == -1 || ret == sizeof(link))
 		return;
-
-	if (link[ret] != '\0')
-		link[ret] = '\0';
+	link[ret] = '\0';
 
 	substr = strstr(link, "net");
+	/* substring not found */
+	if (!substr)
+		return;
 	rc = snprintf(path, sizeof(path), "/sys/class/%s", substr);
 	if (rc < 0 || (size_t) rc >= sizeof(path))
 		return;
@@ -681,7 +682,6 @@ enum fcoe_status display_adapter_info(char *ifname)
 static char *get_ifname_from_rport(char *rport)
 {
 	char link[1024];
-	char ifname[32];
 	ssize_t ret;
 	char *path;
 	char *offs;
@@ -694,11 +694,9 @@ static char *get_ifname_from_rport(char *rport)
 
 	ret = readlink(path, link, sizeof(link));
 	free(path);
-	if (ret == -1)
+	if (ret == -1 || ret == sizeof(link))
 		return NULL;
-
-	if (link[ret] != '\0')
-		link[ret] = '\0';
+	link[ret] = '\0';
 
 	offs = strstr(link, "/net/");
 	if (!offs)
@@ -710,11 +708,7 @@ static char *get_ifname_from_rport(char *rport)
 		if (offs[i] == '/')
 			break;
 
-	strncpy(ifname, offs, i);
-	if (ifname[i] != '\0')
-		ifname[i] = '\0';
-
-	return strdup(ifname);
+	return strndup(offs, i);
 }
 
 static enum fcoe_status display_one_target_info(char *ifname, char *rport,
@@ -781,8 +775,9 @@ static bool rport_is_child(const char *rport, const char *ifname)
 
 	ret = readlink(path, link, sizeof(link));
 	free(path);
-	if (ret == -1)
+	if (ret == -1 || ret == sizeof(link))
 		return false;
+	link[ret] = '\0';
 
 	offs = strstr(link, ifname);
 

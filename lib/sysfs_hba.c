@@ -50,14 +50,18 @@ struct port_attributes *get_port_attribs_by_device(char *path)
 	char link[1024];
 	char *host;
 	char *rport;
-	int ret;
+	ssize_t ret;
 
 	ret = readlink(path, link, sizeof(link));
-	if (ret == -1)
+	if (ret == -1 || ret == sizeof(link))
 		return NULL;
+	link[ret] = '\0';
 
 	host = strstr(link, "host");
 	rport = strstr(link, "rport");
+	/* substrings not found */
+	if (!host || !rport)
+		return NULL;
 
 	host[strlen(host) - strlen(rport) - 1] = '\0';
 
@@ -69,14 +73,18 @@ struct port_attributes *get_rport_attribs_by_device(char *path)
 	char link[1024];
 	char *target;
 	char *rport;
-	int ret;
+	ssize_t ret;
 
 	ret = readlink(path, link, sizeof(link));
-	if (ret == -1)
+	if (ret == -1 || ret == sizeof(link))
 		return NULL;
+	link[ret] = '\0';
 
 	target = strstr(link, "target");
 	rport = strstr(link, "rport");
+	/* substrings not found */
+	if (!rport || !target)
+		return NULL;
 
 	rport[strlen(rport) - strlen(target) - 1] = '\0';
 
@@ -239,6 +247,7 @@ static void get_module_info(const char *pcidev, struct hba_info *info)
 	char buf[1024];
 	char *path;
 	int err;
+	ssize_t ret;
 
 	strncpy(info->driver_name, "Unknown", sizeof(info->driver_name));
 	strncpy(info->driver_version, "Unknown", sizeof(info->driver_version));
@@ -250,12 +259,12 @@ static void get_module_info(const char *pcidev, struct hba_info *info)
 	sa_sys_read_line(path, "version",
 			 info->driver_version, sizeof(info->driver_version));
 
-	err = readlink(path, buf, sizeof(buf) - 1);
+	ret = readlink(path, buf, sizeof(buf));
 	free(path);
-	if (err == -1)
+	if (ret == -1 || ret == sizeof(buf))
 		return;
 
-	buf[err] = '\0';
+	buf[ret] = '\0';
 
 	if (strstr(buf, "module"))
 		strncpy(info->driver_name,
@@ -437,9 +446,9 @@ char *get_pci_dev_from_netdev(const char *netdev)
 	if (ret == -1)
 		return NULL;
 
-	ret = readlink(path, buf, sizeof(buf) - 1);
+	ret = readlink(path, buf, sizeof(buf));
 	free(path);
-	if (ret == -1) {
+	if (ret == -1 || ret == sizeof(buf)) {
 		char realdev[256];
 		const char *subif;
 		size_t len;
@@ -460,12 +469,12 @@ char *get_pci_dev_from_netdev(const char *netdev)
 		if (ret == -1)
 			return NULL;
 
-		ret = readlink(path, buf, sizeof(buf) - 1);
+		ret = readlink(path, buf, sizeof(buf));
 		free(path);
-
-		if (ret == -1)
+		if (ret == -1 || ret == sizeof(buf))
 			return NULL;
 	}
+	buf[ret] = '\0';
 
 	do {
 		cp = strrchr(buf, '/');

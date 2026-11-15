@@ -149,7 +149,7 @@ static enum fcoe_status fcoeadm_open_cli(struct clif_sock_info *clif_info)
 	lp->sun_family = AF_LOCAL;
 	lp->sun_path[0] = '\0';
 	snprintf(&lp->sun_path[1], sizeof(lp->sun_path) - 1,
-		 "%s/%lu", CLIF_IFNAME, (unsigned long int)getpid);
+		 "%s/%lu", CLIF_IFNAME, (unsigned long int)getpid());
 	addrlen = sizeof(sa_family_t) + strlen(lp->sun_path + 1) + 1;
 	if (bind(clif_info->socket_fd, (struct sockaddr *)lp, addrlen) < 0) {
 		rc = ENOMONCONN;
